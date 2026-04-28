@@ -1,0 +1,63 @@
+.menu-link-active { background-color: #1d4ed8; color: white; }
+
+tbody td { position: relative; z-index: 1; } 
+tbody tr:hover td { background-color: #f0f9ff; }
+tbody tr.is-resigned td { background-color: #fee2e2 !important; color: #7f1d1d; }
+
+/* 왼쪽 고정 컬럼 */
+/* 왼쪽 고정 컬럼 - Body(td) */
+.sticky-left-cols tbody td:nth-child(1) { position: sticky; left: 0;   z-index: 35; width: 50px; background-color: white !important; }
+.sticky-left-cols tbody td:nth-child(2) { position: sticky; left: 50px;  z-index: 34; min-width: 80px; background-color: white !important; }
+.sticky-left-cols tbody td:nth-child(3) { position: sticky; left: 130px; z-index: 33; min-width: 100px; background-color: white !important; }
+.sticky-left-cols tbody td:nth-child(4) { position: sticky; left: 230px; z-index: 32; min-width: 100px; background-color: white !important; }
+.sticky-left-cols tbody td:nth-child(5) { position: sticky; left: 330px; z-index: 31; min-width: 100px; background-color: white !important; }
+
+/* 왼쪽 고정 컬럼 - Header(th): top, left 동시 고정 및 z-index 상향 */
+.sticky-left-cols thead th:nth-child(1) { position: sticky; top: 0; left: 0;   z-index: 60 !important; width: 50px; }
+.sticky-left-cols thead th:nth-child(2) { position: sticky; top: 0; left: 50px;  z-index: 59 !important; min-width: 80px; }
+.sticky-left-cols thead th:nth-child(3) { position: sticky; top: 0; left: 130px; z-index: 58 !important; min-width: 100px; }
+.sticky-left-cols thead th:nth-child(4) { position: sticky; top: 0; left: 230px; z-index: 57 !important; min-width: 100px; }
+.sticky-left-cols thead th:nth-child(5) { position: sticky; top: 0; left: 330px; z-index: 56 !important; min-width: 100px; }
+
+/* 교차 행 스타일 */
+tr:nth-child(odd) td { background-color: #f9fafb; }
+tr:nth-child(odd) td:nth-child(1), tr:nth-child(odd) td:nth-child(2), tr:nth-child(odd) td:nth-child(3), tr:nth-child(odd) td:nth-child(4), tr:nth-child(odd) td:nth-child(5) { background-color: #f9fafb !important; } /* 고정 컬럼 교차행 배경색 유지 */
+
+.btn-load-for-edit { cursor: pointer; color: #2563eb; }
+.btn-load-for-edit:hover { text-decoration: underline; }
+.sortable { cursor: pointer; }
+.sortable:hover { background-color: #e5e7eb; }
+
+/* ▼▼▼ [수정된 코드] 테이블 헤더 강력 고정 ▼▼▼ */
+/* 테이블 래퍼가 스크롤 컨테이너 역할을 하도록 설정 */
+#personnel-table-wrapper, #activity-table-wrapper, #waiting-table-wrapper {
+    overflow: auto;
+}
+
+/* sticky 헤더가 작동하려면 border-collapse는 separate여야 함 */
+#personnel-table-wrapper table, #activity-table-wrapper table, #waiting-table-wrapper table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+/* ▼▼▼ [추가] 컬럼 너비 조절 핸들 스타일 ▼▼▼ */
+    th {
+        position: relative; /* 핸들 위치 기준점 */
+    }
+    .resizer {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 5px; /* 잡을 수 있는 영역 너비 */
+        height: 100%;
+        cursor: col-resize; /* 커서 모양 변경 */
+        user-select: none;
+        touch-action: none;
+    }
+    /* 마우스를 올리거나 드래그 중일 때 색상 표시 */
+    .resizer:hover, .resizing {
+        background-color: #3b82f6; /* 파란색 가이드라인 */
+        border-right: 2px solid #3b82f6;
+    }
+
+/* 고정 컬럼과 헤더가 교차하는 코너 부분은 위의 '왼쪽 고정 컬럼 - Header' 규칙에서 z-index를 높게 설정하여 처리됩니다. */

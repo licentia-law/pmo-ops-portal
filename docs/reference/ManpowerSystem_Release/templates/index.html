@@ -1,0 +1,1246 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이행인력 관리 시스템 (DB버전)</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body class="bg-gray-100 h-screen overflow-hidden">
+
+    <!-- 로그인 화면 -->
+    <div id="login-view" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-200">
+        <div class="bg-white p-8 rounded-xl shadow-2xl w-96 border border-gray-300">
+            <div class="text-center mb-8">
+                <h1 class="text-2xl font-bold text-gray-800">이행인력 관리 시스템</h1>
+                <p class="text-gray-500 text-sm mt-2">로그인하여 접속하세요</p>
+            </div>
+            <form id="login-form" class="space-y-6" method="POST" action="javascript:void(0);">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">아이디</label>
+                    <input type="text" name="username"
+                        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                        required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
+                    <input type="password" name="password"
+                        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+                        required>
+                </div>
+                <button type="submit"
+                    class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition duration-200 shadow-md">로그인</button>
+            </form>
+            <p id="login-error" class="text-red-500 text-sm text-center mt-4 hidden"></p>
+        </div>
+    </div>
+
+    <div id="app-view" class="flex h-full hidden">
+        <nav id="sidebar"
+            class="w-64 bg-gray-800 text-white flex-shrink-0 p-4 flex flex-col h-full transition-all duration-300 relative">
+            <!-- 사이드바 토글 버튼 -->
+            <button id="btn-toggle-sidebar"
+                class="absolute -right-3 top-8 bg-gray-700 text-white p-1 rounded-full shadow-lg hover:bg-gray-600 border border-gray-600 z-50 flex items-center justify-center w-6 h-6">
+                <svg id="icon-collapse" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                </svg>
+                <svg id="icon-expand" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+            </button>
+
+            <div class="overflow-y-auto flex-grow">
+                <h1 id="sidebar-title"
+                    class="text-2xl font-bold text-center mb-10 mt-2 cursor-pointer hover:text-blue-300 transition whitespace-nowrap overflow-hidden">
+                    이행인력관리</h1>
+                <ul class="space-y-2">
+                    <li>
+                        <a href="#" id="menu-dashboard"
+                            class="menu-link flex items-center px-4 py-3 rounded-lg hover:bg-gray-700 gap-3"
+                            title="대시보드">
+                            <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z">
+                                </path>
+                            </svg>
+                            <span class="sidebar-text whitespace-nowrap">대시보드</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" id="menu-weekly"
+                            class="menu-link submenu-link flex items-center px-4 py-3 rounded-lg hover:bg-gray-700 gap-3 pl-12 text-sm text-gray-300"
+                            title="주간현황">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
+                                </path>
+                            </svg>
+                            <span class="sidebar-text whitespace-nowrap">주간현황</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" id="menu-available"
+                            class="menu-link flex items-center px-4 py-3 rounded-lg hover:bg-gray-700 gap-3"
+                            title="가동대상인력">
+                            <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z">
+                                </path>
+                            </svg>
+                            <span class="sidebar-text whitespace-nowrap">가동대상인력</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" id="menu-status"
+                            class="menu-link flex items-center px-4 py-3 rounded-lg hover:bg-gray-700 gap-3"
+                            title="인력운영현황">
+                            <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01">
+                                </path>
+                            </svg>
+                            <span class="sidebar-text whitespace-nowrap">인력운영현황</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" id="menu-closing"
+                            class="menu-link submenu-link flex items-center px-4 py-3 rounded-lg hover:bg-gray-700 gap-3 pl-12 text-sm text-gray-300"
+                            title="Activity 월마감">
+                            <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="sidebar-text whitespace-nowrap">Activity 월마감</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" id="menu-waiting"
+                            class="menu-link flex items-center px-4 py-3 rounded-lg hover:bg-gray-700 gap-3"
+                            title="대기인력현황">
+                            <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="sidebar-text whitespace-nowrap">대기인력현황</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" id="menu-assignment"
+                            class="menu-link flex items-center px-4 py-3 rounded-lg hover:bg-gray-700 gap-3"
+                            title="배정인력현황">
+                            <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="sidebar-text whitespace-nowrap">배정인력현황</span>
+                        </a>
+                    </li>
+                    <li id="menu-item-users" class="hidden">
+                        <a href="#" id="menu-users"
+                            class="menu-link flex items-center px-4 py-3 rounded-lg hover:bg-gray-700 gap-3"
+                            title="사용자 관리">
+                            <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
+                                </path>
+                            </svg>
+                            <span class="sidebar-text whitespace-nowrap">사용자 관리</span>
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            <div class="mt-4 pt-4 border-t border-gray-700">
+                <div class="flex items-center px-4 py-2 text-gray-300 gap-3 mb-2" title="현재 사용자">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z">
+                        </path>
+                    </svg>
+                    <div class="sidebar-text flex items-center gap-2">
+                        <span id="current-user-display" class="font-bold whitespace-nowrap"></span>
+                        <span id="current-user-role-badge"
+                            class="text-[10px] px-1.5 py-0.5 rounded border hidden"></span>
+                    </div>
+                </div>
+                <button id="btn-change-pw"
+                    class="w-full text-left px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded transition flex items-center gap-3 mb-1"
+                    title="비밀번호 변경">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z">
+                        </path>
+                    </svg>
+                    <span class="sidebar-text whitespace-nowrap">비밀번호 변경</span>
+                </button>
+                <button id="btn-init-db"
+                    class="w-full text-left px-4 py-2 text-red-400 hover:text-red-200 hover:bg-red-900/30 rounded transition flex items-center gap-3 mb-1 hidden"
+                    title="DB 초기화">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                        </path>
+                    </svg>
+                    <span class="sidebar-text whitespace-nowrap">DB 초기화</span>
+                </button>
+                <button id="btn-logout"
+                    class="w-full text-left px-4 py-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded transition flex items-center gap-3"
+                    title="로그아웃">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1">
+                        </path>
+                    </svg>
+                    <span class="sidebar-text whitespace-nowrap">로그아웃</span>
+                </button>
+            </div>
+        </nav>
+
+        <main class="flex-grow p-4 md:p-8 overflow-y-auto">
+
+            <div id="page-dashboard">
+                <header class="mb-8">
+                    <h1 class="text-4xl font-bold text-center text-gray-800">대시보드</h1>
+                </header>
+
+                <div class="bg-white p-6 rounded-xl shadow-lg mb-8 border border-gray-200">
+                    <div class="flex justify-between items-center mb-5 border-b pb-3">
+                        <div class="flex items-center gap-4">
+                            <h2 class="text-2xl font-semibold text-gray-800">조회일 기준 현황</h2>
+                            <select id="dashboard-group-selector" class="border border-gray-300 p-1.5 rounded-lg text-sm bg-gray-50 focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                                <option value="dept" selected>부서별</option>
+                                <option value="role">직무별</option>
+                                <option value="rank">직급별</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label>부서:</label>
+                            <select id="dashboard-dept-selector" class="border p-1 rounded mr-2 text-sm">
+                                <option value="All">전체</option>
+                                <option value="ENTEC담당">ENTEC담당</option>
+                                <option value="이행1그룹">이행1그룹</option>
+                                <option value="이행2그룹">이행2그룹</option>
+                                <option value="아키텍트그룹">아키텍트그룹</option>
+                                <option value="미배정">미배정</option>
+                            </select>
+                            <label>조회일:</label>
+                            <input type="date" id="dashboard-date-picker" class="border p-1 rounded">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-2 overflow-x-auto">
+                            <table class="w-full divide-y divide-gray-200 border table-fixed text-sm text-center">
+                                <thead class="bg-gray-100">
+                                    <tr>
+                                        <th class="py-3 font-semibold text-gray-600" id="dashboard-th-group">부서</th>
+                                        <th class="py-3 font-semibold text-gray-600">총원</th>
+                                        <th class="py-3 font-semibold text-gray-600">제안</th>
+                                        <th class="py-3 font-semibold text-gray-600">이행</th>
+                                        <th class="py-3 font-semibold text-gray-600">지원</th>
+                                        <th class="py-3 font-semibold text-gray-600">대기</th>
+                                        <th class="py-3 font-semibold text-gray-600">과제</th>
+                                        <th class="py-3 font-semibold text-gray-600">휴직</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dashboard-summary-table-body" class="bg-white divide-y divide-gray-200">
+                                </tbody>
+                                <tfoot class="bg-gray-50 font-bold" id="dashboard-summary-table-footer"></tfoot>
+                            </table>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="bg-teal-700 text-white p-4 rounded shadow cursor-pointer hover:bg-teal-800 transition"
+                                onclick="showKpiDetail('filled')" title="가득율 = 이행MM / (전체MM - 과제MM) * 100">
+                                <h3>누적 가득율 (이행)</h3>
+                                <p id="kpi-filled-rate" class="text-3xl font-bold">0.00%</p>
+                            </div>
+                            <div class="bg-indigo-700 text-white p-4 rounded shadow cursor-pointer hover:bg-indigo-800 transition"
+                                onclick="showKpiDetail('operating')" title="가동율 = (이행MM + 제안MM) / (전체MM - 과제MM) * 100">
+                                <h3>누적 가동율 (이행+제안)</h3>
+                                <p id="kpi-operating-rate" class="text-3xl font-bold">0.00%</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-xl shadow-lg border">
+                        <h2 class="text-xl font-bold mb-4">월별 가득 현황 (이행)</h2>
+                        <div class="h-80"><canvas id="filledRateChart"></canvas></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-lg border">
+                        <h2 class="text-xl font-bold mb-4">월별 가동 현황 (이행+제안)</h2>
+                        <div class="h-80"><canvas id="operatingRateChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="page-weekly" class="hidden">
+                <header class="mb-8">
+                    <h1 class="text-3xl font-bold text-center">주간 현황</h1>
+                </header>
+
+                <!-- 1. 인력운영 주간현황 (Summary) -->
+                <div class="bg-white p-6 rounded-xl shadow border mb-8">
+                    <div class="flex justify-between items-center mb-4 border-b pb-4">
+                        <div class="flex items-center gap-4">
+                            <h2 class="text-xl font-bold text-gray-800">인력운영 주간현황</h2>
+                            <select id="weekly-group-selector" class="border border-gray-300 p-1.5 rounded-lg text-sm bg-gray-50 focus:ring-blue-500 focus:border-blue-500 shadow-sm">
+                                <option value="dept" selected>부서별</option>
+                                <option value="role">직무별</option>
+                                <option value="rank">직급별</option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label>부서:</label>
+                            <select id="weekly-dept-selector" class="border p-1 rounded mr-2 text-sm">
+                                <option value="All">전체</option>
+                                <option value="ENTEC담당">ENTEC담당</option>
+                                <option value="이행1그룹">이행1그룹</option>
+                                <option value="이행2그룹">이행2그룹</option>
+                                <option value="아키텍트그룹">아키텍트그룹</option>
+                                <option value="미배정">미배정</option>
+                            </select>
+                            <label>기준일:</label>
+                            <input type="date" id="weekly-date-picker" class="border p-1 rounded">
+                            <span class="text-sm text-gray-500" id="weekly-range-label"></span>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-sm text-center border">
+                            <thead class="bg-gray-100 text-gray-700">
+                                <tr>
+                                    <th rowspan="2" class="border px-2 py-1" id="weekly-th-group">부서</th>
+                                    <th colspan="3" class="border px-2 py-1">인원변동</th>
+                                    <th colspan="3" class="border px-2 py-1">가동</th>
+                                    <th colspan="3" class="border px-2 py-1">비가동</th>
+                                    <th rowspan="2" class="border px-2 py-1">과제</th>
+                                    <th rowspan="2" class="border px-2 py-1">휴직</th>
+                                    <th rowspan="2" class="border px-2 py-1 cursor-help"
+                                        title="가동율 = (이행인원 + 제안인원) / (현재인원 - 휴직인원 - 과제인원) * 100">가동율</th>
+                                    <th rowspan="2" class="border px-2 py-1 cursor-help"
+                                        title="가득율 = 이행인원 / (현재인원 - 휴직인원 - 과제인원) * 100">가득율</th>
+                                </tr>
+                                <tr>
+                                    <th class="border px-2 py-1 bg-gray-50">전주</th>
+                                    <th class="border px-2 py-1 bg-gray-50">증감</th>
+                                    <th class="border px-2 py-1 bg-gray-50">현재</th>
+                                    <th class="border px-2 py-1 bg-blue-50">계</th>
+                                    <th class="border px-2 py-1 bg-blue-50">이행</th>
+                                    <th class="border px-2 py-1 bg-blue-50">제안</th>
+                                    <th class="border px-2 py-1 bg-red-50">계</th>
+                                    <th class="border px-2 py-1 bg-red-50">대기</th>
+                                    <th class="border px-2 py-1 bg-red-50">지원</th>
+                                </tr>
+                            </thead>
+                            <tbody id="weekly-summary-tbody"></tbody>
+                            <tfoot id="weekly-summary-tfoot" class="bg-gray-100 font-bold"></tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 2. 인력가동예상 (Schedule) -->
+                <div class="bg-white p-6 rounded-xl shadow border">
+                    <div class="flex justify-between items-center mb-4 border-b pb-4">
+                        <h2 class="text-xl font-bold text-gray-800">주간 인력 가동 예상</h2>
+                    </div>
+                    <div class="overflow-auto h-[calc(100vh-500px)] border relative">
+                        <table class="min-w-full text-sm text-center whitespace-nowrap border-collapse">
+                            <thead class="bg-gray-100 sticky top-0 z-40">
+                                <tr>
+                                    <th class="px-4 py-3 w-[50px]">No</th>
+                                    <th class="px-4 py-3 cursor-pointer hover:bg-gray-200"
+                                        onclick="handleSortWeekly('team')">
+                                        법인 <span id="wk-sort-team"></span>
+                                    </th>
+                                    <th class="px-4 py-3 cursor-pointer hover:bg-gray-200"
+                                        onclick="handleSortWeekly('dept')">
+                                        부서 <span id="wk-sort-dept"></span>
+                                    </th>
+                                    <th class="px-4 py-3 cursor-pointer hover:bg-gray-200"
+                                        onclick="handleSortWeekly('name')">
+                                        성명 <span id="wk-sort-name"></span>
+                                    </th>
+                                    <th class="px-4 py-3">월</th>
+                                    <th class="px-4 py-3">화</th>
+                                    <th class="px-4 py-3">수</th>
+                                    <th class="px-4 py-3">목</th>
+                                    <th class="px-4 py-3">금</th>
+                                    <th class="px-4 py-3">프로젝트</th>
+                                </tr>
+                            </thead>
+                            <tbody id="weekly-table-body" class="bg-white"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="page-available" class="hidden">
+                <header class="mb-6">
+                    <h1 class="text-3xl font-bold text-center">가동대상인력</h1>
+                </header>
+
+                <div class="bg-white rounded-xl shadow border overflow-hidden">
+                    <div class="flex justify-between p-4 border-b bg-gray-50 flex-wrap gap-2">
+                        <h2 class="font-bold text-lg">인력 목록 (월별 가동 M/M)</h2>
+                        <div class="flex flex-wrap gap-2 items-center">
+                            <button id="btn-open-personnel-modal"
+                                class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">인력
+                                등록</button>
+                            <button id="p-btn-delete-selected"
+                                class="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700">일괄 삭제</button>
+                            <select id="personnel-dept-selector" class="border p-1 rounded text-sm mr-2">
+                                <option value="All">전체 부서</option>
+                                <option value="ENTEC담당">ENTEC담당</option>
+                                <option value="이행1그룹">이행1그룹</option>
+                                <option value="이행2그룹">이행2그룹</option>
+                                <option value="아키텍트그룹">아키텍트그룹</option>
+                                <option value="미배정">미배정</option>
+                            </select>
+                            <label class="text-sm flex items-center gap-1 mr-2"><input type="checkbox"
+                                    id="p-show-resigned" class="accent-blue-600"> 퇴사자 포함</label>
+                            <label class="text-sm flex items-center gap-1 mr-2"><input type="checkbox"
+                                    id="p-show-monthly" class="accent-blue-600" checked> 월별현황</label>
+                            <label class="text-sm">조회일:</label>
+                            <input type="date" id="personnel-date-picker" class="border rounded p-1 text-sm">
+                            <button id="p-btn-download-csv" class="bg-green-600 text-white px-3 py-1 rounded text-sm">엑셀
+                                다운</button>
+                            <button id="p-btn-upload-csv"
+                                class="bg-blue-600 text-white px-3 py-1 rounded text-sm ml-2">엑셀 업로드</button>
+                        </div>
+                    </div>
+                    <div id="personnel-table-wrapper" class="overflow-auto h-[calc(100vh-250px)] border-b relative">
+                        <table
+                            class="min-w-full text-sm text-left text-gray-500 whitespace-nowrap sticky-left-cols border-collapse">
+                            <thead class="bg-gray-100 text-xs text-gray-700 uppercase sticky top-0 z-40"
+                                id="p-table-head">
+                                <tr>
+                                    <th class="px-3 py-3 w-[50px] text-center border border-gray-300">
+                                        <input type="checkbox" id="p-check-all" class="accent-blue-600">
+                                    </th>
+                                    <th class="px-3 py-3 w-[50px] text-center border border-gray-300">No</th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortPersonnel('team')">
+                                        <div class="text-center">법인 <span id="p-sort-team"></span></div>
+                                        <input type="text"
+                                            class="w-full mt-1 px-1 py-0.5 border rounded font-normal text-gray-600"
+                                            onclick="event.stopPropagation()"
+                                            onkeyup="handleFilter('personnel', 'team', this.value)">
+                                    </th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortPersonnel('dept')">
+                                        <div class="text-center">부서 <span id="p-sort-dept"></span></div>
+                                        <input type="text"
+                                            class="w-full mt-1 px-1 py-0.5 border rounded font-normal text-gray-600"
+                                            onclick="event.stopPropagation()"
+                                            onkeyup="handleFilter('personnel', 'dept', this.value)">
+                                    </th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortPersonnel('role')">
+                                        <div class="text-center">직무 <span id="p-sort-role"></span></div>
+                                        <input type="text"
+                                            class="w-full mt-1 px-1 py-0.5 border rounded font-normal text-gray-600"
+                                            onclick="event.stopPropagation()"
+                                            onkeyup="handleFilter('personnel', 'role', this.value)">
+                                    </th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortPersonnel('name')">
+                                        <div class="text-center">성명 <span id="p-sort-name"></span></div>
+                                        <input type="text"
+                                            class="w-full mt-1 px-1 py-0.5 border rounded font-normal text-gray-600"
+                                            onclick="event.stopPropagation()"
+                                            onkeyup="handleFilter('personnel', 'name', this.value)">
+                                    </th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortPersonnel('rank')">
+                                        <div class="text-center">직급 <span id="p-sort-rank"></span></div>
+                                        <input type="text"
+                                            class="w-full mt-1 px-1 py-0.5 border rounded font-normal text-gray-600"
+                                            onclick="event.stopPropagation()"
+                                            onkeyup="handleFilter('personnel', 'rank', this.value)">
+                                    </th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortPersonnel('employmentStatus')">
+                                        <div class="text-center">상태 <span id="p-sort-employmentStatus"></span></div>
+                                    </th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortPersonnel('joinDate')">
+                                        <div class="text-center">입사일 <span id="p-sort-joinDate"></span></div>
+                                    </th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortPersonnel('leaveDate')">
+                                        <div class="text-center">퇴사일 <span id="p-sort-leaveDate"></span></div>
+                                    </th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortPersonnel('transferDate')">
+                                        <div class="text-center">전적일 <span id="p-sort-transferDate"></span></div>
+                                    </th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortPersonnel('leaveStartDate')">
+                                        <div class="text-center">휴직시작 <span id="p-sort-leaveStartDate"></span></div>
+                                    </th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortPersonnel('leaveEndDate')">
+                                        <div class="text-center">휴직종료 <span id="p-sort-leaveEndDate"></span></div>
+                                    </th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 text-center border border-gray-300"
+                                        onclick="handleSortPersonnel('annualTotal')">합계 <span
+                                            id="p-sort-annualTotal"></span></th>
+                                    <th class="text-center p-monthly-col border border-gray-300">1월</th>
+                                    <th class="text-center p-monthly-col border border-gray-300">2월</th>
+                                    <th class="text-center p-monthly-col border border-gray-300">3월</th>
+                                    <th class="text-center p-monthly-col border border-gray-300">4월</th>
+                                    <th class="text-center p-monthly-col border border-gray-300">5월</th>
+                                    <th class="text-center p-monthly-col border border-gray-300">6월</th>
+                                    <th class="text-center p-monthly-col border border-gray-300">7월</th>
+                                    <th class="text-center p-monthly-col border border-gray-300">8월</th>
+                                    <th class="text-center p-monthly-col border border-gray-300">9월</th>
+                                    <th class="text-center p-monthly-col border border-gray-300">10월</th>
+                                    <th class="text-center p-monthly-col border border-gray-300">11월</th>
+                                    <th class="text-center p-monthly-col border border-gray-300">12월</th>
+                                    <th class="px-3 py-3 text-center border border-gray-300">관리</th>
+                                </tr>
+                            </thead>
+                            <tbody id="personnel-table-body" class="bg-white text-sm"></tbody>
+                        </table>
+                        <div id="p-no-data" class="hidden text-center py-10 text-gray-500">데이터가 없습니다.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="page-status" class="hidden">
+                <header class="mb-6">
+                    <h1 class="text-3xl font-bold text-center">인력운영현황 (Activity)</h1>
+                </header>
+
+                <div class="bg-white rounded-xl shadow border overflow-hidden">
+                    <div class="flex justify-between p-4 border-b bg-gray-50 flex-wrap gap-2">
+                        <h2 class="font-bold text-lg" id="activity-table-title">Activity 목록</h2>
+                        <div class="flex items-center gap-2">
+                            <button id="btn-open-activity-modal"
+                                class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">Activity
+                                등록</button>
+                            <select id="activity-dept-selector" class="border p-1 rounded text-sm mr-2">
+                                <option value="All">전체 부서</option>
+                                <option value="ENTEC담당">ENTEC담당</option>
+                                <option value="이행1그룹">이행1그룹</option>
+                                <option value="이행2그룹">이행2그룹</option>
+                                <option value="아키텍트그룹">아키텍트그룹</option>
+                                <option value="미배정">미배정</option>
+                            </select>
+                            <div id="activity-status-filter-buttons" class="flex rounded shadow-sm">
+                                <button data-status="all"
+                                    class="px-3 py-1 bg-blue-600 text-white text-sm rounded-l">전체</button>
+                                <button data-status="진행" class="px-3 py-1 bg-white border text-sm">진행</button>
+                                <button data-status="예정" class="px-3 py-1 bg-white border text-sm">예정</button>
+                                <button data-status="완료" class="px-3 py-1 bg-white border text-sm rounded-r">완료</button>
+                            </div>
+                            <label class="text-sm flex items-center gap-1 ml-2"><input type="checkbox"
+                                    id="a-show-resigned" class="accent-blue-600"> 퇴사자 포함</label>
+                            <label class="text-sm flex items-center gap-1 ml-2"><input type="checkbox"
+                                    id="a-show-monthly" class="accent-blue-600" checked> 월별현황</label>
+                            <label class="text-sm ml-2">조회일:</label>
+                            <input type="date" id="activity-date-picker" class="border rounded p-1 text-sm">
+                            <button id="btn-download-csv" class="bg-green-600 text-white px-3 py-1 rounded text-sm">엑셀
+                                다운</button>
+                            <button id="btn-upload-csv-activity"
+                                class="bg-blue-600 text-white px-3 py-1 rounded text-sm ml-2">엑셀 업로드</button>
+                            <button id="btn-manage-holidays"
+                                class="bg-gray-500 text-white px-3 py-1 rounded text-sm">공휴일</button>
+                        </div>
+                    </div>
+                    <div id="activity-table-wrapper" class="overflow-auto h-[calc(100vh-250px)] border-b relative">
+                        <table
+                            class="min-w-full text-sm text-left text-gray-500 whitespace-nowrap sticky-left-cols border-collapse">
+                            <thead class="bg-gray-100 text-xs text-gray-700 uppercase sticky top-0 z-40"
+                                id="table-head">
+                                <tr>
+                                    <th class="px-3 py-3 w-[50px] text-center border border-gray-300">No</th>
+
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortActivity('team')">
+                                        <div class="text-center">법인 <span id="sort-team"></span></div>
+                                        <input type="text"
+                                            class="w-full mt-1 px-1 py-0.5 border rounded font-normal text-gray-600"
+                                            onclick="event.stopPropagation()"
+                                            onkeyup="handleFilter('activity', 'team', this.value)">
+                                    </th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortActivity('dept')">
+                                        <div class="text-center">부서 <span id="sort-dept"></span></div>
+                                        <input type="text"
+                                            class="w-full mt-1 px-1 py-0.5 border rounded font-normal text-gray-600"
+                                            onclick="event.stopPropagation()"
+                                            onkeyup="handleFilter('activity', 'dept', this.value)">
+                                    </th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortActivity('role')">
+                                        <div class="text-center">직무 <span id="sort-role"></span></div>
+                                        <input type="text"
+                                            class="w-full mt-1 px-1 py-0.5 border rounded font-normal text-gray-600"
+                                            onclick="event.stopPropagation()"
+                                            onkeyup="handleFilter('activity', 'role', this.value)">
+                                    </th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortActivity('name')">
+                                        <div class="text-center">성명 <span id="sort-name"></span></div>
+                                        <input type="text"
+                                            class="w-full mt-1 px-1 py-0.5 border rounded font-normal text-gray-600"
+                                            onclick="event.stopPropagation()"
+                                            onkeyup="handleFilter('activity', 'name', this.value)">
+                                    </th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortActivity('rank')">
+                                        <div class="text-center">직급 <span id="sort-rank"></span></div>
+                                        <input type="text"
+                                            class="w-full mt-1 px-1 py-0.5 border rounded font-normal text-gray-600"
+                                            onclick="event.stopPropagation()"
+                                            onkeyup="handleFilter('activity', 'rank', this.value)">
+                                    </th>
+
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortActivity('projectType')">
+                                        <div class="text-center">구분 <span id="sort-projectType"></span></div>
+                                        <input type="text"
+                                            class="w-full mt-1 px-1 py-0.5 border rounded font-normal text-gray-600"
+                                            onclick="event.stopPropagation()"
+                                            onkeyup="handleFilter('activity', 'projectType', this.value)">
+                                    </th>
+                                    <th class="px-3 py-3 text-center border border-gray-300">상태</th>
+
+                                    <th class="px-3 py-3 min-w-[350px] cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortActivity('projectName')">
+                                        <div class="text-center">프로젝트 <span id="sort-projectName"></span></div>
+                                        <input type="text"
+                                            class="w-full mt-1 px-1 py-0.5 border rounded font-normal text-gray-600"
+                                            onclick="event.stopPropagation()"
+                                            onkeyup="handleFilter('activity', 'projectName', this.value)">
+                                    </th>
+
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 text-center border border-gray-300"
+                                        onclick="handleSortActivity('startDate')">시작일 <span id="sort-startDate"></span>
+                                    </th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 text-center border border-gray-300"
+                                        onclick="handleSortActivity('endDate')">종료일 <span id="sort-endDate"></span></th>
+
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 text-center border border-gray-300"
+                                        onclick="handleSortActivity('totalManMonth')">총M/M <span
+                                            id="sort-totalManMonth"></span></th>
+                                    <th class="px-3 py-3 text-blue-700 cursor-pointer hover:bg-gray-200 text-center border border-gray-300"
+                                        onclick="handleSortActivity('aggFilled')">가득MM <span id="sort-aggFilled"></span>
+                                    </th>
+                                    <th class="px-3 py-3 text-blue-700 cursor-pointer hover:bg-gray-200 text-center border border-gray-300"
+                                        onclick="handleSortActivity('aggFilledRate')">가득율 <span
+                                            id="sort-aggFilledRate"></span></th>
+                                    <th class="px-3 py-3 text-indigo-700 cursor-pointer hover:bg-gray-200 text-center border border-gray-300"
+                                        onclick="handleSortActivity('aggOperating')">가동MM <span
+                                            id="sort-aggOperating"></span></th>
+                                    <th class="px-3 py-3 text-indigo-700 cursor-pointer hover:bg-gray-200 text-center border border-gray-300"
+                                        onclick="handleSortActivity('aggOperatingRate')">가동율 <span
+                                            id="sort-aggOperatingRate"></span></th>
+
+                                    <th class="text-center a-monthly-col border border-gray-300">1월</th>
+                                    <th class="text-center a-monthly-col border border-gray-300">2월</th>
+                                    <th class="text-center a-monthly-col border border-gray-300">3월</th>
+                                    <th class="text-center a-monthly-col border border-gray-300">4월</th>
+                                    <th class="text-center a-monthly-col border border-gray-300">5월</th>
+                                    <th class="text-center a-monthly-col border border-gray-300">6월</th>
+                                    <th class="text-center a-monthly-col border border-gray-300">7월</th>
+                                    <th class="text-center a-monthly-col border border-gray-300">8월</th>
+                                    <th class="text-center a-monthly-col border border-gray-300">9월</th>
+                                    <th class="text-center a-monthly-col border border-gray-300">10월</th>
+                                    <th class="text-center a-monthly-col border border-gray-300">11월</th>
+                                    <th class="text-center a-monthly-col border border-gray-300">12월</th>
+                                    <th class="px-3 py-3 text-center border border-gray-300">관리</th>
+                                </tr>
+                            </thead>
+                            <tbody id="activity-table-body" class="bg-white text-sm"></tbody>
+                        </table>
+                        <div id="no-data" class="hidden text-center py-10 text-gray-500">데이터가 없습니다.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="page-closing" class="hidden">
+                <header class="mb-8">
+                    <h1 class="text-3xl font-bold text-center">Activity 월마감</h1>
+                </header>
+                <div class="bg-white p-6 rounded-xl shadow border">
+                    <div class="flex justify-between items-center mb-4 border-b pb-4">
+                        <div>
+                            <h2 class="text-xl font-bold text-gray-800">Activity 입력 확인</h2>
+                            <p class="text-sm text-gray-500 mt-1">해당 월에 제안/이행 이력이 있는 인원의 Activity 입력 여부를 체크합니다.</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <select id="closing-dept-selector" class="border p-2 rounded shadow-sm mr-2 text-sm">
+                                <option value="All">전체 부서</option>
+                                <option value="ENTEC담당">ENTEC담당</option>
+                                <option value="이행1그룹">이행1그룹</option>
+                                <option value="이행2그룹">이행2그룹</option>
+                                <option value="아키텍트그룹">아키텍트그룹</option>
+                                <option value="미배정">미배정</option>
+                            </select>
+                            <label class="font-bold text-gray-700">마감 월:</label>
+                            <input type="month" id="closing-month-picker" class="border p-2 rounded shadow-sm">
+                            <button id="btn-closing-download"
+                                class="bg-green-600 text-white px-3 py-2 rounded shadow-sm text-sm hover:bg-green-700 ml-2">선택
+                                목록 엑셀 다운</button>
+                        </div>
+                    </div>
+                    <div class="overflow-auto h-[calc(100vh-300px)] border relative rounded-lg">
+                        <table class="min-w-full divide-y divide-gray-200 text-sm text-center">
+                            <thead class="bg-gray-100 text-gray-700 uppercase sticky top-0 z-40">
+                                <tr>
+                                    <th class="px-4 py-3 w-[60px]">No</th>
+                                    <th class="px-4 py-3 cursor-pointer hover:bg-gray-200"
+                                        onclick="handleSortClosing('team')">법인 <span id="c-sort-team"></span></th>
+                                    <th class="px-4 py-3 cursor-pointer hover:bg-gray-200"
+                                        onclick="handleSortClosing('dept')">부서 <span id="c-sort-dept"></span></th>
+                                    <th class="px-4 py-3 cursor-pointer hover:bg-gray-200"
+                                        onclick="handleSortClosing('name')">성명 <span id="c-sort-name"></span></th>
+                                    <th class="px-4 py-3 w-[40%]">대상 프로젝트 (제안/이행)</th>
+                                    <th class="px-4 py-3 w-[150px]">
+                                        입력확인 <span id="closing-checked-count"
+                                            class="text-xs font-normal text-gray-500"></span>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="closing-table-body" class="bg-white divide-y divide-gray-200"></tbody>
+                        </table>
+                        <div id="no-closing-data" class="hidden text-center py-10 text-gray-500">대상 인원이 없습니다.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="page-waiting" class="hidden">
+                <header class="mb-8">
+                    <h1 class="text-3xl font-bold text-center">대기인력현황</h1>
+                </header>
+                <div class="bg-white p-6 rounded-xl shadow border">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold">대기 인력 목록</h2>
+                        <div class="flex items-center gap-2">
+                            <select id="waiting-dept-selector" class="border p-2 rounded text-sm">
+                                <option value="All">전체 부서</option>
+                                <option value="ENTEC담당">ENTEC담당</option>
+                                <option value="이행1그룹">이행1그룹</option>
+                                <option value="이행2그룹">이행2그룹</option>
+                                <option value="아키텍트그룹">아키텍트그룹</option>
+                                <option value="미배정">미배정</option>
+                            </select>
+                            <input type="date" id="waiting-date-picker" class="border p-2 rounded">
+                            <button id="btn-waiting-download"
+                                class="bg-green-600 text-white px-3 py-2 rounded shadow-sm text-sm hover:bg-green-700 ml-2">엑셀
+                                다운</button>
+                        </div>
+                    </div>
+                    <div id="waiting-table-wrapper" class="overflow-auto h-[calc(100vh-280px)] border-b relative">
+                        <table class="min-w-full text-sm text-gray-500 whitespace-nowrap border-collapse">
+                            <thead class="bg-gray-100 text-xs text-gray-700 uppercase sticky top-0 z-40">
+                                <tr>
+                                    <th class="px-3 py-3 whitespace-nowrap text-center border border-gray-300">No</th>
+                                    <th class="px-3 py-3 whitespace-nowrap cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortWaiting('team')">
+                                        <div class="text-center">법인 <span id="w-sort-team"></span></div>
+                                    </th>
+                                    <th class="px-3 py-3 whitespace-nowrap cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortWaiting('dept')">
+                                        <div class="text-center">부서 <span id="w-sort-dept"></span></div>
+                                    </th>
+                                    <th class="px-3 py-3 whitespace-nowrap cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortWaiting('role')">
+                                        <div class="text-center">직무 <span id="w-sort-role"></span></div>
+                                    </th>
+                                    <th class="px-3 py-3 whitespace-nowrap cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortWaiting('name')">
+                                        <div class="text-center">성명 <span id="w-sort-name"></span></div>
+                                    </th>
+                                    <th class="px-3 py-3 whitespace-nowrap cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortWaiting('rank')">
+                                        <div class="text-center">직급 <span id="w-sort-rank"></span></div>
+                                    </th>
+                                    <th class="px-3 py-3 whitespace-nowrap cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortWaiting('statusText')">
+                                        <div class="text-center">상태 <span id="w-sort-statusText"></span></div>
+                                    </th>
+                                    <th class="px-3 py-3 whitespace-nowrap cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortWaiting('remarkRaw')">
+                                        <div class="text-center">차기 프로젝트 예정 <span id="w-sort-remarkRaw"></span></div>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="waiting-table-body" class="bg-white text-sm text-center"></tbody>
+                        </table>
+                        <div id="no-waiting-data" class="text-center py-10 hidden">대기 인력이 없습니다.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="page-assignment" class="hidden">
+                <header class="mb-6">
+                    <h1 class="text-3xl font-bold text-center">배정인력현황 (미확정)</h1>
+                </header>
+
+                <div class="bg-white rounded-xl shadow border overflow-hidden">
+                    <div class="flex justify-between p-4 border-b bg-gray-50 flex-wrap gap-2">
+                        <h2 class="font-bold text-lg">미확정 Activity 목록</h2>
+                        <div class="flex items-center gap-2">
+                            <button id="btn-open-unconfirmed-activity-modal"
+                                class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">미확정
+                                등록</button>
+                            <button id="btn-confirm-activities"
+                                class="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">선택 항목
+                                확정</button>
+                        </div>
+                    </div>
+                    <div id="assignment-table-wrapper" class="overflow-auto h-[calc(100vh-250px)] border-b relative">
+                        <table
+                            class="min-w-full text-sm text-left text-gray-500 whitespace-nowrap sticky-left-cols border-collapse">
+                            <thead class="bg-gray-100 text-xs text-gray-700 uppercase sticky top-0 z-40"
+                                id="assignment-table-head">
+                                <tr>
+                                    <th class="px-3 py-3 w-[50px] text-center border border-gray-300">
+                                        <input type="checkbox" id="assign-check-all" class="accent-blue-600">
+                                    </th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortAssignment('projectType')">
+                                        <div class="text-center">구분 <span id="assign-sort-projectType"></span></div>
+                                    </th>
+                                    <th class="px-3 py-3 min-w-[350px] cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortAssignment('projectName')">
+                                        <div class="text-center">프로젝트 <span id="assign-sort-projectName"></span></div>
+                                    </th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortAssignment('dept')">
+                                        <div class="text-center">부서 <span id="assign-sort-dept"></span></div>
+                                    </th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortAssignment('role')">
+                                        <div class="text-center">직무 <span id="assign-sort-role"></span></div>
+                                    </th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortAssignment('name')">
+                                        <div class="text-center">성명 <span id="assign-sort-name"></span></div>
+                                    </th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 border border-gray-300"
+                                        onclick="handleSortAssignment('rank')">
+                                        <div class="text-center">직급 <span id="assign-sort-rank"></span></div>
+                                    </th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 text-center border border-gray-300"
+                                        onclick="handleSortAssignment('startDate')">시작일 <span
+                                            id="assign-sort-startDate"></span></th>
+                                    <th class="px-3 py-3 cursor-pointer hover:bg-gray-200 text-center border border-gray-300"
+                                        onclick="handleSortAssignment('endDate')">종료일 <span
+                                            id="assign-sort-endDate"></span></th>
+                                    <th class="px-3 py-3 text-center border border-gray-300">관리</th>
+                                </tr>
+                            </thead>
+                            <tbody id="assignment-table-body" class="bg-white text-sm"></tbody>
+                        </table>
+                        <div id="no-assignment-data" class="hidden text-center py-10 text-gray-500">데이터가 없습니다.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="page-users" class="hidden">
+                <header class="mb-8">
+                    <h1 class="text-3xl font-bold text-center">사용자 관리</h1>
+                </header>
+
+                <div class="bg-white p-6 rounded-xl shadow border mb-6">
+                    <h2 class="text-xl font-bold mb-4">사용자 추가</h2>
+                    <form id="form-add-user" class="flex flex-col gap-4">
+                        <div class="flex gap-4 items-end">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">아이디</label>
+                                <input type="text" name="username" class="border p-2 rounded w-40" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">비밀번호</label>
+                                <input type="password" name="password" class="border p-2 rounded w-40" required>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">권한</label>
+                                <select name="role" class="border p-2 rounded w-32">
+                                    <option value="user">일반 사용자</option>
+                                    <option value="admin">관리자</option>
+                                    <option value="viewer">조회 전용</option>
+                                </select>
+                            </div>
+                            <button type="submit"
+                                class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">추가</button>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">관리 부서 (일반 사용자용)</label>
+                            <div id="user-dept-checkboxes" class="flex flex-wrap gap-4 p-3 border rounded bg-gray-50">
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl shadow border">
+                    <h2 class="text-xl font-bold mb-4">사용자 목록</h2>
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="px-4 py-2 text-left">아이디</th>
+                                <th class="px-4 py-2 text-left">권한</th>
+                                <th class="px-4 py-2 text-left">관리 부서</th>
+                                <th class="px-4 py-2 text-center">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table-body" class="divide-y divide-gray-200"></tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <div id="holiday-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white p-6 rounded-lg w-96">
+            <h3 class="text-lg font-bold mb-4">공휴일 관리</h3>
+
+            <form id="form-add-holiday" class="flex gap-2 mb-4">
+                <input type="date" id="input-holiday-date" class="border p-1 flex-1 rounded text-sm" required>
+                <input type="text" id="input-holiday-name" class="border p-1 flex-1 rounded text-sm" placeholder="이름"
+                    required>
+                <button type="submit"
+                    class="bg-blue-600 text-white px-3 py-1 rounded text-sm whitespace-nowrap flex-shrink-0 hover:bg-blue-700">추가</button>
+            </form>
+
+            <div id="holiday-list-container" class="max-h-60 overflow-y-auto mb-4 border-t border-b py-2"></div>
+            <div class="flex justify-end gap-2">
+                <button id="btn-reset-holidays" class="text-xs text-red-500 hover:text-red-700">초기화</button>
+                <button id="btn-close-holiday-modal"
+                    class="bg-gray-200 px-4 py-1 rounded text-sm hover:bg-gray-300">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 인력 상세 정보 모달 -->
+    <div id="personnel-detail-modal"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-[800px] max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6 border-b pb-2">
+                <h2 class="text-2xl font-bold text-gray-800">인력 상세 정보</h2>
+                <button id="btn-close-detail-modal" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+
+            <!-- 기본 정보 그리드 -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 text-sm">
+                <div><span class="text-gray-500 block text-xs">성명</span><span id="detail-name"
+                        class="font-bold text-lg text-gray-900"></span></div>
+                <div><span class="text-gray-500 block text-xs">법인</span><span id="detail-team"
+                        class="text-gray-800"></span></div>
+                <div><span class="text-gray-500 block text-xs">부서</span><span id="detail-dept"
+                        class="text-gray-800"></span></div>
+                <div><span class="text-gray-500 block text-xs">직급</span><span id="detail-rank"
+                        class="text-gray-800"></span></div>
+                <div><span class="text-gray-500 block text-xs">직무</span><span id="detail-role"
+                        class="text-gray-800"></span></div>
+                <div><span class="text-gray-500 block text-xs">상태</span><span id="detail-status"></span></div>
+                <div><span class="text-gray-500 block text-xs">입사일</span><span id="detail-joinDate"
+                        class="text-gray-800"></span></div>
+                <div><span class="text-gray-500 block text-xs">퇴사일</span><span id="detail-leaveDate"
+                        class="text-gray-800"></span></div>
+            </div>
+
+            <!-- 프로젝트 이력 -->
+            <h3 class="text-lg font-bold mb-3 border-l-4 border-blue-600 pl-2">투입 프로젝트 이력</h3>
+            <div class="overflow-x-auto mb-6 border rounded">
+                <table class="w-full text-sm text-left text-gray-600">
+                    <thead class="bg-gray-50 text-xs uppercase font-semibold text-gray-700">
+                        <tr>
+                            <th class="px-4 py-2 w-[60%]">프로젝트명</th>
+                            <th class="px-4 py-2">구분</th>
+                            <th class="px-4 py-2">기간</th>
+                            <th class="px-4 py-2">상태</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detail-project-list" class="divide-y divide-gray-100"></tbody>
+                </table>
+            </div>
+
+            <div class="flex justify-end gap-2">
+                <button id="btn-edit-from-detail"
+                    class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition">정보 수정</button>
+                <button id="btn-close-detail-modal-bottom"
+                    class="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300 transition">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 비밀번호 변경 모달 -->
+    <div id="pw-change-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white p-6 rounded-lg w-80 shadow-xl">
+            <h3 class="text-lg font-bold mb-4">비밀번호 변경</h3>
+            <p id="pw-change-target" class="text-sm text-gray-500 mb-4"></p>
+            <input type="password" id="input-new-pw" class="border p-2 w-full rounded mb-4" placeholder="새 비밀번호"
+                required>
+            <button id="btn-submit-pw-change"
+                class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 mb-2">변경하기</button>
+            <button id="btn-close-pw-modal" class="w-full bg-gray-200 py-2 rounded hover:bg-gray-300">취소</button>
+        </div>
+    </div>
+
+    <!-- 사용자 권한 수정 모달 -->
+    <div id="user-edit-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white p-6 rounded-lg w-96 shadow-xl">
+            <h3 class="text-lg font-bold mb-4">사용자 권한 수정</h3>
+            <input type="hidden" id="edit-user-username">
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">아이디</label>
+                <input type="text" id="edit-user-display-name" class="w-full border p-2 rounded bg-gray-100" disabled>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">권한</label>
+                <select id="edit-user-role" class="w-full border p-2 rounded">
+                    <option value="user">일반 사용자</option>
+                    <option value="admin">관리자</option>
+                    <option value="viewer">조회 전용</option>
+                </select>
+            </div>
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">관리 부서</label>
+                <div id="edit-user-dept-checkboxes"
+                    class="flex flex-wrap gap-2 p-2 border rounded bg-gray-50 max-h-40 overflow-y-auto"></div>
+            </div>
+            <div class="flex justify-end gap-2">
+                <button id="btn-save-user-edit"
+                    class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">저장</button>
+                <button id="btn-close-user-edit"
+                    class="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- KPI 상세 내역 모달 -->
+    <div id="kpi-detail-modal"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-[900px] max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h2 class="text-2xl font-bold text-gray-800" id="kpi-detail-title">KPI 상세</h2>
+                <button id="btn-close-kpi-detail" class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-center border">
+                    <thead class="bg-gray-100 font-bold text-gray-700">
+                        <tr>
+                            <th class="py-2 px-2 border">No</th>
+                            <th class="py-2 px-2 border">법인</th>
+                            <th class="py-2 px-2 border">성명</th>
+                            <th class="py-2 px-2 border">가동가능(Capa)</th>
+                            <th class="py-2 px-2 border">과제(차감)</th>
+                            <th class="py-2 px-2 border bg-gray-50">유효Capa</th>
+                            <th class="py-2 px-2 border" id="kpi-detail-col-target">투입MM</th>
+                            <th class="py-2 px-2 border">기여도(%)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="kpi-detail-tbody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 현황판 상세 목록 모달 -->
+    <div id="dashboard-detail-modal"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-[700px] max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-4 border-b pb-2">
+                <h2 class="text-xl font-bold text-gray-800" id="dashboard-detail-title">상세 목록</h2>
+                <button id="btn-close-dashboard-detail"
+                    class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left text-gray-600">
+                    <thead class="bg-gray-50 text-xs uppercase font-semibold text-gray-700">
+                        <tr>
+                            <th class="px-4 py-2 text-center w-12">No</th>
+                            <th class="px-4 py-2 text-center w-20">법인</th>
+                            <th class="px-4 py-2 text-center w-24">성명</th>
+                            <th class="px-4 py-2 text-center w-20">상태</th>
+                            <th class="px-4 py-2 text-center">예정 프로젝트</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dashboard-detail-list" class="divide-y divide-gray-100"></tbody>
+                </table>
+            </div>
+            <div class="mt-4 text-right">
+                <button id="btn-close-dashboard-detail-bottom"
+                    class="bg-gray-200 text-gray-800 px-4 py-2 rounded hover:bg-gray-300 transition">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity 등록/수정 모달 -->
+    <div id="activity-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-[800px] max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6 border-b pb-2">
+                <h2 class="text-2xl font-bold text-gray-800" id="activity-modal-title">Activity 등록</h2>
+                <button id="btn-close-activity-modal"
+                    class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <form id="add-activity-form">
+                <input type="hidden" id="form-mode-indicator" value="add">
+                <input type="hidden" id="editing-id-indicator" value="">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    <select name="team" id="form-team" class="border p-2 rounded">
+                        <option value="">법인 선택</option>
+                        <option value="ET">ET</option>
+                        <option value="GBL">GBL</option>
+                        <option value="PNS">PNS</option>
+                    </select>
+                    <select name="dept" id="form-dept" class="border p-2 rounded">
+                        <option value="">부서 선택</option>
+                        <option value="ENTEC담당">ENTEC담당</option>
+                        <option value="이행1그룹">이행1그룹</option>
+                        <option value="이행2그룹">이행2그룹</option>
+                        <option value="아키텍트그룹">아키텍트그룹</option>
+                    </select>
+                    <input type="text" name="name" id="form-name" placeholder="성명" class="border p-2 rounded" required>
+                    <input type="text" name="projectName" id="form-projectName" placeholder="프로젝트명"
+                        class="border p-2 rounded" required>
+
+                    <select name="projectType" id="form-projectType" class="border p-2 rounded">
+                        <option value="이행">이행</option>
+                        <option value="제안">제안</option>
+                        <option value="지원">지원</option>
+                        <option value="과제">과제</option>
+                        <option value="대기">대기</option>
+                    </select>
+                    <select name="role" id="form-role" class="border p-2 rounded">
+                        <option value="">직무 선택</option>
+                        <option value="PM">PM</option>
+                        <option value="AA">AA</option>
+                        <option value="DA">DA</option>
+                        <option value="DBA">DBA</option>
+                        <option value="AIA">AIA</option>
+                        <option value="TA">TA</option>
+                        <option value="Programming">Programming</option>
+                        <option value="분석/설계">분석/설계</option>
+                        <option value="CA">CA</option>
+                        <option value="BM">BM</option>
+                    </select>
+                    <select name="rank" id="form-rank" class="border p-2 rounded">
+                        <option value="">직급 선택</option>
+                        <option value="전문위원">전문위원</option>
+                        <option value="이사">이사</option>
+                        <option value="수석2">수석2</option>
+                        <option value="수석1">수석1</option>
+                        <option value="책임2">책임2</option>
+                        <option value="책임1">책임1</option>
+                        <option value="선임">선임</option>
+                    </select>
+
+                    <div class="flex flex-col"><label class="text-xs">투입시작</label><input type="date" name="startDate"
+                            id="form-startDate" class="border p-2 rounded" required></div>
+                    <div class="flex flex-col"><label class="text-xs">투입종료</label><input type="date" name="endDate"
+                            id="form-endDate" class="border p-2 rounded" required></div>
+
+                    <input type="hidden" name="projectCode" id="form-projectCode">
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="submit" id="btn-submit-form"
+                        class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">저장</button>
+                    <button type="button" id="btn-reset-form"
+                        class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">초기화</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 인력 등록/수정 모달 -->
+    <div id="personnel-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white p-6 rounded-xl shadow-2xl w-[800px] max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6 border-b pb-2">
+                <h2 class="text-2xl font-bold text-gray-800" id="personnel-modal-title">인력 등록</h2>
+                <button id="btn-close-personnel-modal"
+                    class="text-gray-500 hover:text-gray-700 text-2xl">&times;</button>
+            </div>
+            <form id="add-personnel-form">
+                <input type="hidden" id="personnel-form-mode-indicator" value="add">
+                <input type="hidden" id="personnel-editing-id-indicator" value="">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    <select name="team" id="p-form-team" class="border p-2 rounded">
+                        <option value="">법인 선택</option>
+                        <option value="ET">ET</option>
+                        <option value="GBL">GBL</option>
+                        <option value="PNS">PNS</option>
+                    </select>
+                    <select name="dept" id="p-form-dept" class="border p-2 rounded">
+                        <option value="">부서 선택</option>
+                        <option value="ENTEC담당">ENTEC담당</option>
+                        <option value="이행1그룹">이행1그룹</option>
+                        <option value="이행2그룹">이행2그룹</option>
+                        <option value="아키텍트그룹">아키텍트그룹</option>
+                    </select>
+                    <select name="role" id="p-form-role" class="border p-2 rounded">
+                        <option value="">직무 선택</option>
+                        <option value="PM">PM</option>
+                        <option value="AA">AA</option>
+                        <option value="DA">DA</option>
+                        <option value="DBA">DBA</option>
+                        <option value="AIA">AIA</option>
+                        <option value="TA">TA</option>
+                        <option value="Programming">Programming</option>
+                        <option value="분석/설계">분석/설계</option>
+                        <option value="CA">CA</option>
+                        <option value="BM">BM</option>
+                    </select>
+                    <input type="text" name="name" id="p-form-name" placeholder="성명" class="border p-2 rounded"
+                        required>
+                    <select name="rank" id="p-form-rank" class="border p-2 rounded">
+                        <option value="">직급 선택</option>
+                        <option value="전문위원">전문위원</option>
+                        <option value="이사">이사</option>
+                        <option value="수석2">수석2</option>
+                        <option value="수석1">수석1</option>
+                        <option value="책임2">책임2</option>
+                        <option value="책임1">책임1</option>
+                        <option value="선임">선임</option>
+                    </select>
+                    <select name="employmentStatus" id="p-form-employmentStatus" class="border p-2 rounded">
+                        <option value="재직">재직</option>
+                        <option value="휴직">휴직</option>
+                        <option value="출산휴가">출산휴가</option>
+                        <option value="육아휴직">육아휴직</option>
+                        <option value="퇴사">퇴사</option>
+                    </select>
+                    <div class="flex flex-col"><label class="text-xs">입사(발령)일</label><input type="date" name="joinDate"
+                            id="p-form-joinDate" class="border p-2 rounded" required></div>
+                    <div class="flex flex-col"><label class="text-xs">퇴사(전출)일</label><input type="date" name="leaveDate"
+                            id="p-form-leaveDate" class="border p-2 rounded"></div>
+                    <div class="flex flex-col"><label class="text-xs">전적(전배)일</label><input type="date"
+                            name="transferDate" id="p-form-transferDate" class="border p-2 rounded"></div>
+                    <div class="flex flex-col"><label class="text-xs">휴직시작일</label><input type="date"
+                            name="leaveStartDate" id="p-form-leaveStartDate" class="border p-2 rounded"></div>
+                    <div class="flex flex-col"><label class="text-xs">휴직종료일</label><input type="date"
+                            name="leaveEndDate" id="p-form-leaveEndDate" class="border p-2 rounded"></div>
+                </div>
+                <div class="flex justify-end gap-2">
+                    <button type="submit" id="p-btn-submit-form"
+                        class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">저장</button>
+                    <button type="button" id="p-btn-reset-form"
+                        class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">초기화</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <input type="file" id="csv-upload-input" class="hidden"><input type="file" id="p-csv-upload-input"
+        class="hidden"><input type="file" id="activity-csv-upload-input" class="hidden">
+    <span id="csv-file-name" class="hidden"></span> <span id="p-csv-file-name" class="hidden"></span>
+    <form id="p-search-form" class="hidden"><input id="p-search-name"><button id="p-btn-search"></button><button
+            id="p-btn-reset-search"></button></form>
+    <div id="form-error"></div>
+    <div id="personnel-form-error"></div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}" type="module"></script>
+</body>
+
+</html>

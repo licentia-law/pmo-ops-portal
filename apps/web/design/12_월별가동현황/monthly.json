@@ -1,0 +1,87 @@
+{
+  "_invariants": [
+    "PRD §5.2: 가동률 = (수행+제안)/현재인원, 가득률 = 수행/현재인원, 항상 가득률 ≤ 가동률",
+    "PRD §5.3: 월별 MM = 시작/만료일과 월의 겹치는 비율, 월 근무가능일 = 주말+공휴일 제외 NETWORKDAYS",
+    "5월(asOf) trend = mock_common.kpis (82.4 / 47.1)",
+    "4월 trend = mock_common.prevMonth (75.0 / 43.8)",
+    "asOfMonthIdx 이후 월은 null (미래 데이터 없음)",
+    "각 월별 합계 MM = 수행 + 제안 + 지원 + 미투입 = 재직 인원수",
+    "각 월별 가동률 = (수행+제안)/합계, 가득률 = 수행/합계 → 산식 정합"
+  ],
+  "meta": {
+    "asOf": "2026-05-06",
+    "year": 2026,
+    "user": { "name": "김PMO 책임", "team": "PMO본부", "role": "관리자" },
+    "notifications": 3
+  },
+  "yearKpis": [
+    { "id": "avgUtilization", "label": "평균 가동률",   "donut": true,    "color": "brand",
+      "value": 76.1, "unit": "%",  "delta": { "dir": "up",   "abs": "3.5%p" }, "footer": "전년 동기 대비" },
+    { "id": "avgContract",    "label": "평균 가득률",   "donut": true,    "color": "info",
+      "value": 43.6, "unit": "%",  "delta": { "dir": "up",   "abs": "2.1%p" }, "footer": "전년 동기 대비" },
+    { "id": "avgHeadcount",   "label": "평균 가동인원", "icon": "users",  "tone": "blue",
+      "value": 16.2, "unit": "명", "delta": { "dir": "up",   "abs": "0.6명" }, "footer": "전년 동기 대비" },
+    { "id": "ytdRunningMM",   "label": "수행 MM (YTD)", "icon": "check",  "tone": "green",
+      "value": 35.3, "unit": "MM", "delta": { "dir": "up",   "abs": "5.2 MM" }, "footer": "전년 동기 대비" },
+    { "id": "ytdProposingMM", "label": "제안 MM (YTD)", "icon": "users",  "tone": "purple",
+      "value": 26.3, "unit": "MM", "delta": { "dir": "up",   "abs": "3.4 MM" }, "footer": "전년 동기 대비" },
+    { "id": "ytdIdleMM",      "label": "미투입 MM (YTD)", "icon": "clock", "tone": "amber",
+      "value": 19.4, "unit": "MM", "delta": { "dir": "down", "abs": "2.8 MM" }, "footer": "전년 동기 대비" }
+  ],
+  "trend": {
+    "asOfMonthIdx": 4,
+    "months":       ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"],
+    "utilization":  [73.8, 73.8, 75.0, 75.0, 82.4, null, null, null, null, null, null, null],
+    "contractRate": [41.3, 42.5, 43.1, 43.8, 47.1, null, null, null, null, null, null, null]
+  },
+  "selectedMonth": {
+    "month":      "2026-05",
+    "monthIdx":   4,
+    "headcount":  17,
+    "running":    8,
+    "proposing":  6,
+    "idle":       3,
+    "headOfDept": 0,
+    "support":    0,
+    "utilization":  82.4,
+    "contractRate": 47.1
+  },
+  "monthlyDetail": {
+    "asOfMonthIdx": 4,
+    "months": ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"],
+    "rows": [
+      { "id": "headcount",   "label": "재직 인원",   "unit": "명",
+        "values": [16, 16, 16, 16, 17, null, null, null, null, null, null, null],
+        "ytd": 16.2, "ytdLabel": "월평균" },
+      { "id": "runningMM",   "label": "수행 MM",     "unit": "MM",
+        "values": [6.6, 6.8, 6.9, 7.0, 8.0, null, null, null, null, null, null, null],
+        "ytd": 35.3, "ytdLabel": "YTD" },
+      { "id": "proposingMM", "label": "제안 MM",     "unit": "MM",
+        "values": [5.2, 5.0, 5.1, 5.0, 6.0, null, null, null, null, null, null, null],
+        "ytd": 26.3, "ytdLabel": "YTD" },
+      { "id": "supportMM",   "label": "지원 MM",     "unit": "MM",
+        "values": [0,   0,   0,   0,   0,   null, null, null, null, null, null, null],
+        "ytd": 0,    "ytdLabel": "YTD" },
+      { "id": "idleMM",      "label": "미투입 MM",   "unit": "MM",
+        "values": [4.2, 4.2, 4.0, 4.0, 3.0, null, null, null, null, null, null, null],
+        "ytd": 19.4, "ytdLabel": "YTD" },
+      { "id": "totalMM",     "label": "합계 MM",     "unit": "MM", "isTotal": true,
+        "values": [16.0, 16.0, 16.0, 16.0, 17.0, null, null, null, null, null, null, null],
+        "ytd": 81.0, "ytdLabel": "YTD" },
+      { "id": "utilization", "label": "가동률",      "unit": "%",  "isPercent": true, "color": "brand",
+        "values": [73.8, 73.8, 75.0, 75.0, 82.4, null, null, null, null, null, null, null],
+        "ytd": 76.1, "ytdLabel": "YTD 평균" },
+      { "id": "contractRate","label": "가득률",      "unit": "%",  "isPercent": true, "color": "info",
+        "values": [41.3, 42.5, 43.1, 43.8, 47.1, null, null, null, null, null, null, null],
+        "ytd": 43.6, "ytdLabel": "YTD 평균" }
+    ]
+  },
+  "teamYearSummary": {
+    "_note": "팀별 YTD(1~5월) 누적 MM과 평균 가동률·가득률. 본부 합계와 정합.",
+    "rows": [
+      { "team": "PMO1팀",     "avgHeadcount": 7.0, "ytdRunningMM": 16.0, "ytdProposingMM": 11.0, "ytdSupportMM": 0, "ytdIdleMM": 8.0, "avgUtilization": 77.1, "avgContractRate": 45.7 },
+      { "team": "PMO2팀",     "avgHeadcount": 6.0, "ytdRunningMM": 12.0, "ytdProposingMM": 11.3, "ytdSupportMM": 0, "ytdIdleMM": 6.7, "avgUtilization": 77.7, "avgContractRate": 40.0 },
+      { "team": "기술지원팀", "avgHeadcount": 3.2, "ytdRunningMM":  7.3, "ytdProposingMM":  4.0, "ytdSupportMM": 0, "ytdIdleMM": 4.7, "avgUtilization": 70.6, "avgContractRate": 45.6 }
+    ]
+  }
+}

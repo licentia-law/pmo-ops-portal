@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>PMO 업무수행 관리시스템 · 대기현황</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="../_shared/pmo-tokens.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+<style>
+  .idle-table td, .idle-table th { white-space: nowrap; }
+  .idle-table td { font-size: 12.5px; }
+  .idle-table tbody tr:hover td { background: var(--bg-2); }
+  .idle-summary td, .idle-summary th { white-space: nowrap; font-size: 12px; }
+  .idle-plan td, .idle-plan th { white-space: nowrap; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="env,react" src="../_shared/pmo-primitives.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="../_shared/pmo-shell.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="idle.jsx"></script>
+<script type="text/babel" data-presets="env,react">
+(async () => {
+  const data = await fetch("idle.json").then((r) => r.json());
+  ReactDOM.createRoot(document.getElementById("root")).render(<IdlePage data={data} />);
+})();
+</script>
+</body>
+</html>

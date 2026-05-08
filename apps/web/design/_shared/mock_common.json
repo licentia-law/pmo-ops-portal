@@ -1,0 +1,39 @@
+{
+  "_comment": "4개 페이지(홈/대시보드/주간현황/월별가동현황) 공통 mock. PRD §5·§8.2 + 엑셀 분석 §4.7.1 기준. 단일 출처(Single Source of Truth).",
+  "_invariants": [
+    "현재 인원 = 수행 + 제안 + 대기 + 사업부장 + 지원 (=> 17 = 8+6+3+0+0)",
+    "가동률 = (수행+제안)/현재인원 = 14/17 = 82.4%",
+    "가득률 = 수행/현재인원 = 8/17 = 47.1%",
+    "전월(prev) = 16/7/5/4 → 가동률 75.0% / 가득률 43.8%",
+    "delta = current - prev"
+  ],
+  "asOf": "2026-05-06",
+  "user": { "name": "김PMO 책임", "team": "PMO본부", "role": "관리자" },
+  "notifications": 3,
+  "kpis": {
+    "headcount":    { "value": 17,   "unit": "명", "delta": { "dir": "up",   "abs": "1명"   } },
+    "running":      { "value": 8,    "unit": "명", "delta": { "dir": "up",   "abs": "1명"   } },
+    "proposing":    { "value": 6,    "unit": "명", "delta": { "dir": "up",   "abs": "1명"   } },
+    "idle":         { "value": 3,    "unit": "명", "delta": { "dir": "down", "abs": "1명"   } },
+    "utilization":  { "value": 82.4, "unit": "%",  "delta": { "dir": "up",   "abs": "7.4%p" } },
+    "contractRate": { "value": 47.1, "unit": "%",  "delta": { "dir": "up",   "abs": "3.3%p" } }
+  },
+  "headcountBreakdown": {
+    "running":  8,
+    "proposing": 6,
+    "idle":     3,
+    "headOfDept": 0,
+    "support":  0
+  },
+  "prevMonth": {
+    "month": "2026-04",
+    "headcount": 16,
+    "running":   7,
+    "proposing": 5,
+    "idle":      4,
+    "headOfDept": 0,
+    "support":   0,
+    "utilization":  75.0,
+    "contractRate": 43.8
+  }
+}

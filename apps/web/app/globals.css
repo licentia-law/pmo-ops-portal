@@ -1,3 +1,5 @@
+@import "../design/_shared/pmo-tokens.css";
+
 :root {
   --bg-0: #f5f7fb;
   --bg-1: #ffffff;
@@ -171,6 +173,7 @@ button, input, select { font: inherit; }
   background: white;
   color: var(--tx-2);
 }
+.pmo-field-wide input { min-width: 360px; }
 .pmo-btn {
   height: 36px;
   padding: 0 14px;
@@ -179,6 +182,7 @@ button, input, select { font: inherit; }
   background: white;
   font-weight: 700;
 }
+.pmo-error { color: var(--crit-fg); background: var(--crit-bg); border-color: #fecdd3; font-weight: 700; }
 .pmo-summary-card { padding: 16px; }
 .pmo-summary-label { display: block; color: var(--tx-4); font-weight: 700; }
 .pmo-summary-value { display: block; margin-top: 8px; font-size: 28px; line-height: 32px; }

@@ -1,0 +1,174 @@
+{
+  "_invariants": [
+    "summary[0].value (전체 이력) == byProject 합계 (Top 5 + 기타) == pagination.totalCount",
+    "프로젝트 코드는 P2026xxx 형식",
+    "logs[].datetime은 모두 asOf 이전",
+    "logs[].author는 본부 17명 규모 호환 5~6명만",
+    "asOf와 mock_common.json 정합"
+  ],
+  "meta": {
+    "asOf": "2026-05-07",
+    "user": { "name": "김PMO 책임", "team": "PMO본부", "role": "관리자" },
+    "notifications": 3
+  },
+  "filters": {
+    "projects": [
+      { "value": "all",      "label": "전체" },
+      { "value": "P2026001", "label": "P2026001 · 차세대 통합시스템 구축" },
+      { "value": "P2026002", "label": "P2026002 · 그룹 데이터 플랫폼 구축" },
+      { "value": "P2026003", "label": "P2026003 · 모바일 채널 고도화" },
+      { "value": "P2026004", "label": "P2026004 · ERP 업그레이드" },
+      { "value": "P2026005", "label": "P2026005 · 물류 운영 최적화 PoC" },
+      { "value": "P2026006", "label": "P2026006 · 스마트 팩토리 표준화" },
+      { "value": "P2026007", "label": "P2026007 · 공공기관 정보화 컨설팅" },
+      { "value": "P2026008", "label": "P2026008 · 헬스케어 BMT" }
+    ],
+    "categories": ["전체", "상태 변경", "투입 인력 변경", "발표 일정 등록", "진행 메모", "업무지정 등록", "일정 변경", "이슈", "기타"],
+    "authors": ["전체", "김책임", "이수석", "박PM", "정책임", "최PL", "강책임"],
+    "periodPresets": ["이번 달", "지난 달", "특정 월", "올해", "최근 3개월"],
+    "defaultPreset": "최근 3개월",
+    "from": "2026-02-07",
+    "to":   "2026-05-07"
+  },
+  "summary": [
+    { "id": "total",      "label": "전체 이력",          "icon": "report",    "tone": "blue",
+      "value": 2156, "unit": "건", "footer": "누적 등록 건수" },
+    { "id": "newWeek",    "label": "최근 7일 등록",      "icon": "calendar",  "tone": "green",
+      "value": 28,   "unit": "건", "footer": "최근 7일 등록된 이력" },
+    { "id": "stChg",      "label": "최근 7일 상태 변경", "icon": "exchange",  "tone": "purple",
+      "value": 19,   "unit": "건", "footer": "최근 7일 변경 건수" },
+    { "id": "activePrj",  "label": "활성 프로젝트",      "icon": "briefcase", "tone": "amber",
+      "value": 8,    "unit": "건", "footer": "이력 발생 프로젝트" }
+  ],
+  "logs": [
+    { "id": 1,  "datetime": "2026-05-07 14:32", "category": "상태 변경",
+      "projectCode": "P2026001", "projectName": "차세대 통합시스템 구축",
+      "author": "김책임", "authorInitials": "김책", "authorTeam": "PMO1팀",
+      "summary": "상태가 \"제안중\"에서 \"발표완료\"로 변경되었습니다.",
+      "detail": {
+        "이슈": "제안서 발표 일정 등록",
+        "조치사항": "발표자료 최종 점검 완료, 고객 발표 준비 진행",
+        "다음 단계": "고객 발표 진행 후 결과 공유 및 후속 논의 예정",
+        "관련 일정": { "label": "발표 일정", "date": "2026-05-20 10:00" }
+      }
+    },
+    { "id": 2,  "datetime": "2026-05-07 11:05", "category": "투입 인력 변경",
+      "projectCode": "P2026002", "projectName": "그룹 데이터 플랫폼 구축",
+      "author": "이수석", "authorInitials": "이수", "authorTeam": "PMO1팀",
+      "summary": "투입 인원이 3명에서 4명으로 변경되었습니다.",
+      "detail": {
+        "이슈": "투입 인력 1명 추가 배치",
+        "조치사항": "신규 인력 배치 확정, 온보딩 자료 공유",
+        "다음 단계": "차주 월요일부터 정식 투입 시작",
+        "관련 일정": { "label": "투입 시작", "date": "2026-05-18 09:00" }
+      }
+    },
+    { "id": 3,  "datetime": "2026-05-07 09:18", "category": "발표 일정 등록",
+      "projectCode": "P2026004", "projectName": "ERP 업그레이드",
+      "author": "박PM", "authorInitials": "박P", "authorTeam": "PMO2팀",
+      "summary": "발표 일정이 2026-05-20 10:00로 등록되었습니다.",
+      "detail": {
+        "이슈": "고객사 임원 보고 발표",
+        "조치사항": "발표자료 1차 작성 완료, 내부 검토 진행",
+        "다음 단계": "발표자 사전 리허설 진행 예정",
+        "관련 일정": { "label": "발표 일정", "date": "2026-05-20 10:00" }
+      }
+    },
+    { "id": 4,  "datetime": "2026-05-06 17:42", "category": "투입 인력 변경",
+      "projectCode": "P2026003", "projectName": "모바일 채널 고도화",
+      "author": "김책임", "authorInitials": "김책", "authorTeam": "PMO1팀",
+      "summary": "투입 인원이 3명에서 4명으로 변경되었습니다.",
+      "detail": {
+        "이슈": "iOS 개발 인력 추가 투입",
+        "조치사항": "후보 인력 인터뷰 완료, 배치 확정",
+        "다음 단계": "차주 화요일부터 본 작업 합류",
+        "관련 일정": { "label": "투입 시작", "date": "2026-05-19 09:00" }
+      }
+    },
+    { "id": 5,  "datetime": "2026-05-06 15:08", "category": "진행 메모",
+      "projectCode": "P2026001", "projectName": "차세대 통합시스템 구축",
+      "author": "김책임", "authorInitials": "김책", "authorTeam": "PMO1팀",
+      "summary": "제안서 수정 요청 사항 반영 완료 및 고객 전달 예정입니다.",
+      "detail": {
+        "이슈": "제안서 1차 검토 피드백 반영",
+        "조치사항": "수정안 검토 완료, 최종본 정리",
+        "다음 단계": "고객사 실무진에 최종본 송부",
+        "관련 일정": { "label": "고객 송부", "date": "2026-05-13 17:00" }
+      }
+    },
+    { "id": 6,  "datetime": "2026-05-05 16:21", "category": "업무지정 등록",
+      "projectCode": "P2026002", "projectName": "그룹 데이터 플랫폼 구축",
+      "author": "박PM", "authorInitials": "박P", "authorTeam": "PMO2팀",
+      "summary": "데이터 표준화 컨설팅 업무지정을 등록했습니다.",
+      "detail": {
+        "이슈": "데이터 표준화 작업 업무지정",
+        "조치사항": "표준화 가이드라인 초안 공유",
+        "다음 단계": "주간 점검 회의에서 진행 보고",
+        "관련 일정": { "label": "주간 점검", "date": "2026-05-14 14:00" }
+      }
+    },
+    { "id": 7,  "datetime": "2026-05-05 10:11", "category": "일정 변경",
+      "projectCode": "P2026005", "projectName": "물류 운영 최적화 PoC",
+      "author": "정책임", "authorInitials": "정책", "authorTeam": "기술지원팀",
+      "summary": "착수 일정이 2026-06-01로 변경되었습니다.",
+      "detail": {
+        "이슈": "PoC 착수 일정 1주 순연",
+        "조치사항": "고객사와 일정 재조정 합의",
+        "다음 단계": "변경 일정 PMO 시스템 반영 완료",
+        "관련 일정": { "label": "착수 일정", "date": "2026-06-01 09:00" }
+      }
+    },
+    { "id": 8,  "datetime": "2026-05-04 18:33", "category": "상태 변경",
+      "projectCode": "P2026001", "projectName": "차세대 통합시스템 구축",
+      "author": "이수석", "authorInitials": "이수", "authorTeam": "PMO1팀",
+      "summary": "상태가 \"수행중\"에서 \"수행중\"으로 유지, 마일스톤 1차 완료.",
+      "detail": {
+        "이슈": "마일스톤 1차 완료 보고",
+        "조치사항": "본부장 검토 완료, 고객 공유",
+        "다음 단계": "마일스톤 2차 착수 준비",
+        "관련 일정": { "label": "MS2 착수", "date": "2026-05-18 09:00" }
+      }
+    },
+    { "id": 9,  "datetime": "2026-05-04 14:22", "category": "투입 인력 변경",
+      "projectCode": "P2026003", "projectName": "모바일 채널 고도화",
+      "author": "김책임", "authorInitials": "김책", "authorTeam": "PMO1팀",
+      "summary": "투입 인원이 2명에서 3명으로 변경되었습니다.",
+      "detail": {
+        "이슈": "QA 인력 추가 배치",
+        "조치사항": "QA 담당자 배치 확정",
+        "다음 단계": "테스트 시나리오 작성 시작",
+        "관련 일정": { "label": "테스트 시작", "date": "2026-05-18 09:00" }
+      }
+    },
+    { "id": 10, "datetime": "2026-05-04 11:03", "category": "진행 메모",
+      "projectCode": "P2026004", "projectName": "ERP 업그레이드",
+      "author": "박PM", "authorInitials": "박P", "authorTeam": "PMO2팀",
+      "summary": "요구사항 추가 접수 및 검토 중입니다.",
+      "detail": {
+        "이슈": "고객 추가 요구사항 3건 접수",
+        "조치사항": "영향도 검토 및 일정 영향 분석",
+        "다음 단계": "검토 결과 고객 회신 예정",
+        "관련 일정": { "label": "회신 예정", "date": "2026-05-14 17:00" }
+      }
+    }
+  ],
+  "byProject": [
+    { "rank": 1, "code": "P2026001", "name": "차세대 통합시스템 구축",  "count": 274 },
+    { "rank": 2, "code": "P2026002", "name": "그룹 데이터 플랫폼 구축", "count": 218 },
+    { "rank": 3, "code": "P2026003", "name": "모바일 채널 고도화",       "count": 196 },
+    { "rank": 4, "code": "P2026004", "name": "ERP 업그레이드",            "count": 168 },
+    { "rank": 5, "code": "P2026005", "name": "물류 운영 최적화 PoC",      "count": 152 },
+    { "rank": 6, "code": "etc",      "name": "기타 3개 프로젝트",         "count": 1148 }
+  ],
+  "recentStatusChanges": [
+    { "code": "P2026001", "name": "차세대 통합시스템 구축",  "datetime": "2026-05-07 14:32", "from": "proposing", "to": "presented" },
+    { "code": "P2026002", "name": "그룹 데이터 플랫폼 구축", "datetime": "2026-05-05 10:11", "from": "presented", "to": "win" },
+    { "code": "P2026003", "name": "모바일 채널 고도화",       "datetime": "2026-05-04 18:33", "from": "presented", "to": "loss" },
+    { "code": "P2026004", "name": "ERP 업그레이드",           "datetime": "2026-05-03 16:40", "from": "win",       "to": "running" },
+    { "code": "P2026005", "name": "물류 운영 최적화 PoC",     "datetime": "2026-05-02 09:30", "from": "running",   "to": "done" }
+  ],
+  "pagination": {
+    "totalCount": 2156, "pageSize": 10,
+    "currentPage": 1, "totalPages": 216
+  }
+}

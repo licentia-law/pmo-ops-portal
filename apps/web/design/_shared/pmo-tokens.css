@@ -1,0 +1,266 @@
+/* ============================================================
+   PMO 업무수행 관리시스템 · Design Tokens v1
+   - color / type / spacing / radius / shadow
+   - status badges shared across pages (홈 / 대시보드 / 주간 / 월별)
+   ============================================================ */
+:root {
+  /* ----- Surface ----- */
+  --bg-0:        #f5f7fb;   /* page background */
+  --bg-1:        #ffffff;   /* card surface */
+  --bg-2:        #fafbfd;   /* table row hover / nested */
+  --bg-3:        #f8fafc;   /* table head */
+  --bg-side:     #ffffff;   /* sidebar */
+  --bg-subtle:   #eef1f6;   /* skeleton / muted block */
+
+  --line-1:      #f1f4f9;   /* hairline (table rows) */
+  --line-2:      #e5e9f1;   /* card border / divider */
+  --line-3:      #eef1f6;   /* dashed inner */
+
+  /* ----- Text ----- */
+  --tx-1:        #0f172a;   /* primary */
+  --tx-2:        #1f2937;   /* strong body */
+  --tx-3:        #475569;   /* secondary */
+  --tx-4:        #64748b;   /* tertiary / labels */
+  --tx-5:        #94a3b8;   /* placeholder / muted */
+
+  /* ----- Brand / accent ----- */
+  --brand:       #4F46E5;   /* indigo primary */
+  --brand-700:   #4338CA;
+  --brand-bg:    #eef1ff;   /* tinted surface */
+  --brand-line:  #c7d0fb;
+
+  /* ----- Status palette (shared across badges, deltas, donuts) ----- */
+  --ok:          #16a34a;   /* WIN / 진행중 OK / 가득률 */
+  --ok-bg:       #e3f6ec;
+  --ok-line:     #bce5cb;
+
+  --info:        #2563eb;   /* 발표완료 / blue line */
+  --info-bg:     #e3eefe;
+  --info-line:   #c2d8fb;
+
+  --warn:        #b45309;   /* 업무지원 (amber) */
+  --warn-bg:     #fef4e1;
+  --warn-line:   #f5d99c;
+
+  --crit:        #be123c;   /* LOSS / 위험 (rose) */
+  --crit-bg:     #fde7eb;
+  --crit-line:   #f4b8c4;
+
+  --neutral:     #475569;   /* 제안중 / 완료 (slate) */
+  --neutral-bg:  #eef2f7;
+  --neutral-line:#d8dee8;
+
+  --zinc:        #52525b;   /* DROP */
+  --zinc-bg:     #ececf0;
+  --zinc-line:   #d4d4d8;
+
+  /* delta direction (한국 관습: ▲ 빨강 = 증가, ▼ 파랑 = 감소) */
+  --delta-up:    #dc2626;
+  --delta-down:  #2563eb;
+
+  /* ----- Status SEMANTIC tokens — 8 표준 상태 코드 ----- */
+  /* 제안중=slate, 발표완료=blue, WIN=emerald, LOSS=rose,
+     DROP=zinc, 수행중=indigo, 업무지원=amber, 완료=gray */
+  --st-proposing-fg: var(--neutral);   --st-proposing-bg: var(--neutral-bg);
+  --st-presented-fg: #1d4ed8;          --st-presented-bg: var(--info-bg);
+  --st-win-fg:       #047857;          --st-win-bg:       var(--ok-bg);
+  --st-loss-fg:      var(--crit);      --st-loss-bg:      var(--crit-bg);
+  --st-drop-fg:      var(--zinc);      --st-drop-bg:      var(--zinc-bg);
+  --st-running-fg:   var(--brand-700); --st-running-bg:   var(--brand-bg);
+  --st-support-fg:   var(--warn);      --st-support-bg:   var(--warn-bg);
+  --st-done-fg:      var(--tx-3);      --st-done-bg:      #eef1f6;
+
+  /* ----- Type ----- */
+  --font-ui:   "Pretendard Variable", "Pretendard", -apple-system, BlinkMacSystemFont,
+               system-ui, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  --font-num:  "Pretendard Variable", "Pretendard", ui-monospace, system-ui, sans-serif;
+
+  --t-page:     24px;  --t-page-lh:    32px;  /* page title (헤더 안 페이지명) */
+  --t-hero:     26px;  --t-hero-lh:    34px;  /* hero title */
+  --t-section:  16px;  --t-section-lh: 22px;  /* section heading */
+  --t-card:     15px;  --t-card-lh:    20px;  /* card title */
+  --t-kpi:      28px;  --t-kpi-lh:     32px;  /* KPI big number */
+  --t-body:     14px;  --t-body-lh:    20px;  /* body / row */
+  --t-sm:       13px;  --t-sm-lh:      18px;  /* sub */
+  --t-cap:      12px;  --t-cap-lh:     16px;  /* caption / table head */
+  --t-xs:       11px;  --t-xs-lh:      14px;
+
+  --w-reg: 400;  --w-med: 500;  --w-sem: 600;  --w-bld: 700;
+
+  /* ----- Spacing (4px base) ----- */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
+  --s-5: 20px; --s-6: 24px; --s-7: 28px; --s-8: 32px;
+
+  /* ----- Radius ----- */
+  --r-sm:  6px;
+  --r-md:  8px;
+  --r-lg:  12px;
+  --r-xl:  14px;
+  --r-pill: 999px;
+
+  /* ----- Shadow ----- */
+  --sh-card:   0 1px 0 rgba(15,23,42,.02);
+  --sh-hover:  0 8px 24px -12px rgba(15,23,42,.18);
+  --sh-pop:    0 12px 32px -12px rgba(15,23,42,.28);
+  --sh-focus:  0 0 0 3px rgba(79, 70, 229, .25);
+
+  /* ----- Layout ----- */
+  --side-w:    240px;
+  --header-h:  56px;
+}
+
+/* ============================================================
+   Base
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--font-ui);
+  background: var(--bg-0);
+  color: var(--tx-1);
+  font-size: var(--t-body);
+  line-height: var(--t-body-lh);
+  -webkit-font-smoothing: antialiased;
+  word-break: keep-all;
+}
+a { color: inherit; text-decoration: none; }
+button { font: inherit; cursor: pointer; }
+
+/* ============================================================
+   Atoms
+   ============================================================ */
+
+/* Cards / panels */
+.pmo-panel {
+  background: var(--bg-1);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-xl);
+  box-shadow: var(--sh-card);
+}
+
+/* Buttons */
+.pmo-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 36px; padding: 0 14px;
+  background: var(--bg-1);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  color: var(--tx-2);
+  font-size: var(--t-sm);
+  font-weight: var(--w-med);
+}
+.pmo-btn:hover { background: var(--bg-3); }
+.pmo-btn-primary {
+  background: var(--brand);
+  color: #fff;
+  border-color: var(--brand);
+}
+.pmo-btn-primary:hover { background: var(--brand-700); border-color: var(--brand-700); }
+
+/* Badges (8 standard status codes) */
+.pmo-badge {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px;
+  border-radius: var(--r-sm);
+  font-size: var(--t-cap);
+  font-weight: var(--w-sem);
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.pmo-badge--proposing { background: var(--st-proposing-bg); color: var(--st-proposing-fg); }
+.pmo-badge--presented { background: var(--st-presented-bg); color: var(--st-presented-fg); }
+.pmo-badge--win       { background: var(--st-win-bg);       color: var(--st-win-fg); }
+.pmo-badge--loss      { background: var(--st-loss-bg);      color: var(--st-loss-fg); }
+.pmo-badge--drop      { background: var(--st-drop-bg);      color: var(--st-drop-fg); }
+.pmo-badge--running   { background: var(--st-running-bg);   color: var(--st-running-fg); }
+.pmo-badge--support   { background: var(--st-support-bg);   color: var(--st-support-fg); }
+.pmo-badge--done      { background: var(--st-done-bg);      color: var(--st-done-fg); }
+
+/* Delta arrows */
+.pmo-delta { display: inline-flex; align-items: center; gap: 3px; font-weight: var(--w-sem); }
+.pmo-delta--up   { color: var(--delta-up); }
+.pmo-delta--down { color: var(--delta-down); }
+.pmo-delta__tri  { font-size: 9px; line-height: 1; }
+
+/* Progress bar */
+.pmo-progress {
+  width: 110px; height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--bg-subtle);
+  overflow: hidden;
+}
+.pmo-progress > i {
+  display: block; height: 100%;
+  background: var(--brand);
+  border-radius: var(--r-pill);
+}
+
+/* Search input (header) */
+.pmo-search {
+  display: flex; align-items: center; gap: 8px;
+  width: 360px; height: 38px;
+  background: var(--bg-0);
+  border: 1px solid var(--line-2);
+  border-radius: 10px;
+  padding: 0 12px;
+  color: var(--tx-5);
+}
+.pmo-search input {
+  border: 0; outline: none; background: transparent;
+  font: inherit; flex: 1; color: var(--tx-1);
+}
+.pmo-search input::placeholder { color: var(--tx-5); }
+
+/* Section heading */
+.pmo-section-title {
+  font-size: var(--t-section);
+  line-height: var(--t-section-lh);
+  font-weight: var(--w-bld);
+  color: var(--tx-1);
+  letter-spacing: -0.2px;
+  margin: 0 0 12px;
+}
+
+/* Link button (전체 보기) */
+.pmo-link {
+  display: inline-flex; align-items: center; gap: 4px;
+  color: var(--brand);
+  font-size: var(--t-sm);
+  font-weight: var(--w-sem);
+}
+.pmo-link:hover { text-decoration: underline; }
+
+/* Table */
+.pmo-table { width: 100%; border-collapse: collapse; }
+.pmo-table thead th {
+  text-align: left;
+  font-size: var(--t-cap);
+  font-weight: var(--w-sem);
+  color: var(--tx-4);
+  background: var(--bg-3);
+  padding: 10px 16px;
+  border-top: 1px solid var(--line-1);
+  border-bottom: 1px solid var(--line-1);
+  white-space: nowrap;
+}
+.pmo-table tbody td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line-1);
+  font-size: var(--t-sm);
+  color: var(--tx-2);
+  white-space: nowrap;
+}
+.pmo-table tbody tr:last-child td { border-bottom: 0; }
+.pmo-table tbody tr:hover { background: var(--bg-2); }
+.pmo-table .num { font-variant-numeric: tabular-nums; color: var(--tx-3); }
+.pmo-table .name { color: var(--tx-1); font-weight: var(--w-med); }
+
+/* Focus ring (a11y) */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 6px;
+}

@@ -1,0 +1,43 @@
+{
+  "_invariants": [
+    "PRD §5.2: 가동률 = (수행+제안)/현재인원, 가득률 = 수행/현재인원, 항상 가득률 ≤ 가동률",
+    "trend의 마지막 점(asOf) = mock_common.kpis.utilization/contractRate",
+    "trend의 2026-04 점 = mock_common.prevMonth.utilization/contractRate (75.0/43.8)",
+    "팀 합계 = 본부 합계 (sum across teams == 17/8/6/3)",
+    "팀별 산식 정합: utilization = (running+proposing)/total, contractRate = running/total"
+  ],
+  "meta": {
+    "asOf": "2026-05-06",
+    "user": { "name": "김PMO 책임", "team": "PMO본부", "role": "관리자" },
+    "notifications": 3
+  },
+  "kpis": [
+    { "id": "headcount",   "label": "현재 인원", "icon": "users", "tone": "blue",
+      "value": 17, "unit": "명", "delta": { "dir": "up", "abs": "1명" } },
+    { "id": "running",     "label": "수행 인원", "icon": "users", "tone": "green",
+      "value": 8,  "unit": "명", "delta": { "dir": "up", "abs": "1명" } },
+    { "id": "proposing",   "label": "제안 인원", "icon": "users", "tone": "purple",
+      "value": 6,  "unit": "명", "delta": { "dir": "up", "abs": "1명" } },
+    { "id": "idle",        "label": "대기 인원", "icon": "clock", "tone": "amber",
+      "value": 3,  "unit": "명", "delta": { "dir": "down", "abs": "1명" } },
+    { "id": "utilization", "label": "가동률",   "donut": true, "color": "brand",
+      "value": 82.4, "unit": "%", "delta": { "dir": "up", "abs": "7.4%p" } },
+    { "id": "contract",    "label": "가득률",   "donut": true, "color": "info",
+      "value": 47.1, "unit": "%", "delta": { "dir": "up", "abs": "3.3%p" } }
+  ],
+  "trend": {
+    "months":       ["2025-12","2026-01","2026-02","2026-03","2026-04","2026-05"],
+    "utilization":  [73.0, 73.5, 74.0, 74.5, 75.0, 82.4],
+    "contractRate": [40.5, 41.0, 41.5, 42.5, 43.8, 47.1]
+  },
+  "teamHeadcount": [
+    { "team": "PMO1팀",     "total": 7, "running": 4, "proposing": 2, "idle": 1 },
+    { "team": "PMO2팀",     "total": 6, "running": 3, "proposing": 2, "idle": 1 },
+    { "team": "기술지원팀", "total": 4, "running": 1, "proposing": 2, "idle": 1 }
+  ],
+  "teamUtilization": [
+    { "team": "PMO1팀",     "headcount": 7, "utilization": 85.7, "contractRate": 57.1 },
+    { "team": "PMO2팀",     "headcount": 6, "utilization": 83.3, "contractRate": 50.0 },
+    { "team": "기술지원팀", "headcount": 4, "utilization": 75.0, "contractRate": 25.0 }
+  ]
+}

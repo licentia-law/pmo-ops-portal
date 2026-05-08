@@ -1,0 +1,21 @@
+{
+  "name": "pmo-ops-portal",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/web",
+    "packages/shared-types",
+    "packages/shared-ui",
+    "packages/shared-mocks"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev -w @pmo/web",
+    "build:web": "npm run build -w @pmo/web",
+    "lint:web": "npm run lint -w @pmo/web",
+    "typecheck": "npm run typecheck -w @pmo/shared-types && npm run typecheck -w @pmo/shared-ui && npm run typecheck -w @pmo/shared-mocks && npm run typecheck -w @pmo/web",
+    "dev:api": "cd apps/api && uvicorn app.main:app --reload"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

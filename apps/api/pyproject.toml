@@ -1,0 +1,26 @@
+[project]
+name = "pmo-ops-api"
+version = "0.1.0"
+description = "PMO 업무수행 관리시스템 API scaffold"
+requires-python = ">=3.11"
+dependencies = [
+  "alembic>=1.13.1",
+  "fastapi>=0.111.0",
+  "pydantic-settings>=2.2.1",
+  "psycopg[binary]>=3.1.18",
+  "sqlalchemy>=2.0.30",
+  "uvicorn[standard]>=0.29.0"
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.2.0", "ruff>=0.4.4"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.ruff]
+line-length = 100

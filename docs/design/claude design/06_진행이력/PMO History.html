@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>PMO 업무수행 관리시스템 · 진행이력</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="../_shared/pmo-tokens.css" />
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+</head>
+<body>
+<div id="root"></div>
+<!-- 외부 jsx는 정적 서버 위에서만 fetch 가능. 예: npx serve "docs/design/claude design" -->
+<script type="text/babel" data-presets="env,react" src="../_shared/pmo-primitives.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="../_shared/pmo-shell.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="history.jsx"></script>
+<script type="text/babel" data-presets="env,react">
+(async () => {
+  const data = await fetch("history.json").then((r) => r.json());
+  ReactDOM.createRoot(document.getElementById("root")).render(<HistoryPage data={data} />);
+})();
+</script>
+</body>
+</html>

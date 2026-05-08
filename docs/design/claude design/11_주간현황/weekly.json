@@ -1,0 +1,82 @@
+{
+  "_invariants": [
+    "PRD §5.2: 가동률 = (수행+제안)/현재인원, 가득률 = 수행/현재인원, 항상 가득률 ≤ 가동률",
+    "PRD §5.1: 비가동 = 대기 + 사업부장 + 지원",
+    "본부 합계 = 팀 합계 (각 셀)",
+    "waitingList 길이 == PMO본부 inactive(대기+사업부장+지원)",
+    "activeList 길이 == PMO본부 proposing"
+  ],
+  "meta": {
+    "asOf": "2026-05-06",
+    "weekLabel": "2026년 19주차 (05.04 ~ 05.10)",
+    "user": { "name": "김PMO 책임", "team": "PMO본부", "role": "관리자" },
+    "notifications": 3
+  },
+  "kpis": [
+    { "id": "headcount",    "label": "현재 인원",  "icon": "users", "tone": "blue",
+      "value": 17,   "unit": "명", "delta": { "dir": "up",   "abs": "1명"   } },
+    { "id": "running",      "label": "수행 인원",  "icon": "check", "tone": "green",
+      "value": 8,    "unit": "명", "delta": { "dir": "up",   "abs": "1명"   } },
+    { "id": "proposing",    "label": "제안 인원",  "icon": "users", "tone": "purple",
+      "value": 6,    "unit": "명", "delta": { "dir": "up",   "abs": "1명"   } },
+    { "id": "inactive",     "label": "비가동 인원", "icon": "clock", "tone": "amber",
+      "value": 3,    "unit": "명", "delta": { "dir": "down", "abs": "1명"   } },
+    { "id": "utilization",  "label": "가동률",    "donut": true, "color": "brand",
+      "value": 82.4, "unit": "%",  "delta": { "dir": "up", "abs": "7.4%p" } },
+    { "id": "contractRate", "label": "가득률",    "donut": true, "color": "info",
+      "value": 47.1, "unit": "%",  "delta": { "dir": "up", "abs": "3.3%p" } }
+  ],
+  "weeklySummary": [
+    {
+      "org": "PMO본부", "isTotal": true,
+      "current": 17, "running": 8, "proposing": 6,
+      "idle": 3, "headOfDept": 0, "support": 0,
+      "utilization": 82.4, "contractRate": 47.1
+    },
+    {
+      "org": "PMO1팀",
+      "current": 7, "running": 4, "proposing": 2,
+      "idle": 1, "headOfDept": 0, "support": 0,
+      "utilization": 85.7, "contractRate": 57.1
+    },
+    {
+      "org": "PMO2팀",
+      "current": 6, "running": 3, "proposing": 2,
+      "idle": 1, "headOfDept": 0, "support": 0,
+      "utilization": 83.3, "contractRate": 50.0
+    },
+    {
+      "org": "기술지원팀",
+      "current": 4, "running": 1, "proposing": 2,
+      "idle": 1, "headOfDept": 0, "support": 0,
+      "utilization": 75.0, "contractRate": 25.0
+    }
+  ],
+  "compare": {
+    "prevMonth": {
+      "month":     "2026-04",
+      "headcount": 16, "running": 7, "proposing": 5, "inactive": 4,
+      "utilization":  75.0,
+      "contractRate": 43.8
+    },
+    "current": {
+      "month":     "2026-05",
+      "headcount": 17, "running": 8, "proposing": 6, "inactive": 3,
+      "utilization":  82.4,
+      "contractRate": 47.1
+    }
+  },
+  "waitingList": [
+    { "name": "홍OO", "team": "기술지원팀", "role": "PM",    "startDate": "2026-04-22" },
+    { "name": "김OO", "team": "PMO1팀",     "role": "개발",   "startDate": "2026-04-28" },
+    { "name": "박OO", "team": "PMO2팀",     "role": "분석",   "startDate": "2026-05-02" }
+  ],
+  "activeList": [
+    { "name": "이OO", "project": "모바일 채널 고도화",        "code": "P2026003", "status": "proposing", "date": "2026-04-29" },
+    { "name": "한OO", "project": "물류 운영 최적화 PoC",      "code": "P2026005", "status": "proposing", "date": "2026-04-26" },
+    { "name": "최OO", "project": "AI 플랫폼 구축",             "code": "P2026009", "status": "proposing", "date": "2026-04-22" },
+    { "name": "강OO", "project": "데이터 거버넌스 구축",      "code": "P2026010", "status": "proposing", "date": "2026-04-15" },
+    { "name": "정OO", "project": "ERP 업그레이드",             "code": "P2026004", "status": "presented", "date": "2026-05-02" },
+    { "name": "오OO", "project": "공공 클라우드 전환 사업",   "code": "P2026011", "status": "presented", "date": "2026-04-30" }
+  ]
+}

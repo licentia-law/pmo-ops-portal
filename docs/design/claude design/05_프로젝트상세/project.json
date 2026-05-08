@@ -1,0 +1,92 @@
+{
+  "_invariants": [
+    "상태 = 수행중 (running)",
+    "assignments 길이 == kpi.headcount의 숫자 == 4명",
+    "logs 5건 == 06_진행이력 P2026001 logs와 동일",
+    "등장 인물 모두 본부 17명 호환 풀 (김책임 / 이수석 / 박PM / 정책임 / 최PL / 강책임)",
+    "lastReport 날짜 ≤ asOf",
+    "schedule 일자 흐름: 지원시작 → 접수 → 공고 → 제출 → 발표 → 지원완료"
+  ],
+  "meta": {
+    "asOf": "2026-05-07",
+    "user": { "name": "김PMO 책임", "team": "PMO본부", "role": "관리자" },
+    "notifications": 3
+  },
+  "project": {
+    "code":           "P2026001",
+    "name":           "차세대 통합시스템 구축",
+    "businessType":   "주사업",
+    "status":         "running",
+    "amountTotal":    "14억 / 11.9억",
+    "ownerDept":      "영업본부",
+    "salesOwner":     "박영업",
+    "supportLead":    "이수석",
+    "bidNoticeNo":    "ANN-2026-014",
+    "remark":         null
+  },
+  "schedule": {
+    "items": [
+      { "label": "지원시작일",     "date": "2026-01-05" },
+      { "label": "사업지원접수일", "date": "2026-01-12" },
+      { "label": "공고일",         "date": "2026-01-20" },
+      { "label": "제출일",         "date": "2026-02-10",
+        "extras": [
+          { "k": "시간", "v": "09:30" },
+          { "k": "방식", "v": "현장 제출" },
+          { "k": "비고", "v": "견적서 첨부본 제출" }
+        ] },
+      { "label": "발표일",         "date": "2026-03-05",
+        "extras": [
+          { "k": "시간", "v": "14:00" },
+          { "k": "방식", "v": "PT" },
+          { "k": "비고", "v": "발표 후 종합 의견 수렴" }
+        ] },
+      { "label": "지원완료일",     "date": "2026-08-30" }
+    ]
+  },
+  "kpi": {
+    "dDay":             "D+122",
+    "accumMm":          "14.5 MM",
+    "accumMmNote":      "(투입 4명 × 누적 기간)",
+    "headcount":        "4명",
+    "reportStatus":     "진행중",
+    "reportStatusCode": "running",
+    "lastReport":       "주간보고서 (2026-05-04)"
+  },
+  "assignments": [
+    { "name": "김책임", "initials": "김책", "role": "PM",       "roleTone": "indigo",
+      "team": "PMO1팀", "deployType": "수행", "status": "투입", "onsite": "상주",
+      "from": "2026-04-01", "to": "2026-12-31", "note": "총괄 PM" },
+    { "name": "이수석", "initials": "이수", "role": "Sub-PM",   "roleTone": "purple",
+      "team": "PMO1팀", "deployType": "수행", "status": "투입", "onsite": "상주",
+      "from": "2026-04-15", "to": "2026-12-31", "note": "업무/요건 총괄" },
+    { "name": "박PM",   "initials": "박P",  "role": "기술팀장", "roleTone": "blue",
+      "team": "PMO2팀", "deployType": "수행", "status": "투입", "onsite": "상주",
+      "from": "2026-05-01", "to": "2026-08-31", "note": "기술 검토 및 인프라" },
+    { "name": "정책임", "initials": "정책", "role": "AA",       "roleTone": "amber",
+      "team": "기술지원팀", "deployType": "수행", "status": "투입", "onsite": "비상주",
+      "from": "2026-05-01", "to": "2026-12-31", "note": "아키텍처 설계" }
+  ],
+  "logs": [
+    { "id": 1, "datetime": "2026-05-07 14:32",
+      "summary": "상태가 \"제안중\"에서 \"발표완료\"로 변경되었습니다.",
+      "author": "김책임", "authorRole": "제안 PM", "authorInitials": "김책",
+      "stateLabel": "진행", "stateTone": "ok" },
+    { "id": 2, "datetime": "2026-05-06 15:08",
+      "summary": "제안서 수정 요청 사항 반영 완료 및 고객 전달 예정입니다.",
+      "author": "김책임", "authorRole": "제안 PM", "authorInitials": "김책",
+      "stateLabel": "진행", "stateTone": "ok" },
+    { "id": 3, "datetime": "2026-05-04 18:33",
+      "summary": "마일스톤 1차 완료 보고, 본부장 검토 완료.",
+      "author": "이수석", "authorRole": "Sub-PM", "authorInitials": "이수",
+      "stateLabel": "완료", "stateTone": "ok" },
+    { "id": 4, "datetime": "2026-05-04 11:03",
+      "summary": "고객 추가 요구사항 3건 접수, 영향도 검토 진행 중.",
+      "author": "박PM",   "authorRole": "기술팀장", "authorInitials": "박P",
+      "stateLabel": "진행", "stateTone": "ok" },
+    { "id": 5, "datetime": "2026-04-30 17:55",
+      "summary": "AA 역할 신규 배치 등록.",
+      "author": "정책임", "authorRole": "AA",      "authorInitials": "정책",
+      "stateLabel": "완료", "stateTone": "ok" }
+  ]
+}

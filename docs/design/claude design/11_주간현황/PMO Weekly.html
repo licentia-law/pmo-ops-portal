@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<title>PMO 업무수행 관리시스템 · 주간현황</title>
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="../_shared/pmo-tokens.css" />
+<style>
+  /* Weekly summary table — denser numeric grid */
+  .weekly-table { table-layout: fixed; }
+  .weekly-table thead th {
+    padding: 8px 10px;
+    font-size: 11.5px;
+    text-align: center;
+    color: var(--tx-4);
+  }
+  .weekly-table thead tr:first-child th {
+    background: var(--bg-3);
+    border-bottom: 1px solid var(--line-2);
+    color: var(--tx-3);
+    font-weight: 700;
+  }
+  .weekly-table thead tr:nth-child(2) th {
+    background: #fbfcfe;
+    border-bottom: 1px solid var(--line-1);
+  }
+  .weekly-table tbody td {
+    padding: 11px 10px;
+    font-size: 13px;
+  }
+  .weekly-table tbody tr.weekly-total td {
+    background: var(--brand-bg);
+    border-bottom: 1px solid var(--brand-line);
+    font-size: 13.5px;
+  }
+  .weekly-table tbody tr.weekly-total:hover td { background: var(--brand-bg); }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin></script>
+</head>
+<body>
+<div id="root"></div>
+<!-- 외부 jsx는 정적 서버 위에서만 fetch 가능. 예: npx serve "docs/design/claude design" -->
+<script type="text/babel" data-presets="env,react" src="../_shared/pmo-primitives.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="../_shared/pmo-shell.jsx"></script>
+<script type="text/babel" data-presets="env,react" src="weekly.jsx"></script>
+<script type="text/babel" data-presets="env,react">
+(async () => {
+  const data = await fetch("weekly.json").then((r) => r.json());
+  ReactDOM.createRoot(document.getElementById("root")).render(<WeeklyPage data={data} />);
+})();
+</script>
+</body>
+</html>

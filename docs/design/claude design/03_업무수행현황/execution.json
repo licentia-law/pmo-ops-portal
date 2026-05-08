@@ -1,0 +1,223 @@
+{
+  "_invariants": [
+    "summary[1].value + summary[2].value + summary[3].value == summary[0].value (28+50+55=133)",
+    "rows[].code, name, status, businessType, salesOwner는 04_프로젝트코드 마스터와 일치",
+    "rows[].leadPm / modifier 모두 본부 17명 PMO 풀 (김책임/이수석/박PM/정책임/최PL/강책임)",
+    "selectedRow는 rows[]의 P2026001과 동일 값 사용",
+    "코드는 P + 연도(4) + 일련번호(3) 형식"
+  ],
+  "meta": {
+    "asOf": "2026-05-07",
+    "user": { "name": "김PMO 책임", "team": "PMO본부", "role": "관리자" },
+    "notifications": 3
+  },
+  "summary": [
+    { "id": "all",      "label": "전체 프로젝트", "value": 133, "unit": "건",
+      "tone": "blue",    "icon": "folder",
+      "hint": "등록된 전체 프로젝트" },
+    { "id": "proposal", "label": "제안 단계",     "value": 28,  "unit": "건",
+      "tone": "purple",  "icon": "execution",
+      "hint": "제안중 18 + 발표완료 10" },
+    { "id": "running",  "label": "수행 단계",     "value": 50,  "unit": "건",
+      "tone": "green",   "icon": "play",
+      "hint": "수행중 42 + 업무지원 8" },
+    { "id": "closed",   "label": "종료",          "value": 55,  "unit": "건",
+      "tone": "amber",   "icon": "check",
+      "breakdown": [
+        { "code": "win",  "label": "WIN",  "value": 14 },
+        { "code": "loss", "label": "LOSS", "value": 14 },
+        { "code": "drop", "label": "DROP", "value":  7 },
+        { "code": "done", "label": "완료", "value": 20 }
+      ] }
+  ],
+  "filters": {
+    "headquarters":   ["전체", "PMO본부"],
+    "teams":          ["전체", "PMO1팀", "PMO2팀", "기술지원팀"],
+    "businessTypes":  ["전체", "주사업", "부사업", "하도", "협력"],
+    "statuses":       ["전체", "제안중", "발표완료", "WIN", "LOSS", "DROP", "수행중", "업무지원", "완료"],
+    "leadPms":        ["전체", "김책임", "이수석", "박PM", "정책임", "최PL", "강책임"],
+    "salesOwners":    ["전체", "박영업", "김영빈", "이수영", "정수영"],
+    "from": "2025-01-01",
+    "to":   "2026-12-31"
+  },
+  "rows": [
+    {
+      "code": "P2026003", "name": "모바일 채널 고도화", "businessType": "부사업",
+      "status": "proposing", "amountText": "8.6억", "leadPm": "박PM", "salesOwner": "박영업",
+      "leadDept": "영업본부", "startDate": "2026-04-15", "endDate": "2026-06-30",
+      "remark": "RFP 정독 중", "execDept": "PMO본부",
+      "modifiedAt": "2026-05-03 18:40", "modifier": "박PM"
+    },
+    {
+      "code": "P2026007", "name": "공공기관 정보화 컨설팅", "businessType": "주사업",
+      "status": "proposing", "amountText": "12.4억", "leadPm": "김책임", "salesOwner": "이수영",
+      "leadDept": "공공사업본부", "startDate": "2026-05-02", "endDate": "2026-07-31",
+      "remark": "공공 사전규격 검토", "execDept": "PMO본부",
+      "modifiedAt": "2026-05-03 09:08", "modifier": "김책임"
+    },
+    {
+      "code": "P2026009", "name": "그룹사 ERP 통합 제안", "businessType": "주사업",
+      "status": "presented", "amountText": "21.0억", "leadPm": "박PM", "salesOwner": "박영업",
+      "leadDept": "영업본부", "startDate": "2026-04-20", "endDate": "2026-06-15",
+      "remark": "우선협상 결과 대기", "execDept": "PMO본부",
+      "modifiedAt": "2026-05-02 14:18", "modifier": "박PM"
+    },
+    {
+      "code": "P2026011", "name": "리테일 데이터 플랫폼", "businessType": "주사업",
+      "status": "win", "amountText": "16.8억", "leadPm": "최PL", "salesOwner": "김영빈",
+      "leadDept": "영업본부", "startDate": "2026-03-18", "endDate": "2026-12-31",
+      "remark": "수주 확정, 착수 준비", "execDept": "PMO본부",
+      "modifiedAt": "2026-04-30 09:15", "modifier": "최PL"
+    },
+    {
+      "code": "P2026005", "name": "물류 운영 최적화 PoC", "businessType": "부사업",
+      "status": "loss", "amountText": "4.2억", "leadPm": "최PL", "salesOwner": "정수영",
+      "leadDept": "영업본부", "startDate": "2026-02-10", "endDate": "2026-04-12",
+      "remark": "재제안 검토", "execDept": "PMO본부",
+      "modifiedAt": "2026-04-12 16:34", "modifier": "최PL"
+    },
+    {
+      "code": "P2026004", "name": "ERP 업그레이드 본사업", "businessType": "주사업",
+      "status": "running", "amountText": "18.5억", "leadPm": "정책임", "salesOwner": "박영업",
+      "leadDept": "영업본부", "startDate": "2026-02-01", "endDate": "2026-12-15",
+      "remark": "분석 단계 진행", "execDept": "PMO본부",
+      "modifiedAt": "2026-05-02 09:15", "modifier": "정책임"
+    },
+    {
+      "code": "P2026001", "name": "차세대 통합시스템 구축", "businessType": "주사업",
+      "status": "running", "amountText": "14억 / 11.9억", "leadPm": "김책임", "salesOwner": "김영빈",
+      "leadDept": "영업본부", "startDate": "2026-01-08", "endDate": "2026-11-30",
+      "remark": "마일스톤 1차 완료, 본부장 검토 완료", "execDept": "PMO본부",
+      "modifiedAt": "2026-05-07 14:32", "modifier": "김책임"
+    },
+    {
+      "code": "P2026002", "name": "그룹 데이터 플랫폼 구축", "businessType": "주사업",
+      "status": "running", "amountText": "9.8억", "leadPm": "이수석", "salesOwner": "김영빈",
+      "leadDept": "영업본부", "startDate": "2026-01-15", "endDate": "2026-09-30",
+      "remark": "데이터 표준화 작업 진행", "execDept": "PMO본부",
+      "modifiedAt": "2026-05-04 11:08", "modifier": "이수석"
+    },
+    {
+      "code": "P2026008", "name": "보안 관제 고도화", "businessType": "부사업",
+      "status": "running", "amountText": "6.4억", "leadPm": "이수석", "salesOwner": "정수영",
+      "leadDept": "영업본부", "startDate": "2026-03-02", "endDate": "2026-10-31",
+      "remark": "구축 진행", "execDept": "PMO본부",
+      "modifiedAt": "2026-04-29 11:15", "modifier": "이수석"
+    },
+    {
+      "code": "P2026006", "name": "클라우드 마이그레이션", "businessType": "하도",
+      "status": "support", "amountText": "11.3억", "leadPm": "강책임", "salesOwner": "정수영",
+      "leadDept": "영업본부", "startDate": "2026-02-20", "endDate": "2026-06-30",
+      "remark": "정기 운영 지원", "execDept": "PMO본부",
+      "modifiedAt": "2026-04-29 16:34", "modifier": "강책임"
+    },
+    {
+      "code": "P2026010", "name": "IT 운영 인력 상주", "businessType": "협력",
+      "status": "support", "amountText": "5.6억", "leadPm": "정책임", "salesOwner": "정수영",
+      "leadDept": "영업본부", "startDate": "2026-01-05", "endDate": "2026-12-31",
+      "remark": "상주 운영", "execDept": "PMO본부",
+      "modifiedAt": "2026-04-28 09:48", "modifier": "정책임"
+    },
+    {
+      "code": "P2025036", "name": "AI 챗봇 서비스 구축", "businessType": "주사업",
+      "status": "done", "amountText": "7.2억", "leadPm": "강책임", "salesOwner": "김영빈",
+      "leadDept": "영업본부", "startDate": "2025-04-01", "endDate": "2025-12-20",
+      "remark": "검수 완료", "execDept": "PMO본부",
+      "modifiedAt": "2025-12-22 17:30", "modifier": "강책임"
+    },
+    {
+      "code": "P2025028", "name": "고객 CRM 통합 구축", "businessType": "주사업",
+      "status": "done", "amountText": "8.6억", "leadPm": "김책임", "salesOwner": "박영업",
+      "leadDept": "영업본부", "startDate": "2025-02-15", "endDate": "2025-11-30",
+      "remark": "정상 종료", "execDept": "PMO본부",
+      "modifiedAt": "2025-12-01 09:48", "modifier": "김책임"
+    },
+    {
+      "code": "P2025021", "name": "보안관제센터 구축", "businessType": "부사업",
+      "status": "done", "amountText": "9.0억", "leadPm": "정책임", "salesOwner": "정수영",
+      "leadDept": "영업본부", "startDate": "2025-01-10", "endDate": "2025-10-31",
+      "remark": "정상 종료", "execDept": "PMO본부",
+      "modifiedAt": "2025-11-01 09:08", "modifier": "정책임"
+    },
+    {
+      "code": "P2025033", "name": "그룹웨어 고도화", "businessType": "주사업",
+      "status": "win", "amountText": "5.8억", "leadPm": "이수석", "salesOwner": "김영빈",
+      "leadDept": "영업본부", "startDate": "2025-08-12", "endDate": "2026-08-31",
+      "remark": "수주 후 착수", "execDept": "PMO본부",
+      "modifiedAt": "2025-08-23 14:18", "modifier": "이수석"
+    },
+    {
+      "code": "P2025040", "name": "사내 네트워크 고도화", "businessType": "하도",
+      "status": "win", "amountText": "7.4억", "leadPm": "박PM", "salesOwner": "정수영",
+      "leadDept": "영업본부", "startDate": "2025-09-01", "endDate": "2026-06-30",
+      "remark": "수주 확정", "execDept": "PMO본부",
+      "modifiedAt": "2025-09-12 10:12", "modifier": "박PM"
+    },
+    {
+      "code": "P2024045", "name": "공공 클라우드 전환 사업", "businessType": "주사업",
+      "status": "drop", "amountText": "-", "leadPm": "최PL", "salesOwner": "이수영",
+      "leadDept": "공공사업본부", "startDate": "2024-09-15", "endDate": "-",
+      "remark": "공고 취소", "execDept": "PMO본부",
+      "modifiedAt": "2024-10-02 11:20", "modifier": "최PL"
+    },
+    {
+      "code": "P2024039", "name": "스마트팩토리 PoC", "businessType": "부사업",
+      "status": "loss", "amountText": "3.6억", "leadPm": "강책임", "salesOwner": "정수영",
+      "leadDept": "영업본부", "startDate": "2024-07-20", "endDate": "2024-09-10",
+      "remark": "경쟁사 선정", "execDept": "PMO본부",
+      "modifiedAt": "2024-09-11 17:30", "modifier": "강책임"
+    },
+    {
+      "code": "P2024033", "name": "전사 IT 거버넌스 컨설팅", "businessType": "주사업",
+      "status": "presented", "amountText": "6.0억", "leadPm": "김책임", "salesOwner": "김영빈",
+      "leadDept": "영업본부", "startDate": "2024-04-08", "endDate": "2024-05-15",
+      "remark": "차기 예산편성 대기", "execDept": "PMO본부",
+      "modifiedAt": "2024-05-16 09:08", "modifier": "김책임"
+    },
+    {
+      "code": "P2024013", "name": "물류 SCM 고도화", "businessType": "협력",
+      "status": "drop", "amountText": "3.2억", "leadPm": "이수석", "salesOwner": "박영업",
+      "leadDept": "영업본부", "startDate": "2024-03-02", "endDate": "-",
+      "remark": "고객사 취소", "execDept": "PMO본부",
+      "modifiedAt": "2024-04-01 14:20", "modifier": "이수석"
+    }
+  ],
+  "selectedRow": {
+    "code": "P2026001",
+    "name": "차세대 통합시스템 구축",
+    "leadPm": "김책임",
+    "presentPm": "김책임",
+    "team": "PMO1팀 김책임 / 이수석 / 박PM, 기술지원팀 정책임 (총 4명)",
+    "period": "2026-01-08 ~ 2026-11-30",
+    "status": "running",
+    "businessType": "주사업",
+    "amountText": "14억 / 11.9억",
+    "submission": {
+      "datetime": "2026-02-10 (화) 09:30",
+      "format": "현장 제출",
+      "note": "견적서 첨부본 동봉"
+    },
+    "presentation": {
+      "datetime": "2026-03-05 (목) 14:00",
+      "format": "PT (대면 발표)",
+      "note": "본사 회의실 발표 진행"
+    },
+    "rfpNo": "ANN-2026-014",
+    "rfpDate": "2026-01-20 (화)",
+    "recentActivity": {
+      "datetime": "2026-05-07 (목) 14:32",
+      "lines": [
+        "상태가 \"제안중\"에서 \"발표완료\"로 변경되었습니다.",
+        "마일스톤 1차 완료 보고, 본부장 검토 완료"
+      ]
+    },
+    "memo": [
+      "고객 추가 요구사항 3건 접수, 영향도 검토 진행 중.",
+      "보안 요건이 일부 까다로워 DB 암호화 / 네트워크 이중화 검토 필요."
+    ]
+  },
+  "pagination": {
+    "totalCount": 133, "pageSize": 20,
+    "currentPage": 1, "totalPages": 7
+  }
+}

@@ -1,0 +1,47 @@
+{
+  "meta": {
+    "asOf": "2026-05-06",
+    "user": { "name": "김PMO 책임", "team": "PMO본부", "role": "관리자" },
+    "notifications": 3
+  },
+  "hero": {
+    "title": "PMO 업무수행 관리시스템",
+    "subtitle": "업무 수행 현황을 빠르게 확인하고, 주요 화면으로 이동하세요."
+  },
+  "quickLinks": [
+    { "id": "execution", "icon": "execution", "tone": "blue",   "title": "업무수행현황",  "desc": "프로젝트별\n업무 수행 현황 확인", "href": "#" },
+    { "id": "code",      "icon": "folder",    "tone": "green",  "title": "프로젝트코드",  "desc": "프로젝트 등록 및\n코드 관리",      "href": "#" },
+    { "id": "people",    "icon": "users",     "tone": "purple", "title": "인력재직현황",  "desc": "재직 인력 및\n월별 MM 관리",      "href": "#" },
+    { "id": "kpi",       "icon": "report",    "tone": "amber",  "title": "KPI 보고서",    "desc": "주간·월별\n가동률·가득률 보고서", "href": "#" }
+  ],
+  "kpis": [
+    { "id": "headcount",   "label": "현재 인원", "icon": "users",  "tone": "blue",   "value": 17,   "unit": "명", "delta": { "dir": "up", "abs": "1명"   } },
+    { "id": "running",     "label": "수행 인원", "icon": "users",  "tone": "green",  "value": 8,    "unit": "명", "delta": { "dir": "up", "abs": "1명"   } },
+    { "id": "proposing",   "label": "제안 인원", "icon": "users",  "tone": "purple", "value": 6,    "unit": "명", "delta": { "dir": "up", "abs": "1명"   } },
+    { "id": "idle",        "label": "대기 인원", "icon": "clock",  "tone": "amber",  "value": 3,    "unit": "명", "delta": { "dir": "down", "abs": "1명" } },
+    { "id": "utilization", "label": "가동률", "donut": true, "color": "brand", "value": 82.4, "unit": "%", "delta": { "dir": "up", "abs": "7.4%p" } },
+    { "id": "contract",    "label": "가득률", "donut": true, "color": "info",  "value": 47.1, "unit": "%", "delta": { "dir": "up", "abs": "3.3%p" } }
+  ],
+  "recentProjects": {
+    "rows": [
+      { "code": "P2026001", "name": "차세대 통합시스템 구축",   "businessType": "주사업", "status": "running",   "updatedAt": "2026-05-04 16:22", "updatedBy": "김책임" },
+      { "code": "P2026002", "name": "그룹 데이터 플랫폼 구축",  "businessType": "주사업", "status": "running",   "updatedAt": "2026-05-04 11:08", "updatedBy": "이수석" },
+      { "code": "P2026003", "name": "모바일 채널 고도화",       "businessType": "부사업", "status": "proposing", "updatedAt": "2026-05-03 18:40", "updatedBy": "박PM"   },
+      { "code": "P2026004", "name": "ERP 업그레이드",            "businessType": "주사업", "status": "win",       "updatedAt": "2026-05-02 09:15", "updatedBy": "정책임" },
+      { "code": "P2026005", "name": "물류 운영 최적화 PoC",      "businessType": "협력",   "status": "presented", "updatedAt": "2026-05-02 09:00", "updatedBy": "최PL"   },
+      { "code": "P2026007", "name": "공공기관 정보화 컨설팅",    "businessType": "주사업", "status": "support",   "updatedAt": "2026-04-30 14:32", "updatedBy": "강책임" },
+      { "code": "P2026008", "name": "헬스케어 BMT",              "businessType": "하도",   "status": "drop",      "updatedAt": "2026-04-29 10:08", "updatedBy": "오수석" },
+      { "code": "P2026006", "name": "스마트 팩토리 표준화",      "businessType": "주사업", "status": "done",      "updatedAt": "2026-04-30 17:55", "updatedBy": "관리자" }
+    ]
+  },
+  "monthSummary": {
+    "month": "2026-05",
+    "rows": [
+      { "id": "newProject",     "icon": "calendar", "tone": "blue",   "label": "신규 프로젝트",      "value": "2건"  },
+      { "id": "endingProject",  "icon": "check",    "tone": "green",  "label": "완료 예정 프로젝트", "value": "1건"  },
+      { "id": "headcountDelta", "icon": "users",    "tone": "purple", "label": "인력 변동",          "value": "+1명" },
+      { "id": "utilization",    "donut": true,      "color": "brand", "pct": 82.4, "label": "가동률", "value": "82.4%", "delta": { "dir": "up", "abs": "7.4%p" } },
+      { "id": "contract",       "donut": true,      "color": "info",  "pct": 47.1, "label": "가득률", "value": "47.1%", "delta": { "dir": "up", "abs": "3.3%p" } }
+    ]
+  }
+}

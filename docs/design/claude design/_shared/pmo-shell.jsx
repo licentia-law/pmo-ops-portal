@@ -34,7 +34,14 @@ const NAV = [
 
 const ROUTE_BY_ID = {
   home: "/01_홈/PMO%20Home.html",
+  dashboard: "/02_대시보드/PMO%20Dashboard.html",
   execution: "/03_업무수행현황/PMO%20Execution.html",
+  code: "/04_프로젝트코드/PMO%20Code.html",
+  "project-detail": "/05_프로젝트상세/PMO%20Project.html",
+  history: "/06_진행이력/PMO%20History.html",
+  idle: "/10_대기현황/PMO%20Idle.html",
+  weekly: "/11_주간현황/PMO%20Weekly.html",
+  monthly: "/12_월별가동현황/PMO%20Monthly.html",
 };
 
 /* current === item.id 로 활성 표시 */

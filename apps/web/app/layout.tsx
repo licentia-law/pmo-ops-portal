@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "PMO 업무수행 관리시스템",
+  title: {
+    default: "PMO-홈",
+    template: "PMO-%s"
+  },
   description: "PMO 업무수행 관리시스템 MVP scaffold"
 };
 

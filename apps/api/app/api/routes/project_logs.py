@@ -68,9 +68,18 @@ def create_project_log(
     log = ProjectLog(
         project_id=payload.project_id,
         status=payload.status,
+        previous_status=payload.previous_status,
+        next_status=payload.next_status,
+        category=payload.category,
         logged_at=payload.logged_at or datetime.utcnow(),
         author_name=payload.author_name or user.name,
+        author_team=payload.author_team,
+        summary=payload.summary,
         content=payload.content,
+        detail=payload.detail,
+        related_schedule_label=payload.related_schedule_label,
+        related_schedule_at=payload.related_schedule_at,
+        source_sheet=payload.source_sheet,
     )
     session.add(log)
     session.commit()

@@ -19,7 +19,11 @@ def next_code(session: DbSession) -> str:
 @router.get("")
 def list_project_codes(session: DbSession, params: ListParams = Depends()) -> dict[str, object]:
     statement = select(ProjectCode)
-    statement = apply_text_search(statement, params.q, [ProjectCode.code, ProjectCode.name, ProjectCode.owner_name])
+    statement = apply_text_search(
+        statement,
+        params.q,
+        [ProjectCode.code, ProjectCode.name, ProjectCode.owner_name, ProjectCode.sales_owner],
+    )
     if params.status:
         statement = statement.where(ProjectCode.status == ProjectStatus(params.status))
     if params.project_type:

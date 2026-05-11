@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import executionData from "../03_업무수행현황/execution.json";
 
 type IconName =
@@ -21,7 +21,8 @@ type IconName =
   | "play"
   | "execution"
   | "report"
-  | "circle";
+  | "circle"
+  | "plus";
 
 const ICONS: Record<IconName, string> = {
   home: "M3 11.5L12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-7h-6v7H4a1 1 0 0 1-1-1z",
@@ -41,7 +42,8 @@ const ICONS: Record<IconName, string> = {
   play: "M8 5.5v13l11-6.5z",
   execution: "M14.5 4.5l5 5L8 21H3v-5zM13 6l5 5",
   report: "M5 4h14a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM9 17v-4M13 17v-7M17 17v-2",
-  circle: "M12 5a7 7 0 1 0 0 14 7 7 0 0 0 0-14z"
+  circle: "M12 5a7 7 0 1 0 0 14 7 7 0 0 0 0-14z",
+  plus: "M12 5v14M5 12h14"
 };
 
 function Icon({ name, size = 16, stroke = 1.6, fill = "none", style }: { name: IconName; size?: number; stroke?: number; fill?: string; style?: CSSProperties }) {
@@ -154,15 +156,43 @@ function BizChip({ type }: { type: string }) {
   return <span style={{ display: "inline-flex", alignItems: "center", padding: "2px 8px", borderRadius: 6, fontSize: 14, fontWeight: 600, lineHeight: 1.5, color: t.fg, background: t.bg }}>{type}</span>;
 }
 
-function SummaryCard({ item }: { item: any }) {
+function formatAmountPair(amountText: string) {
+  const raw = String(amountText ?? "").trim();
+  if (!raw || raw === "-") return "-";
+  const parts = raw.split("/").map((p) => p.trim()).filter(Boolean);
+  if (parts.length >= 2) return `${parts[0]}/${parts[1]}`;
+  return `${parts[0]}/${parts[0]}`;
+}
+
+function SummaryCard({ item, active, onClick }: { item: any; active: boolean; onClick: () => void }) {
   const iconMap: Record<string, IconName> = { all: "folder", proposal: "execution", running: "play", closed: "circle" };
   const toneMap: Record<string, string> = { all: "#3b6df0", proposal: "#ede5fd", running: "#dcf2e3", closed: "#f08c1f" };
   const fgMap: Record<string, string> = { all: "#fff", proposal: "#7c3aed", running: "#16a34a", closed: "#fff" };
   return (
-    <div className="pmo-panel" style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 12, minHeight: 136 }}>
+    <button
+      onClick={onClick}
+      className="pmo-panel"
+      style={{
+        textAlign: "left",
+        padding: "20px 22px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+        minHeight: 136,
+        cursor: "pointer",
+        border: active ? "1px solid var(--brand-line)" : "1px solid var(--line-2)",
+        background: active ? "var(--brand-bg)" : "var(--bg-1)",
+        boxShadow: active ? "var(--sh-card), 0 0 0 1px var(--brand-line)" : "var(--sh-card)"
+      }}
+    >
       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
         <span style={{ width: 56, height: 56, borderRadius: 14, background: toneMap[item.id], color: fgMap[item.id], display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-          <Icon name={iconMap[item.id]} size={24} stroke={item.id === "proposal" ? 1.8 : 0} fill={item.id === "proposal" ? "none" : "currentColor"} />
+          <Icon
+            name={iconMap[item.id]}
+            size={item.id === "closed" ? 34 : 24}
+            stroke={item.id === "proposal" ? 2.2 : 0}
+            fill={item.id === "proposal" ? "none" : "currentColor"}
+          />
         </span>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <span style={{ fontSize: 15, color: "var(--tx-3)", fontWeight: 600 }}>{item.label}</span>
@@ -170,14 +200,32 @@ function SummaryCard({ item }: { item: any }) {
         </div>
       </div>
       <div style={{ fontSize: 14, color: "var(--tx-4)", lineHeight: 1.4 }}>{item.hint ?? (item.breakdown ? item.breakdown.map((b: any) => `${b.label} ${b.value}`).join(" · ") : "")}</div>
-    </div>
+    </button>
   );
 }
 
 export default function ExecutionPage() {
   const data = executionData as any;
+  const [activeSummary, setActiveSummary] = useState<string | null>(null);
   const [selectedCode, setSelectedCode] = useState(data.selectedRow.code);
-  const selectedRow = useMemo(() => data.rows.find((row: any) => row.code === selectedCode) ?? data.rows[0], [data.rows, selectedCode]);
+  const statusFilterBySummary: Record<string, string[]> = {
+    all: [],
+    proposal: ["proposing", "presented"],
+    running: ["running", "support"],
+    closed: ["win", "loss", "drop", "done"]
+  };
+  const filteredRows = useMemo(() => {
+    if (!activeSummary) return data.rows;
+    const allowed = statusFilterBySummary[activeSummary] ?? [];
+    if (allowed.length === 0) return data.rows;
+    return data.rows.filter((row: any) => allowed.includes(row.status));
+  }, [activeSummary, data.rows]);
+  const selectedRow = useMemo(() => filteredRows.find((row: any) => row.code === selectedCode) ?? filteredRows[0] ?? data.rows[0], [filteredRows, selectedCode, data.rows]);
+  useEffect(() => {
+    if (!filteredRows.some((row: any) => row.code === selectedCode) && filteredRows[0]) {
+      setSelectedCode(filteredRows[0].code);
+    }
+  }, [filteredRows, selectedCode]);
   const currentDetail = selectedCode === data.selectedRow.code
     ? data.selectedRow
     : {
@@ -192,10 +240,11 @@ export default function ExecutionPage() {
         recentActivity: { datetime: selectedRow.modifiedAt, lines: [selectedRow.remark] },
         memo: [selectedRow.remark]
       };
-  const normalizedAmount = String(currentDetail.amountText ?? "").split("/")[0].trim();
+  const amountPair = formatAmountPair(currentDetail.amountText ?? "");
   const teamText = String(currentDetail.team ?? "");
   const teamHead = teamText.replace(/\s*\(총\s*\d+명\)\s*$/, "").trim();
   const teamCount = teamText.match(/\(총\s*\d+명\)/)?.[0] ?? "";
+  const summaryFilterLabel = activeSummary ? (data.summary.find((s: any) => s.id === activeSummary)?.label ?? null) : null;
 
   return (
     <AppShell user={data.meta.user} notifications={data.meta.notifications} current="execution" pageTitle="업무수행현황">
@@ -224,23 +273,39 @@ export default function ExecutionPage() {
             <input placeholder="프로젝트명, 코드, PM, 메모 검색" style={{ fontSize: 14 }} />
           </label>
           <div style={{ display: "flex", gap: 8 }}>
-            <button className="pmo-btn pmo-btn-primary" style={{ background: "var(--brand)", color: "#fff", borderColor: "var(--brand)" }}>조회</button>
+            <button className="pmo-btn pmo-btn-primary" style={{ background: "var(--brand)", color: "#fff", borderColor: "var(--brand)" }}>
+              <Icon name="search" size={14} stroke={2} style={{ marginRight: 4 }} />
+              조회
+            </button>
             <button className="pmo-btn">초기화</button>
             <button className="pmo-btn"><Icon name="report" size={14} stroke={1.8} style={{ marginRight: 4 }} />엑셀 내보내기</button>
-            <button className="pmo-btn pmo-btn-primary" style={{ background: "var(--brand)", color: "#fff", borderColor: "var(--brand)" }}>신규 프로젝트 등록</button>
+            <button className="pmo-btn pmo-btn-primary" style={{ background: "var(--brand)", color: "#fff", borderColor: "var(--brand)" }}>
+              <Icon name="plus" size={14} stroke={2} style={{ marginRight: 4 }} />
+              신규 프로젝트 등록
+            </button>
           </div>
         </div>
       </section>
 
       <section style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, marginBottom: 16 }}>
-        {data.summary.map((item: any) => <SummaryCard key={item.id} item={item} />)}
+        {data.summary.map((item: any) => (
+          <SummaryCard
+            key={item.id}
+            item={item}
+            active={activeSummary === item.id}
+            onClick={() => setActiveSummary(activeSummary === item.id ? null : item.id)}
+          />
+        ))}
       </section>
 
       <section style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 360px", gap: 16 }}>
         <div className="pmo-panel" style={{ padding: 0, overflow: "hidden" }}>
           <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--line-2)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <strong style={{ fontSize: 18 }}>프로젝트 목록</strong>
-            <span style={{ fontSize: 14, color: "var(--tx-4)" }}>총 {data.pagination.totalCount}건</span>
+            <span style={{ fontSize: 14, color: "var(--tx-4)" }}>
+              총 {filteredRows.length}건
+              {summaryFilterLabel ? <span style={{ color: "var(--brand)", fontWeight: 600 }}> · 필터: {summaryFilterLabel}</span> : null}
+            </span>
           </div>
           <div style={{ overflowX: "auto" }}>
             <table className="pmo-table pmo-table--recent">
@@ -250,13 +315,13 @@ export default function ExecutionPage() {
                 </tr>
               </thead>
               <tbody>
-                {data.rows.slice(0, 12).map((row: any) => (
+                {filteredRows.slice(0, 12).map((row: any) => (
                   <tr key={row.code} onClick={() => setSelectedCode(row.code)} style={{ cursor: "pointer", background: selectedCode === row.code ? "var(--brand-bg)" : undefined }}>
                     <td className="num" style={{ color: "var(--brand)", fontWeight: 700 }}>{row.code}</td>
                     <td style={{ fontWeight: 600 }}>{row.name}</td>
                     <td><BizChip type={row.businessType} /></td>
                     <td><StatusBadge code={row.status} /></td>
-                    <td className="num">{row.amountText}</td>
+                    <td className="num">{formatAmountPair(row.amountText)}</td>
                     <td>{row.leadPm}</td>
                     <td>{row.salesOwner}</td>
                     <td className="num">{row.modifiedAt}</td>
@@ -309,7 +374,7 @@ export default function ExecutionPage() {
             <div className="pmo-kv"><span style={{ fontWeight: 700, color: "var(--tx-2)" }}>프로젝트 기간</span><span>{currentDetail.period}</span></div>
             <div className="pmo-kv"><span style={{ fontWeight: 700, color: "var(--tx-2)" }}>상태</span><StatusBadge code={currentDetail.status} fontSize={14} /></div>
             <div className="pmo-kv"><span style={{ fontWeight: 700, color: "var(--tx-2)" }}>사업유형</span><BizChip type={currentDetail.businessType} /></div>
-            <div className="pmo-kv"><span style={{ fontWeight: 700, color: "var(--tx-2)" }}>총 사업금액</span><strong>{normalizedAmount}</strong></div>
+            <div className="pmo-kv"><span style={{ fontWeight: 700, color: "var(--tx-2)" }}>사업금액</span><strong>{amountPair}</strong></div>
           </div>
 
           <div style={{ borderTop: "1px solid var(--line-2)", marginTop: 12, paddingTop: 12, display: "grid", gap: 8, fontSize: 14 }}>

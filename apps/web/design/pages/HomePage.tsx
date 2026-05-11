@@ -120,7 +120,7 @@ function Donut({ value = 0, size = 56, stroke = 7, color = "var(--brand)", track
 }
 
 function Delta({ dir = "up", abs }: { dir?: "up" | "down"; abs: string }) {
-  return <span className={`pmo-delta pmo-delta--${dir}`}><span className="pmo-delta__tri">{dir === "up" ? "▲" : "▼"}</span>{abs}</span>;
+  return <span className={`pmo-delta pmo-delta--${dir}`}><span className="pmo-delta__tri" style={{ fontSize: 11 }}>{dir === "up" ? "▲" : "▼"}</span>{abs}</span>;
 }
 
 const STATUS_LABEL: Record<string, string> = {

@@ -32,9 +32,14 @@ const NAV = [
   ]},
 ];
 
+const ROUTE_BY_ID = {
+  home: "/01_홈/PMO%20Home.html",
+  execution: "/03_업무수행현황/PMO%20Execution.html",
+};
+
 /* current === item.id 로 활성 표시 */
 const SidebarLogo = () => (
-  <a href="#" style={{
+  <a href={ROUTE_BY_ID.home} style={{
     display: "flex", alignItems: "center", gap: 10,
     padding: "0 16px", height: 64, flex: "0 0 auto",
     borderBottom: "1px solid var(--line-2)",
@@ -61,8 +66,9 @@ const SidebarLogo = () => (
 
 const SidebarItem = ({ id, label, current, indent }) => {
   const active = id === current;
+  const href = ROUTE_BY_ID[id] || "#";
   return (
-    <a href="#" style={{
+    <a href={href} style={{
       display: "flex", alignItems: "center",
       height: 36, padding: indent ? "0 16px 0 44px" : "0 16px",
       borderRadius: 8, margin: "0 8px",
@@ -120,8 +126,9 @@ const Sidebar = ({ current = "home" }) => (
       {NAV.map((node) => {
         if (node.kind === "item") {
           const active = node.id === current;
+          const href = ROUTE_BY_ID[node.id] || "#";
           return (
-            <a key={node.id} href="#" style={{
+            <a key={node.id} href={href} style={{
               display: "flex", alignItems: "center", gap: 10,
               height: 38, padding: "0 12px", margin: "0 8px 6px",
               borderRadius: 8,

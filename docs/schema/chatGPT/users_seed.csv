@@ -1,0 +1,13 @@
+﻿id,email,name,permission,data_scope,organization_role,team_name
+d22a2c2f-a59f-5d14-9d8d-44d30e4feb4c,user01@pmo.local,고광종,read_only,all,head,PMO1팀
+4f63ba6a-aee7-5105-8c7f-4da87c84d70e,user02@pmo.local,심우정,general_editor,headquarters,team_lead,PMO2팀
+bead90c4-2115-5311-b210-638a3741c15d,user03@pmo.local,이광만,project_editor,team,member,기술지원팀
+eace2e98-ced1-56dd-930f-d4e3c51d7e25,user04@pmo.local,조양규,admin,own_projects,pm,PMO1팀
+bb9f15e3-486d-5934-919b-8c24c1cde8cf,user05@pmo.local,조재훈,read_only,all,pl,PMO2팀
+b4d50094-7340-5503-b75f-562acf8f9d0a,user06@pmo.local,심성훈,general_editor,headquarters,other,기술지원팀
+99059e9f-0960-5856-9d77-d11ea0ee2123,user07@pmo.local,김성필,project_editor,team,head,PMO1팀
+02b3af1e-28ad-5987-9a92-535e5f5aed80,user08@pmo.local,김찬호,admin,own_projects,team_lead,PMO2팀
+281decd0-d04f-5459-a5e9-08746c5e601c,user09@pmo.local,이문희,read_only,all,member,기술지원팀
+8a8ef05c-5937-50cc-9553-7be3d2e43a4c,user10@pmo.local,박윤승,general_editor,headquarters,pm,PMO1팀
+4d86741e-0765-5df7-a701-f165cdced6c6,user11@pmo.local,이운정,project_editor,team,pl,PMO2팀
+4d39dd9d-fe14-5505-8e60-a87941dadb3c,user12@pmo.local,정명용,admin,own_projects,other,기술지원팀

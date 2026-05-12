@@ -1,0 +1,13 @@
+﻿user_id,login_id,user_name,organization_id,team_id,organization_role,permission_level,data_scope,account_status,email,source_type
+USER-0001,user001,고광종,ORG-004,TEAM-004,본부장,관리자,전체,활성,user001@pmo.local,scenario
+USER-0002,user002,심우정,ORG-004,TEAM-004,팀장,일반 수정 가능,소속 본부,활성,user002@pmo.local,scenario
+USER-0003,user003,이광만,ORG-004,TEAM-004,팀원,프로젝트 담당 수정 가능,본인 프로젝트,활성,user003@pmo.local,scenario
+USER-0004,user004,조양규,ORG-004,TEAM-004,팀원,조회 전용,소속 팀,활성,user004@pmo.local,scenario
+USER-0005,user005,조재훈,ORG-004,TEAM-004,본부장,관리자,전체,활성,user005@pmo.local,scenario
+USER-0006,user006,심성훈,ORG-004,TEAM-004,팀장,일반 수정 가능,소속 본부,활성,user006@pmo.local,scenario
+USER-0007,user007,김성필,ORG-004,TEAM-004,팀원,프로젝트 담당 수정 가능,본인 프로젝트,활성,user007@pmo.local,scenario
+USER-0008,user008,김찬호,ORG-004,TEAM-004,팀원,조회 전용,소속 팀,활성,user008@pmo.local,scenario
+USER-0009,user009,이문희,ORG-004,TEAM-004,본부장,관리자,전체,활성,user009@pmo.local,scenario
+USER-0010,user010,박윤승,ORG-004,TEAM-004,팀장,일반 수정 가능,소속 본부,활성,user010@pmo.local,scenario
+USER-0011,user011,이운정,ORG-004,TEAM-004,팀원,프로젝트 담당 수정 가능,본인 프로젝트,비활성,user011@pmo.local,scenario
+USER-0012,user012,정명용,ORG-004,TEAM-004,팀원,조회 전용,소속 팀,비활성,user012@pmo.local,scenario

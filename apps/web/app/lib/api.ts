@@ -133,3 +133,7 @@ export function createProjectLog(payload: Partial<ProjectLogRecord>) {
 export function getProjectLog(logId: string) {
   return request<ProjectLogRecord>(`/project-logs/${logId}`);
 }
+
+export function getP1Screen<T = unknown>(screen: string) {
+  return request<T>(`/p1-screens/${screen}`);
+}

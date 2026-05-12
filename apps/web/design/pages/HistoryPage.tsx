@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import historyData from "../06_진행이력/history.json";
+import { getP1Screen } from "../../app/lib/api";
 
 type IconName =
   | "home" | "briefcase" | "users" | "trending" | "settings"
@@ -185,9 +185,23 @@ function SelectedDetailPanel({ log, onClose }: { log: any; onClose: () => void }
 }
 
 export default function HistoryPage() {
-  const data = historyData as any;
-  const [selectedId, setSelectedId] = useState<number | null>(data.logs[0]?.id ?? null);
-  const selectedLog = useMemo(() => data.logs.find((l: any) => l.id === selectedId), [data.logs, selectedId]);
+  const [data, setData] = useState<any | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  useEffect(() => {
+    let alive = true;
+    getP1Screen("history").then((result) => {
+      if (alive) {
+        const payload = result.data as any;
+        setData(payload);
+        setSelectedId(payload.logs[0]?.id ?? null);
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const selectedLog = useMemo(() => (data?.logs ?? []).find((l: any) => l.id === selectedId), [data, selectedId]);
+  if (!data) return null;
   return <AppShell user={data.meta.user} notifications={data.meta.notifications} current="history" pageTitle="진행이력">
     <HistoryFilter filters={data.filters} />
     <SummaryRow items={data.summary} />

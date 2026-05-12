@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.common import error_envelope
-from app.api.routes import health, project_codes, project_logs, projects
+from app.api.routes import health, p1_screens, project_codes, project_logs, projects
 from app.core.config import settings
 
 app = FastAPI(title="PMO 업무수행 관리시스템 API", version="0.1.0")
@@ -20,6 +20,7 @@ app.include_router(health.router, prefix="/api")
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 app.include_router(project_codes.router, prefix="/api/project-codes", tags=["project-codes"])
 app.include_router(project_logs.router, prefix="/api/project-logs", tags=["project-logs"])
+app.include_router(p1_screens.router, prefix="/api/p1-screens", tags=["p1-screens"])
 
 
 @app.exception_handler(HTTPException)

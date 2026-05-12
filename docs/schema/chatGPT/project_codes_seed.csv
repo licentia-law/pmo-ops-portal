@@ -1,0 +1,134 @@
+﻿id,code,name,project_type,status,certainty,sales_department,sales_owner,support_lead,owner_name,start_date,end_date,is_active,source_sheet,note
+60d3e21f-0d8a-5300-8dfa-ea49f73fc1f1,P2026001,차세대 통합시스템 구축,main,running,우세,전략사업1본부,김영업,이정재,이정재,2026-02-01,2026-12-31,True,scenario,representative project code
+37441d13-6144-5e83-98b5-a77b30f32f6e,P2026002,미래에셋자산운용 IDC이전사업,sub,running,경쟁,전략사업1본부,구민청 수석,이광만 이사,이광만 이사,,,True,프로젝트코드,original-based project code
+6a2fcc52-4298-5be3-b455-1c4d0301bc97,P2026003,한전산업개발 빌링시스템 고도화 사업,subcontract,running,우세,ICT사업부문,정영덕 이사,정명용 책임,정명용 책임,,,True,프로젝트코드,original-based project code
+22ec102f-2156-549d-940c-3095a877e22a,P2026004,감사원 2026년~2027년 감사원 정보인프라 유지관리 사업(2년),partner,running,경쟁,전략사업1본부,김형기 이사,정명용 책임,정명용 책임,,,True,프로젝트코드,original-based project code
+23f0d1c2-4ac0-5b58-887b-79af47f77e4e,P2026005,한국해양진흥공사 ’26~’29년 정보시스템 통합 유지보수 용역(3년),main,running,경쟁,전략사업1본부,이충렬 상무,이광만 이사,이광만 이사,,,True,프로젝트코드,original-based project code
+dc8ff713-fe98-57d7-b644-b006d60bd22f,P2026006,신한은행 Endpoint 위협식별 및 탐지역량 강화를 위한 EDR시스템 구축,sub,running,경쟁,DIS본부,하상문 이사,심우정 이사,심우정 이사,,,True,프로젝트코드,original-based project code
+7d8e3ad5-27fc-5041-b8b4-240f8479343a,P2026007,삼성카드 IT자산 위험 관리시스템 구축,subcontract,running,단독,전략사업1본부,김용중 수석,이광만 이사,이광만 이사,,,True,프로젝트코드,original-based project code
+12eb8763-8d81-5369-a3c9-9f73c4deff42,P2026008,저축은행중앙회 사이버 위협 대응 내외부 통합 보안 인프라 구축 사업,partner,running,단독,전략사업1본부,박태민 수석,심우정 이사,심우정 이사,,,True,프로젝트코드,original-based project code
+1b3ee70e-3f36-53a7-ae1d-12a5c96d77ed,P2026009,삼성증권 IT자산 위험관리 시스템 구축,main,running,단독,전략사업1본부,이희철 책임,심우정 이사,심우정 이사,,,True,프로젝트코드,original-based project code
+1a743976-6f08-5c4c-a092-35a7f1c2dbab,P2026010,노원구 2026년 정보통신장비 교체 및 보강 계약(긴급),sub,running,단독,IT사업부문,정해영 책임,이광만 이사,이광만 이사,,,True,프로젝트코드,original-based project code
+442ae6da-2363-53b7-8c64-1a4063e619fd,P2026011,하나은행 차세대 디도스(DDoS) 방어 장비 도입,subcontract,running,단독,DIS본부,하상문 이사,조재훈 이사,조재훈 이사,,,True,프로젝트코드,original-based project code
+bac01550-1663-53a5-bd82-7ca112f379be,P2026012,프로젝트 012 통합 운영 사업,partner,running,확보,PMO본부,영업대표5,정명용,박선영,2026-06-01,2026-03-28,True,synthetic,pagination and filter verification
+a4e53be2-bfcd-5238-af00-c738b12103ea,P2026013,프로젝트 013 통합 운영 사업,main,running,우세,ICT사업부문,영업대표6,박선영,박승준,2026-01-01,2026-04-28,True,synthetic,pagination and filter verification
+73a5705f-b570-53a8-8407-98e3cc068f69,P2026014,프로젝트 014 통합 운영 사업,sub,running,경쟁,IT사업부문,영업대표7,박승준,조승현,2026-02-01,2026-05-28,True,synthetic,pagination and filter verification
+398867ef-7189-5023-a401-1cf15213ec82,P2026015,프로젝트 015 통합 운영 사업,subcontract,running,열세,DIS본부,영업대표1,조승현,최낙영,2026-03-01,2026-06-28,True,synthetic,pagination and filter verification
+4337899b-b946-5fa9-aec7-d1c42b157624,P2026016,프로젝트 016 통합 운영 사업,partner,running,확보,전략사업1본부,영업대표2,최낙영,이택호,2026-04-01,2026-07-28,True,synthetic,pagination and filter verification
+51a0e24a-06fc-5736-89c6-47043d32d081,P2026017,프로젝트 017 통합 운영 사업,main,running,우세,PMO본부,영업대표3,이택호,고광종,2026-05-01,2026-08-28,True,synthetic,pagination and filter verification
+b90001c8-6c7f-5fbb-bf98-8061e9de2055,P2026018,프로젝트 018 통합 운영 사업,sub,running,경쟁,ICT사업부문,영업대표4,고광종,심우정,2026-06-01,2026-09-28,True,synthetic,pagination and filter verification
+d34df181-033c-5db4-88ed-4ba696db5014,P2026019,프로젝트 019 통합 운영 사업,subcontract,running,열세,IT사업부문,영업대표5,심우정,이광만,2026-01-01,2026-10-28,True,synthetic,pagination and filter verification
+80cd1a19-db5f-5988-890b-ac151d942dd3,P2026020,프로젝트 020 통합 운영 사업,partner,running,확보,DIS본부,영업대표6,이광만,조양규,2026-02-01,2026-11-28,True,synthetic,pagination and filter verification
+d27ca2c6-270f-5a28-8775-191b7d9c94c9,P2026021,프로젝트 021 통합 운영 사업,main,running,우세,전략사업1본부,영업대표7,조양규,조재훈,2026-03-01,2026-12-28,True,synthetic,pagination and filter verification
+0c5f6449-aebf-5747-94ac-5b6c3d53a9bb,P2026022,프로젝트 022 통합 운영 사업,sub,running,경쟁,PMO본부,영업대표1,조재훈,심성훈,2026-04-01,2026-01-28,True,synthetic,pagination and filter verification
+76e6ce86-247b-53db-aae5-303783a139c5,P2026023,프로젝트 023 통합 운영 사업,subcontract,running,열세,ICT사업부문,영업대표2,심성훈,김성필,2026-05-01,2026-02-28,True,synthetic,pagination and filter verification
+f7f632aa-b60f-5563-9bfc-aff5ad1ee782,P2026024,프로젝트 024 통합 운영 사업,partner,running,확보,IT사업부문,영업대표3,김성필,김찬호,2026-06-01,2026-03-28,True,synthetic,pagination and filter verification
+0786779e-03c5-5bab-8d33-9eb5e78896f6,P2026025,프로젝트 025 통합 운영 사업,main,running,우세,DIS본부,영업대표4,김찬호,이문희,2026-01-01,2026-04-28,True,synthetic,pagination and filter verification
+15dd62ed-3ae9-57fd-8b13-fa59eb77a26a,P2026026,프로젝트 026 통합 운영 사업,sub,running,경쟁,전략사업1본부,영업대표5,이문희,박윤승,2026-02-01,2026-05-28,True,synthetic,pagination and filter verification
+fcad1db9-f150-564b-9c7d-06da1de7f718,P2026027,프로젝트 027 통합 운영 사업,subcontract,running,열세,PMO본부,영업대표6,박윤승,이운정,2026-03-01,2026-06-28,True,synthetic,pagination and filter verification
+09b491e2-f8ae-540c-a5bc-e821df97a09b,P2026028,프로젝트 028 통합 운영 사업,partner,running,확보,ICT사업부문,영업대표7,이운정,정명용,2026-04-01,2026-07-28,True,synthetic,pagination and filter verification
+244e377b-adad-53e7-bc51-16356d8e5ddd,P2026029,프로젝트 029 통합 운영 사업,main,running,우세,IT사업부문,영업대표1,정명용,박선영,2026-05-01,2026-08-28,True,synthetic,pagination and filter verification
+23ad41f1-2064-5a02-95fa-2200e9d92408,P2026030,프로젝트 030 통합 운영 사업,sub,running,경쟁,DIS본부,영업대표2,박선영,박승준,2026-06-01,2026-09-28,True,synthetic,pagination and filter verification
+717db7b4-352b-516d-85c6-9aaaa33f0718,P2026031,프로젝트 031 통합 운영 사업,subcontract,support,열세,전략사업1본부,영업대표3,박승준,조승현,2026-01-01,2026-10-28,True,synthetic,pagination and filter verification
+83dca735-0e21-508c-b9bb-37159c1fb75a,P2026032,프로젝트 032 통합 운영 사업,partner,support,확보,PMO본부,영업대표4,조승현,최낙영,2026-02-01,2026-11-28,True,synthetic,pagination and filter verification
+d1e42471-6c4a-52cc-b381-ca4a131c0f0e,P2026033,프로젝트 033 통합 운영 사업,main,support,우세,ICT사업부문,영업대표5,최낙영,이택호,2026-03-01,2026-12-28,True,synthetic,pagination and filter verification
+4f26c34c-8ffe-50ac-9be9-862246994253,P2026034,프로젝트 034 통합 운영 사업,sub,support,경쟁,IT사업부문,영업대표6,이택호,고광종,2026-04-01,2026-01-28,True,synthetic,pagination and filter verification
+798e7c1b-0bad-576f-ac38-2ba47c3f9c52,P2026035,프로젝트 035 통합 운영 사업,subcontract,support,열세,DIS본부,영업대표7,고광종,심우정,2026-05-01,2026-02-28,True,synthetic,pagination and filter verification
+edd89496-a845-5a70-bafb-c410256a8501,P2026036,프로젝트 036 통합 운영 사업,partner,support,확보,전략사업1본부,영업대표1,심우정,이광만,2026-06-01,2026-03-28,True,synthetic,pagination and filter verification
+ffb1edf5-9ce6-5e36-82d4-0e813a85f56f,P2026037,프로젝트 037 통합 운영 사업,main,support,우세,PMO본부,영업대표2,이광만,조양규,2026-01-01,2026-04-28,True,synthetic,pagination and filter verification
+9c7c3ca4-eb0e-5309-9616-43af984448a4,P2026038,프로젝트 038 통합 운영 사업,sub,support,경쟁,ICT사업부문,영업대표3,조양규,조재훈,2026-02-01,2026-05-28,True,synthetic,pagination and filter verification
+84c49810-c363-5a0a-995e-4db651559726,P2026039,프로젝트 039 통합 운영 사업,subcontract,support,열세,IT사업부문,영업대표4,조재훈,심성훈,2026-03-01,2026-06-28,True,synthetic,pagination and filter verification
+5f32c100-2263-598e-bfab-794ef0c983a4,P2026040,프로젝트 040 통합 운영 사업,partner,support,확보,DIS본부,영업대표5,심성훈,김성필,2026-04-01,2026-07-28,True,synthetic,pagination and filter verification
+753b858d-24f8-5277-941d-57ba1106d329,P2026041,프로젝트 041 통합 운영 사업,main,support,우세,전략사업1본부,영업대표6,김성필,김찬호,2026-05-01,2026-08-28,True,synthetic,pagination and filter verification
+80aad13c-295d-5fac-8dd7-e7853d00fe75,P2026042,프로젝트 042 통합 운영 사업,sub,support,경쟁,PMO본부,영업대표7,김찬호,이문희,2026-06-01,2026-09-28,True,synthetic,pagination and filter verification
+03f55848-d694-5401-9c9a-51f6a5534d63,P2026043,프로젝트 043 통합 운영 사업,subcontract,support,열세,ICT사업부문,영업대표1,이문희,박윤승,2026-01-01,2026-10-28,True,synthetic,pagination and filter verification
+a3f8d862-009c-50a6-87cc-422b1ea77d74,P2026044,프로젝트 044 통합 운영 사업,partner,support,확보,IT사업부문,영업대표2,박윤승,이운정,2026-02-01,2026-11-28,True,synthetic,pagination and filter verification
+743aceda-8f64-5b4f-88e9-809332af1e93,P2026045,프로젝트 045 통합 운영 사업,main,support,우세,DIS본부,영업대표3,이운정,정명용,2026-03-01,2026-12-28,True,synthetic,pagination and filter verification
+d6820f33-9d8f-5d82-81a9-222cc358eb1a,P2026046,프로젝트 046 통합 운영 사업,sub,support,경쟁,전략사업1본부,영업대표4,정명용,박선영,2026-04-01,2026-01-28,True,synthetic,pagination and filter verification
+68f22a09-3b3f-585e-8015-fad34712862a,P2026047,프로젝트 047 통합 운영 사업,subcontract,support,열세,PMO본부,영업대표5,박선영,박승준,2026-05-01,2026-02-28,True,synthetic,pagination and filter verification
+544e662d-fd9b-5997-ae4f-743be4f7147b,P2026048,프로젝트 048 통합 운영 사업,partner,support,확보,ICT사업부문,영업대표6,박승준,조승현,2026-06-01,2026-03-28,True,synthetic,pagination and filter verification
+1c40b57b-e322-52f8-9e11-1be063e5457e,P2026049,프로젝트 049 통합 운영 사업,main,support,우세,IT사업부문,영업대표7,조승현,최낙영,2026-01-01,2026-04-28,True,synthetic,pagination and filter verification
+490aa609-6189-53ab-be57-4d26419bf598,P2026050,프로젝트 050 통합 운영 사업,sub,support,경쟁,DIS본부,영업대표1,최낙영,이택호,2026-02-01,2026-05-28,True,synthetic,pagination and filter verification
+f8cb94b7-fa8d-5119-af36-fe169cf75255,P2026051,프로젝트 051 통합 운영 사업,subcontract,proposing,열세,전략사업1본부,영업대표2,이택호,고광종,2026-03-01,2026-06-28,True,synthetic,pagination and filter verification
+19f9ba5e-36b8-57a5-aac7-3f370b7f420d,P2026052,프로젝트 052 통합 운영 사업,partner,proposing,확보,PMO본부,영업대표3,고광종,심우정,2026-04-01,2026-07-28,True,synthetic,pagination and filter verification
+8329216a-c11a-5691-9e6e-1dde7e14bbec,P2026053,프로젝트 053 통합 운영 사업,main,proposing,우세,ICT사업부문,영업대표4,심우정,이광만,2026-05-01,2026-08-28,True,synthetic,pagination and filter verification
+0f644647-a480-51c1-bc75-577ec0ed1d29,P2026054,프로젝트 054 통합 운영 사업,sub,proposing,경쟁,IT사업부문,영업대표5,이광만,조양규,2026-06-01,2026-09-28,True,synthetic,pagination and filter verification
+5b37c8ff-4615-5f29-a5d4-74d5ae471e99,P2026055,프로젝트 055 통합 운영 사업,subcontract,proposing,열세,DIS본부,영업대표6,조양규,조재훈,2026-01-01,2026-10-28,True,synthetic,pagination and filter verification
+ca9f6bfe-56f2-5427-bc77-9484b0211593,P2026056,프로젝트 056 통합 운영 사업,partner,proposing,확보,전략사업1본부,영업대표7,조재훈,심성훈,2026-02-01,2026-11-28,True,synthetic,pagination and filter verification
+2dbf9df0-fe3f-5552-9d12-cdf7acfe8fec,P2026057,프로젝트 057 통합 운영 사업,main,proposing,우세,PMO본부,영업대표1,심성훈,김성필,2026-03-01,2026-12-28,True,synthetic,pagination and filter verification
+887b1e58-fb67-55d4-b5cc-8acb693dd414,P2026058,프로젝트 058 통합 운영 사업,sub,proposing,경쟁,ICT사업부문,영업대표2,김성필,김찬호,2026-04-01,2026-01-28,True,synthetic,pagination and filter verification
+f79e5547-9309-52ab-9c72-aa709a5a68ca,P2026059,프로젝트 059 통합 운영 사업,subcontract,proposing,열세,IT사업부문,영업대표3,김찬호,이문희,2026-05-01,2026-02-28,True,synthetic,pagination and filter verification
+4c28f8d5-67c6-56e5-8794-b28e243dfca5,P2026060,프로젝트 060 통합 운영 사업,partner,proposing,확보,DIS본부,영업대표4,이문희,박윤승,2026-06-01,2026-03-28,True,synthetic,pagination and filter verification
+8b6d78e3-ebfd-5b8d-8a18-279e1adc06a1,P2026061,프로젝트 061 통합 운영 사업,main,proposing,우세,전략사업1본부,영업대표5,박윤승,이운정,2026-01-01,2026-04-28,True,synthetic,pagination and filter verification
+efe93ca2-9bbe-5a04-9cb9-450c436c887b,P2026062,프로젝트 062 통합 운영 사업,sub,proposing,경쟁,PMO본부,영업대표6,이운정,정명용,2026-02-01,2026-05-28,True,synthetic,pagination and filter verification
+0007585d-276d-5607-b78e-53ccaadd4d3a,P2026063,프로젝트 063 통합 운영 사업,subcontract,proposing,열세,ICT사업부문,영업대표7,정명용,박선영,2026-03-01,2026-06-28,True,synthetic,pagination and filter verification
+47088ecd-3fad-5a72-aa1a-6df3a2e3c505,P2026064,프로젝트 064 통합 운영 사업,partner,proposing,확보,IT사업부문,영업대표1,박선영,박승준,2026-04-01,2026-07-28,True,synthetic,pagination and filter verification
+eac902c4-a39d-53fe-b3be-2cdf7cac77e2,P2026065,프로젝트 065 통합 운영 사업,main,proposing,우세,DIS본부,영업대표2,박승준,조승현,2026-05-01,2026-08-28,True,synthetic,pagination and filter verification
+1732f5b8-01fa-50fd-9023-b249f6631a0f,P2026066,프로젝트 066 통합 운영 사업,sub,proposing,경쟁,전략사업1본부,영업대표3,조승현,최낙영,2026-06-01,2026-09-28,True,synthetic,pagination and filter verification
+b5e07f84-8700-5f1d-85b5-42f8c8e17ecf,P2026067,프로젝트 067 통합 운영 사업,subcontract,proposing,열세,PMO본부,영업대표4,최낙영,이택호,2026-01-01,2026-10-28,True,synthetic,pagination and filter verification
+410e4f7a-05a2-5324-96d2-96c3ea40cba4,P2026068,프로젝트 068 통합 운영 사업,partner,proposing,확보,ICT사업부문,영업대표5,이택호,고광종,2026-02-01,2026-11-28,True,synthetic,pagination and filter verification
+3c13ef5b-a1e7-5ee2-8e32-d70bf859cb51,P2026069,프로젝트 069 통합 운영 사업,main,proposing,우세,IT사업부문,영업대표6,고광종,심우정,2026-03-01,2026-12-28,True,synthetic,pagination and filter verification
+2924494c-6fbf-5e78-94a2-0e439a03ffd1,P2026070,프로젝트 070 통합 운영 사업,sub,proposing,경쟁,DIS본부,영업대표7,심우정,이광만,2026-04-01,2026-01-28,True,synthetic,pagination and filter verification
+69df2d39-38bd-527c-af64-2421b3d44b66,P2026071,프로젝트 071 통합 운영 사업,subcontract,proposing,열세,전략사업1본부,영업대표1,이광만,조양규,2026-05-01,2026-02-28,True,synthetic,pagination and filter verification
+6477c319-f80d-52d5-83d9-46728fb3f109,P2026072,프로젝트 072 통합 운영 사업,partner,proposing,확보,PMO본부,영업대표2,조양규,조재훈,2026-06-01,2026-03-28,True,synthetic,pagination and filter verification
+a672c140-a2bf-58dc-8271-1c7a6e16ff57,P2026073,프로젝트 073 통합 운영 사업,main,proposing,우세,ICT사업부문,영업대표3,조재훈,심성훈,2026-01-01,2026-04-28,True,synthetic,pagination and filter verification
+0b14d1f8-2de2-53ea-874a-a88233250d89,P2026074,프로젝트 074 통합 운영 사업,sub,proposing,경쟁,IT사업부문,영업대표4,심성훈,김성필,2026-02-01,2026-05-28,True,synthetic,pagination and filter verification
+48a0a470-b525-568e-b12e-f951c85210d5,P2026075,프로젝트 075 통합 운영 사업,subcontract,proposing,열세,DIS본부,영업대표5,김성필,김찬호,2026-03-01,2026-06-28,True,synthetic,pagination and filter verification
+a47efc2b-c80e-5fe0-bd06-11659a88768a,P2026076,프로젝트 076 통합 운영 사업,partner,proposing,확보,전략사업1본부,영업대표6,김찬호,이문희,2026-04-01,2026-07-28,True,synthetic,pagination and filter verification
+f3046ab3-8d3d-5ec9-8f61-96eb848a760a,P2026077,프로젝트 077 통합 운영 사업,main,proposing,우세,PMO본부,영업대표7,이문희,박윤승,2026-05-01,2026-08-28,True,synthetic,pagination and filter verification
+3438cb5d-5810-58b9-9a6c-a23640898db3,P2026078,프로젝트 078 통합 운영 사업,sub,proposing,경쟁,ICT사업부문,영업대표1,박윤승,이운정,2026-06-01,2026-09-28,True,synthetic,pagination and filter verification
+887c8cf3-2d34-5c87-ac83-be358038334e,P2026079,프로젝트 079 통합 운영 사업,subcontract,proposing,열세,IT사업부문,영업대표2,이운정,정명용,2026-01-01,2026-10-28,True,synthetic,pagination and filter verification
+6778fc48-e727-5e27-a0cc-b160a247f633,P2026080,프로젝트 080 통합 운영 사업,partner,proposing,확보,DIS본부,영업대표3,정명용,박선영,2026-02-01,2026-11-28,True,synthetic,pagination and filter verification
+6310dc28-3a80-5f4d-be41-204ccf5a9bf3,P2026081,프로젝트 081 통합 운영 사업,main,proposing,우세,전략사업1본부,영업대표4,박선영,박승준,2026-03-01,2026-12-28,True,synthetic,pagination and filter verification
+da49ea48-2eef-5198-85ef-9bac285d9ff0,P2026082,프로젝트 082 통합 운영 사업,sub,proposing,경쟁,PMO본부,영업대표5,박승준,조승현,2026-04-01,2026-01-28,True,synthetic,pagination and filter verification
+bb9c9a29-3367-5de7-9722-73f357200c0c,P2026083,프로젝트 083 통합 운영 사업,subcontract,proposing,열세,ICT사업부문,영업대표6,조승현,최낙영,2026-05-01,2026-02-28,True,synthetic,pagination and filter verification
+974bda77-89e5-5d4a-be1c-38d9c724b75b,P2026084,프로젝트 084 통합 운영 사업,partner,proposing,확보,IT사업부문,영업대표7,최낙영,이택호,2026-06-01,2026-03-28,True,synthetic,pagination and filter verification
+857d74b1-9970-5ecb-9611-22b8a3ec528d,P2026085,프로젝트 085 통합 운영 사업,main,proposing,우세,DIS본부,영업대표1,이택호,고광종,2026-01-01,2026-04-28,True,synthetic,pagination and filter verification
+0436cc8d-d478-52bf-bcef-3a8c39560984,P2026086,프로젝트 086 통합 운영 사업,sub,presented,경쟁,전략사업1본부,영업대표2,고광종,심우정,2026-02-01,2026-05-28,True,synthetic,pagination and filter verification
+1ff82563-619a-512d-94ba-82b68c0056ba,P2026087,프로젝트 087 통합 운영 사업,subcontract,presented,열세,PMO본부,영업대표3,심우정,이광만,2026-03-01,2026-06-28,True,synthetic,pagination and filter verification
+83995db8-aa4a-551c-9cdc-27998618c4d8,P2026088,프로젝트 088 통합 운영 사업,partner,presented,확보,ICT사업부문,영업대표4,이광만,조양규,2026-04-01,2026-07-28,True,synthetic,pagination and filter verification
+2245b328-bfb3-5358-a39a-63c48c67e4aa,P2026089,프로젝트 089 통합 운영 사업,main,presented,우세,IT사업부문,영업대표5,조양규,조재훈,2026-05-01,2026-08-28,True,synthetic,pagination and filter verification
+4f3cb512-6729-5c86-921e-83e6db606a0c,P2026090,프로젝트 090 통합 운영 사업,sub,presented,경쟁,DIS본부,영업대표6,조재훈,심성훈,2026-06-01,2026-09-28,True,synthetic,pagination and filter verification
+01e38328-f502-59ae-aa9d-065ed60f739a,P2026091,프로젝트 091 통합 운영 사업,subcontract,presented,열세,전략사업1본부,영업대표7,심성훈,김성필,2026-01-01,2026-10-28,True,synthetic,pagination and filter verification
+910d22c9-0c63-5b1c-977f-347b98bb0006,P2026092,프로젝트 092 통합 운영 사업,partner,presented,확보,PMO본부,영업대표1,김성필,김찬호,2026-02-01,2026-11-28,True,synthetic,pagination and filter verification
+1bb3589f-8249-51cf-aa8e-2661f89d298a,P2026093,프로젝트 093 통합 운영 사업,main,presented,우세,ICT사업부문,영업대표2,김찬호,이문희,2026-03-01,2026-12-28,True,synthetic,pagination and filter verification
+954f9498-3449-5e48-a3f5-8b292c89e2f7,P2026094,프로젝트 094 통합 운영 사업,sub,presented,경쟁,IT사업부문,영업대표3,이문희,박윤승,2026-04-01,2026-01-28,True,synthetic,pagination and filter verification
+3c4ab568-a3c3-566a-b446-1665684526a5,P2026095,프로젝트 095 통합 운영 사업,subcontract,presented,열세,DIS본부,영업대표4,박윤승,이운정,2026-05-01,2026-02-28,True,synthetic,pagination and filter verification
+5650c418-cdbd-5fb2-8324-e13fb9a00c9e,P2026096,프로젝트 096 통합 운영 사업,partner,presented,확보,전략사업1본부,영업대표5,이운정,정명용,2026-06-01,2026-03-28,True,synthetic,pagination and filter verification
+92d850eb-f9d4-56aa-b632-242e81e5424d,P2026097,프로젝트 097 통합 운영 사업,main,presented,우세,PMO본부,영업대표6,정명용,박선영,2026-01-01,2026-04-28,True,synthetic,pagination and filter verification
+c1130365-5b90-5c06-bdb4-0b4371413373,P2026098,프로젝트 098 통합 운영 사업,sub,presented,경쟁,ICT사업부문,영업대표7,박선영,박승준,2026-02-01,2026-05-28,True,synthetic,pagination and filter verification
+7acc72b4-ea35-5643-880a-9db76bd1f260,P2026099,프로젝트 099 통합 운영 사업,subcontract,presented,열세,IT사업부문,영업대표1,박승준,조승현,2026-03-01,2026-06-28,True,synthetic,pagination and filter verification
+bb48dad9-b54d-570b-a000-fc97618d0cce,P2026100,프로젝트 100 통합 운영 사업,partner,presented,확보,DIS본부,영업대표2,조승현,최낙영,2026-04-01,2026-07-28,True,synthetic,pagination and filter verification
+4adab4e6-4b24-5344-8bf4-4b09ee6f1e15,P2026101,프로젝트 101 통합 운영 사업,main,presented,우세,전략사업1본부,영업대표3,최낙영,이택호,2026-05-01,2026-08-28,True,synthetic,pagination and filter verification
+66b75b29-001a-553e-846c-416d4a7a5779,P2026102,프로젝트 102 통합 운영 사업,sub,presented,경쟁,PMO본부,영업대표4,이택호,고광종,2026-06-01,2026-09-28,True,synthetic,pagination and filter verification
+db14837a-3cd3-57b1-aa70-ca217aba34f0,P2026103,프로젝트 103 통합 운영 사업,subcontract,presented,열세,ICT사업부문,영업대표5,고광종,심우정,2026-01-01,2026-10-28,True,synthetic,pagination and filter verification
+ed3857c9-d78d-5c11-a55a-47f2b7c21471,P2026104,프로젝트 104 통합 운영 사업,partner,win,확보,IT사업부문,영업대표6,심우정,이광만,2026-02-01,2026-11-28,True,synthetic,pagination and filter verification
+3d9f26a8-f3a5-5dcc-a5e3-37a334326e5f,P2026105,프로젝트 105 통합 운영 사업,main,win,우세,DIS본부,영업대표7,이광만,조양규,2026-03-01,2026-12-28,True,synthetic,pagination and filter verification
+ed978e6e-399c-5085-a5d8-4544345e423e,P2026106,프로젝트 106 통합 운영 사업,sub,win,경쟁,전략사업1본부,영업대표1,조양규,조재훈,2026-04-01,2026-01-28,True,synthetic,pagination and filter verification
+131e77e6-642e-5b56-823c-1b25d759e87e,P2026107,프로젝트 107 통합 운영 사업,subcontract,win,열세,PMO본부,영업대표2,조재훈,심성훈,2026-05-01,2026-02-28,True,synthetic,pagination and filter verification
+dc46663f-cb90-548b-9f28-3bb2835bbe93,P2026108,프로젝트 108 통합 운영 사업,partner,win,확보,ICT사업부문,영업대표3,심성훈,김성필,2026-06-01,2026-03-28,True,synthetic,pagination and filter verification
+7638f22f-8052-5b58-958a-9cc1568c3c4c,P2026109,프로젝트 109 통합 운영 사업,main,win,우세,IT사업부문,영업대표4,김성필,김찬호,2026-01-01,2026-04-28,True,synthetic,pagination and filter verification
+ba49baa2-b224-5c46-a1ee-05bd32f5b428,P2026110,프로젝트 110 통합 운영 사업,sub,win,경쟁,DIS본부,영업대표5,김찬호,이문희,2026-02-01,2026-05-28,True,synthetic,pagination and filter verification
+9b6f4ff8-fedd-5e11-9661-486415758449,P2026111,프로젝트 111 통합 운영 사업,subcontract,win,열세,전략사업1본부,영업대표6,이문희,박윤승,2026-03-01,2026-06-28,True,synthetic,pagination and filter verification
+beecee5c-dba3-5033-8092-72fe136c7e57,P2026112,프로젝트 112 통합 운영 사업,partner,win,확보,PMO본부,영업대표7,박윤승,이운정,2026-04-01,2026-07-28,True,synthetic,pagination and filter verification
+58ca83b3-c371-5140-9830-9c0bf868b74c,P2026113,프로젝트 113 통합 운영 사업,main,win,우세,ICT사업부문,영업대표1,이운정,정명용,2026-05-01,2026-08-28,True,synthetic,pagination and filter verification
+145b0b41-9e99-52db-8184-79d05b8f1145,P2026114,프로젝트 114 통합 운영 사업,sub,loss,경쟁,IT사업부문,영업대표2,정명용,박선영,2026-06-01,2026-09-28,True,synthetic,pagination and filter verification
+6ae18630-7d12-55a5-aef8-f218c685a7dc,P2026115,프로젝트 115 통합 운영 사업,subcontract,loss,열세,DIS본부,영업대표3,박선영,박승준,2026-01-01,2026-10-28,True,synthetic,pagination and filter verification
+b9fdd3c0-beec-53d7-b173-eddd738983b5,P2026116,프로젝트 116 통합 운영 사업,partner,loss,확보,전략사업1본부,영업대표4,박승준,조승현,2026-02-01,2026-11-28,True,synthetic,pagination and filter verification
+6ee0c019-6baf-5f90-8093-75280684c244,P2026117,프로젝트 117 통합 운영 사업,main,loss,우세,PMO본부,영업대표5,조승현,최낙영,2026-03-01,2026-12-28,True,synthetic,pagination and filter verification
+722d7ac4-039c-5f68-8a54-81a6b98233f9,P2026118,프로젝트 118 통합 운영 사업,sub,loss,경쟁,ICT사업부문,영업대표6,최낙영,이택호,2026-04-01,2026-01-28,True,synthetic,pagination and filter verification
+d7255552-cc4e-50d8-86b1-2a0e2dd6babd,P2026119,프로젝트 119 통합 운영 사업,subcontract,loss,열세,IT사업부문,영업대표7,이택호,고광종,2026-05-01,2026-02-28,True,synthetic,pagination and filter verification
+90e531e8-4d0c-5eb0-ae39-9d3461518e31,P2026120,프로젝트 120 통합 운영 사업,partner,loss,확보,DIS본부,영업대표1,고광종,심우정,2026-06-01,2026-03-28,True,synthetic,pagination and filter verification
+e23d7d85-46d8-5d9f-9afd-1dd59030151c,P2026121,프로젝트 121 통합 운영 사업,main,loss,우세,전략사업1본부,영업대표2,심우정,이광만,2026-01-01,2026-04-28,True,synthetic,pagination and filter verification
+661dd1e0-e96a-57ce-9571-5e1281a4e481,P2026122,프로젝트 122 통합 운영 사업,sub,drop,경쟁,PMO본부,영업대표3,이광만,조양규,2026-02-01,2026-05-28,True,synthetic,pagination and filter verification
+5527f648-eb60-5214-9060-af4c72cd7c3e,P2026123,프로젝트 123 통합 운영 사업,subcontract,drop,열세,ICT사업부문,영업대표4,조양규,조재훈,2026-03-01,2026-06-28,True,synthetic,pagination and filter verification
+74c109c7-269b-5c2e-a46c-44ebf6b2a1c0,P2026124,프로젝트 124 통합 운영 사업,partner,drop,확보,IT사업부문,영업대표5,조재훈,심성훈,2026-04-01,2026-07-28,True,synthetic,pagination and filter verification
+746b4e58-1549-5a62-b43a-c3cd02ec7563,P2026125,프로젝트 125 통합 운영 사업,main,drop,우세,DIS본부,영업대표6,심성훈,김성필,2026-05-01,2026-08-28,True,synthetic,pagination and filter verification
+e55b774d-dfea-50c4-80f5-55ef472a4a16,P2026126,프로젝트 126 통합 운영 사업,sub,drop,경쟁,전략사업1본부,영업대표7,김성필,김찬호,2026-06-01,2026-09-28,True,synthetic,pagination and filter verification
+3322954f-e157-526b-88d6-2f67ab5aa2d5,P2026127,프로젝트 127 통합 운영 사업,subcontract,drop,열세,PMO본부,영업대표1,김찬호,이문희,2026-01-01,2026-10-28,True,synthetic,pagination and filter verification
+e75a3f8f-d552-519b-b3a6-d42d71923995,P2026128,프로젝트 128 통합 운영 사업,partner,done,확보,ICT사업부문,영업대표2,이문희,박윤승,2026-02-01,2026-11-28,True,synthetic,pagination and filter verification
+03d13904-7f3d-5403-8b0e-7fc92ce534fb,P2026129,프로젝트 129 통합 운영 사업,main,done,우세,IT사업부문,영업대표3,박윤승,이운정,2026-03-01,2026-12-28,True,synthetic,pagination and filter verification
+e9d4c010-8711-50f1-89ba-8d8c77bf0d18,P2026130,프로젝트 130 통합 운영 사업,sub,done,경쟁,DIS본부,영업대표4,이운정,정명용,2026-04-01,2026-01-28,True,synthetic,pagination and filter verification
+363076f4-9bf9-5625-95fb-80e8f75e2eb3,P2026131,프로젝트 131 통합 운영 사업,subcontract,done,열세,전략사업1본부,영업대표5,정명용,박선영,2026-05-01,2026-02-28,True,synthetic,pagination and filter verification
+3472168d-90b0-596f-a1c5-0f543939e23b,P2026132,프로젝트 132 통합 운영 사업,partner,done,확보,PMO본부,영업대표6,박선영,박승준,2026-06-01,2026-03-28,True,synthetic,pagination and filter verification
+c29f4cfb-c5bc-5d81-821d-ae7e8cbadd94,P2026133,프로젝트 133 통합 운영 사업,main,done,우세,ICT사업부문,영업대표7,박승준,조승현,2026-01-01,2026-04-28,True,synthetic,pagination and filter verification

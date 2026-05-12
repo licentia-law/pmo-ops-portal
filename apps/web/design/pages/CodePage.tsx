@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import codeData from "../04_프로젝트코드/code.json";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { getP1Screen } from "../../app/lib/api";
 
 type IconName =
   | "home"
@@ -250,17 +250,26 @@ const SELECT_STYLE: CSSProperties = {
 };
 
 function CodePageImpl() {
-  const data = codeData as any;
+  const [data, setData] = useState<any | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [ownerFilter, setOwnerFilter] = useState("전체");
   const [useFilter, setUseFilter] = useState("전체");
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  useEffect(() => {
+    let alive = true;
+    getP1Screen("code").then((result) => {
+      if (alive) setData(result.data);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
-  const owners = useMemo<string[]>(() => ["전체", ...Array.from(new Set<string>(data.rows.map((r: any) => String(r.salesOwner))))], [data.rows]);
+  const owners = useMemo<string[]>(() => ["전체", ...Array.from(new Set<string>((data?.rows ?? []).map((r: any) => String(r.salesOwner))))], [data]);
   const filteredRows = useMemo(() => {
-    return data.rows.filter((r: any) => {
+    return (data?.rows ?? []).filter((r: any) => {
       if (statusFilter !== "all" && r.status !== statusFilter) return false;
       if (ownerFilter !== "전체" && r.salesOwner !== ownerFilter) return false;
       if (useFilter !== "전체" && r.useStatus !== useFilter) return false;
@@ -270,13 +279,15 @@ function CodePageImpl() {
       }
       return true;
     });
-  }, [data.rows, statusFilter, ownerFilter, useFilter, query]);
+  }, [data, statusFilter, ownerFilter, useFilter, query]);
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
   const visibleRows = useMemo(() => {
     const safePage = Math.min(page, totalPages);
     const start = (safePage - 1) * pageSize;
     return filteredRows.slice(start, start + pageSize);
   }, [filteredRows, page, pageSize, totalPages]);
+
+  if (!data) return null;
 
   return (
     <AppShell user={data.meta.user} notifications={data.meta.notifications} current="code" pageTitle="프로젝트코드">

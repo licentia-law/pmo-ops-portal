@@ -1,0 +1,8 @@
+﻿team_id,organization_id,team_name,is_active
+TEAM-001,ORG-001,DIS사업팀,True
+TEAM-002,ORG-002,ICT사업팀,True
+TEAM-003,ORG-003,IT사업팀,True
+TEAM-004,ORG-004,PMO팀,True
+TEAM-005,ORG-004,운영관리팀,True
+TEAM-006,ORG-005,영업1팀,True
+TEAM-007,ORG-005,영업2팀,True

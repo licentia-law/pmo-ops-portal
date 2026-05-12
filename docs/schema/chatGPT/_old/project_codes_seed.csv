@@ -1,0 +1,13 @@
+﻿project_code_id,project_code,project_name,project_status,confidence_label,sales_organization_id,sales_owner_name,support_owner_name,valid_from,valid_to,source_type
+PCODE-0001,P2026001,제주국제자유도시개발센터  정보시스템 위탁운영 및 통합 유지보수 사업,LOSS,경쟁,ORG-005,이명찬 이사,이문희 수석,,,original_based
+PCODE-0002,P2026002,미래에셋자산운용 IDC이전사업,WIN,경쟁,ORG-005,구민청 수석,이광만 이사,,,original_based
+PCODE-0003,P2026003,한전산업개발 빌링시스템 고도화 사업,업무지원,,ORG-002,정영덕 이사,정명용 책임,,,original_based
+PCODE-0004,P2026004,감사원 2026년~2027년 감사원 정보인프라 유지관리 사업(2년),DROP,경쟁,ORG-005,김형기 이사,정명용 책임,,,original_based
+PCODE-0005,P2026005,한국해양진흥공사 ’26~’29년 정보시스템 통합 유지보수 용역(3년),LOSS,경쟁,ORG-005,이충렬 상무,이광만 이사,,,original_based
+PCODE-0006,P2026006,신한은행 Endpoint 위협식별 및 탐지역량 강화를 위한 EDR시스템 구축,제안중,경쟁,ORG-001,하상문 이사,심우정 이사,,,original_based
+PCODE-0007,P2026007,삼성카드 IT자산 위험 관리시스템 구축,WIN,단독,ORG-005,김용중 수석,이광만 이사,,,original_based
+PCODE-0008,P2026008,저축은행중앙회 사이버 위협 대응 내외부 통합 보안 인프라 구축 사업,제안중,단독,ORG-005,박태민 수석,심우정 이사,,,original_based
+PCODE-0009,P2026009,삼성증권 IT자산 위험관리 시스템 구축,제안중,단독,ORG-005,이희철 책임,심우정 이사,,,original_based
+PCODE-0010,P2026010,노원구 2026년 정보통신장비 교체 및 보강 계약(긴급),제안중,단독,ORG-003,정해영 책임,이광만 이사,,,original_based
+PCODE-0011,P2026011,하나은행 차세대 디도스(DDoS) 방어 장비 도입,제안중,단독,ORG-001,하상문 이사,조재훈 이사,,,original_based
+PCODE-0012,P2026012,nan,nan,,,,,,,original_based

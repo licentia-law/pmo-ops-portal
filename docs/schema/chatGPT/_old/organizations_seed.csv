@@ -1,0 +1,6 @@
+﻿organization_id,organization_name,organization_type,is_active
+ORG-001,DIS본부,본부,True
+ORG-002,ICT사업부문,본부,True
+ORG-003,IT사업부문,본부,True
+ORG-004,PMO본부,본부,True
+ORG-005,전략사업1본부,본부,True

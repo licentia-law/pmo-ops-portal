@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import projectData from "../05_프로젝트상세/project.json";
+import { getP1Screen } from "../../app/lib/api";
 
 type IconName =
   | "home" | "briefcase" | "users" | "trending" | "settings"
@@ -236,7 +236,17 @@ function RecentLogsPanel({ logs }: { logs: any[] }) {
 }
 
 export default function ProjectDetailPage() {
-  const data = projectData as any;
+  const [data, setData] = useState<any | null>(null);
+  useEffect(() => {
+    let alive = true;
+    getP1Screen("project-detail").then((result) => {
+      if (alive) setData(result.data);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  if (!data) return null;
   return <AppShell user={data.meta.user} notifications={data.meta.notifications} current="project-detail" pageTitle="프로젝트 상세">
     <PageHeader project={data.project} />
     <section style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)", gap: 16, marginBottom: 16, alignItems: "stretch" }}>

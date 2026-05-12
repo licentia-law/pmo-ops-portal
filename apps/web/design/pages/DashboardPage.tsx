@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import dashboardData from "../02_대시보드/dashboard.json";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { getP1Screen } from "../../app/lib/api";
 
 type IconName =
   | "home" | "briefcase" | "users" | "trending" | "settings"
@@ -163,7 +163,17 @@ function TeamUtilization({ rows }: { rows: any[] }) {
 }
 
 export default function DashboardPage() {
-  const data = dashboardData as any;
+  const [data, setData] = useState<any | null>(null);
+  useEffect(() => {
+    let alive = true;
+    getP1Screen("dashboard").then((result) => {
+      if (alive) setData(result.data);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  if (!data) return null;
   return <AppShell user={data.meta.user} notifications={data.meta.notifications} current="dashboard" pageTitle="대시보드">
     <FilterBar asOf={data.meta.asOf} />
     <section style={{ marginBottom: 20 }}><div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12 }}>{data.kpis.map((k: any) => <KPICard key={k.id} kpi={k} />)}</div></section>

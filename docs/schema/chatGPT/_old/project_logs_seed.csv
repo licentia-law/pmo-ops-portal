@@ -1,0 +1,12 @@
+﻿project_log_id,project_id,log_type,log_date,author_name,content,source_type
+PLOG-00001,PROJ-S001,상태 변경,2026-05-20,관리자,발표완료 상태로 등록,scenario
+PLOG-00002,PROJ-S001,일정 등록,2026-05-20,관리자,제출일 2026-05-20 / 발표일 2026-05-27,scenario
+PLOG-00003,PROJ-S002,상태 변경,2026-05-20,관리자,제안중 상태로 등록,scenario
+PLOG-00004,PROJ-S002,일정 등록,2026-05-20,관리자,제출일 2026-06-18 / 발표일 -,scenario
+PLOG-00005,PROJ-S003,상태 변경,2026-05-20,관리자,업무지원 상태로 등록,scenario
+PLOG-00006,PROJ-S003,일정 등록,2026-05-20,관리자,제출일 - / 발표일 -,scenario
+PLOG-00007,PROJ-0001,진행 메모,2026-01-01,관리자,[서울교통공사] 1~4호선 네트워크 유지보수 용역 프로젝트 초기 seed 로그,original_based
+PLOG-00008,PROJ-0002,진행 메모,2026-01-01,관리자,[한전산업개발] 인터넷빌링시스템(도로조명시스템 포함) 유지보수 용역 프로젝트 초기 seed 로그,original_based
+PLOG-00009,PROJ-0003,진행 메모,2026-01-01,관리자,[재능대학교] 정보시스템 통합유지보수용역 프로젝트 초기 seed 로그,original_based
+PLOG-00010,PROJ-0004,진행 메모,2026-01-01,관리자,[대법원] 2025년 망분리 노후장비 교체 사업(긴급공고) 프로젝트 초기 seed 로그,original_based
+PLOG-00011,PROJ-0005,진행 메모,2026-01-01,관리자,[인천국제공항공사] 상용인터넷망 및 무선인프라 개선사업 프로젝트 초기 seed 로그,original_based

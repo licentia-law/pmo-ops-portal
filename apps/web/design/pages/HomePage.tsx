@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import homeData from "../01_홈/home.json";
+import { getP1Screen } from "../../app/lib/api";
 
 type IconName =
   | "home"
@@ -387,15 +387,22 @@ function MonthSummary({ summary }: { summary: any }) {
 }
 
 export default function HomePage() {
-  const data = homeData as any;
+  const [data, setData] = useState<any | null>(null);
   const [mounted, setMounted] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setMounted(true);
+    let alive = true;
+    getP1Screen("home").then((result) => {
+      if (alive) setData(result.data);
+    });
+    return () => {
+      alive = false;
+    };
   }, []);
 
-  if (!mounted) return <div ref={rootRef} />;
+  if (!mounted || !data) return <div ref={rootRef} />;
 
   return (
     <AppShell user={data.meta.user} notifications={data.meta.notifications} current="home" pageTitle="홈">

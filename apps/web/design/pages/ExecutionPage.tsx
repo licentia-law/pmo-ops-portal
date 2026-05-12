@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import executionData from "../03_업무수행현황/execution.json";
+import { getP1Screen } from "../../app/lib/api";
 
 type IconName =
   | "home"
@@ -205,9 +205,23 @@ function SummaryCard({ item, active, onClick }: { item: any; active: boolean; on
 }
 
 export default function ExecutionPage() {
-  const data = executionData as any;
+  const [data, setData] = useState<any | null>(null);
   const [activeSummary, setActiveSummary] = useState<string | null>(null);
-  const [selectedCode, setSelectedCode] = useState(data.selectedRow.code);
+  const [selectedCode, setSelectedCode] = useState("");
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    getP1Screen("execution").then((result) => {
+      if (alive) {
+        const payload = result.data as any;
+        setData(payload);
+        setSelectedCode(payload.selectedRow.code);
+      }
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
   const statusFilterBySummary: Record<string, string[]> = {
     all: [],
     proposal: ["proposing", "presented"],
@@ -215,18 +229,20 @@ export default function ExecutionPage() {
     closed: ["win", "loss", "drop", "done"]
   };
   const filteredRows = useMemo(() => {
-    if (!activeSummary) return data.rows;
+    if (!data || !activeSummary) return data?.rows ?? [];
     const allowed = statusFilterBySummary[activeSummary] ?? [];
     if (allowed.length === 0) return data.rows;
     return data.rows.filter((row: any) => allowed.includes(row.status));
-  }, [activeSummary, data.rows]);
-  const selectedRow = useMemo(() => filteredRows.find((row: any) => row.code === selectedCode) ?? filteredRows[0] ?? data.rows[0], [filteredRows, selectedCode, data.rows]);
+  }, [activeSummary, data]);
+  const selectedRow = useMemo(() => filteredRows.find((row: any) => row.code === selectedCode) ?? data?.rows?.find((row: any) => row.code === selectedCode) ?? null, [filteredRows, selectedCode, data]);
   useEffect(() => {
     if (!filteredRows.some((row: any) => row.code === selectedCode) && filteredRows[0]) {
       setSelectedCode(filteredRows[0].code);
     }
   }, [filteredRows, selectedCode]);
-  const currentDetail = selectedCode === data.selectedRow.code
+  const currentDetail = !data || !selectedRow
+    ? null
+    : selectedCode === data.selectedRow.code
     ? data.selectedRow
     : {
         ...selectedRow,
@@ -240,6 +256,7 @@ export default function ExecutionPage() {
         recentActivity: { datetime: selectedRow.modifiedAt, lines: [selectedRow.remark] },
         memo: [selectedRow.remark]
       };
+  if (!data) return null;
   const amountPair = formatAmountPair(currentDetail.amountText ?? "");
   const teamText = String(currentDetail.team ?? "");
   const teamHead = teamText.replace(/\s*\(총\s*\d+명\)\s*$/, "").trim();
@@ -298,7 +315,7 @@ export default function ExecutionPage() {
         ))}
       </section>
 
-      <section style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 360px", gap: 16 }}>
+      <section style={{ display: "grid", gridTemplateColumns: isDetailOpen ? "minmax(0, 1fr) 360px" : "minmax(0, 1fr)", gap: 16 }}>
         <div className="pmo-panel" style={{ padding: 0, overflow: "hidden" }}>
           <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--line-2)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <strong style={{ fontSize: 18 }}>프로젝트 목록</strong>
@@ -316,7 +333,14 @@ export default function ExecutionPage() {
               </thead>
               <tbody>
                 {filteredRows.slice(0, 12).map((row: any) => (
-                  <tr key={row.code} onClick={() => setSelectedCode(row.code)} style={{ cursor: "pointer", background: selectedCode === row.code ? "var(--brand-bg)" : undefined }}>
+                  <tr
+                    key={row.code}
+                    onClick={() => {
+                      setSelectedCode(row.code);
+                      setIsDetailOpen(true);
+                    }}
+                    style={{ cursor: "pointer", background: selectedCode === row.code ? "var(--brand-bg)" : undefined }}
+                  >
                     <td className="num" style={{ color: "var(--brand)", fontWeight: 700 }}>{row.code}</td>
                     <td style={{ fontWeight: 600 }}>{row.name}</td>
                     <td><BizChip type={row.businessType} /></td>
@@ -351,10 +375,11 @@ export default function ExecutionPage() {
           </div>
         </div>
 
+        {isDetailOpen && currentDetail ? (
         <aside className="pmo-panel" style={{ padding: 16 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <h2 style={{ margin: 0, fontSize: 18, lineHeight: 1.2 }}>선택 프로젝트 상세</h2>
-            <button style={{ border: 0, background: "transparent", color: "var(--tx-4)", fontSize: 24, lineHeight: 1 }}>×</button>
+            <button onClick={() => setIsDetailOpen(false)} style={{ border: 0, background: "transparent", color: "var(--tx-4)", fontSize: 24, lineHeight: 1, cursor: "pointer" }}>×</button>
           </div>
           <div style={{ fontSize: 14, color: "var(--tx-4)", fontWeight: 700 }}>프로젝트코드</div>
           <div style={{ fontSize: 20, lineHeight: 1.3, fontWeight: 800, color: "var(--brand)", marginBottom: 8 }}>{currentDetail.code}</div>
@@ -410,6 +435,7 @@ export default function ExecutionPage() {
             <Icon name="chevronRight" size={14} stroke={2} />
           </button>
         </aside>
+        ) : null}
       </section>
     </AppShell>
   );

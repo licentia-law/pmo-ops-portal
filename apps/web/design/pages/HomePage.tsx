@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { getP1Screen } from "../../app/lib/api";
 
 type IconName =
@@ -177,7 +177,7 @@ function QuickLinkCard({ item }: { item: any }) {
 
 const NAV = [
   { kind: "item", id: "home", label: "홈", icon: "home" },
-  { kind: "group", id: "project", label: "프로젝트", icon: "briefcase", items: [{ id: "dashboard", label: "대시보드" }, { id: "execution", label: "업무수행현황" }, { id: "code", label: "프로젝트코드" }, { id: "project-detail", label: "프로젝트 상세" }, { id: "history", label: "진행이력" }] },
+  { kind: "group", id: "project", label: "프로젝트", icon: "briefcase", items: [{ id: "execution", label: "업무수행현황" }, { id: "code", label: "프로젝트코드" }, { id: "project-detail", label: "프로젝트 상세" }, { id: "history", label: "진행이력" }] },
   { kind: "group", id: "people", label: "인력", icon: "users", items: [{ id: "active", label: "인력재직현황" }, { id: "assignment", label: "인력배치/투입현황" }, { id: "current", label: "인원별 투입(현재)" }, { id: "idle", label: "대기현황" }] },
   { kind: "group", id: "kpi", label: "KPI/보고", icon: "trending", items: [{ id: "weekly", label: "주간현황" }, { id: "monthly", label: "월별가동현황" }, { id: "idleProp", label: "대기/제안인원" }, { id: "propPrj", label: "제안PRJ" }, { id: "execPrj", label: "이행PRJ" }, { id: "report", label: "보고서 다운로드" }] },
   { kind: "group", id: "admin", label: "관리", icon: "settings", items: [{ id: "users", label: "사용자/권한 관리" }, { id: "master", label: "기준정보 관리" }] }
@@ -185,7 +185,6 @@ const NAV = [
 
 const ROUTE_BY_ID: Record<string, string> = {
   home: "/",
-  dashboard: "/dashboard",
   execution: "/projects/operations",
   code: "/projects/codes",
   "project-detail": "/projects/1",
@@ -301,11 +300,16 @@ function QuickLinks({ items }: { items: any[] }) {
 }
 
 function KPIRow({ asOf, kpis }: { asOf: string; kpis: any[] }) {
+  const firstRow = kpis.slice(0, 4);
+  const secondRow = kpis.slice(4);
   return (
     <section style={{ marginBottom: 28 }}>
       <h2 className="pmo-section-title">핵심 현황<span style={{ marginLeft: 8, fontSize: 15, fontWeight: 500, color: "var(--tx-4)" }}>(기준일 {asOf})</span></h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 12 }}>
+        {firstRow.map((k) => <KPICard key={k.id} kpi={k} />)}
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12 }}>
-        {kpis.map((k) => <KPICard key={k.id} kpi={k} />)}
+        {secondRow.map((k) => <KPICard key={k.id} kpi={k} />)}
       </div>
     </section>
   );
@@ -390,29 +394,316 @@ export default function HomePage() {
   const [data, setData] = useState<any | null>(null);
   const [mounted, setMounted] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const [trendFilter, setTrendFilter] = useState<"6m" | "12m" | "year" | "all">("6m");
 
   useEffect(() => {
     setMounted(true);
     let alive = true;
-    getP1Screen("home").then((result) => {
-      if (alive) setData(result.data);
+    getP1Screen("home").then((homeResult) => {
+      if (!alive) return;
+      setData(homeResult.data);
     });
     return () => {
       alive = false;
     };
   }, []);
 
-  if (!mounted || !data) return <div ref={rootRef} />;
+  const mergedKpis = useMemo(() => {
+    if (!data) return [];
+    const monthlyRows = (data.monthSummary?.rows ?? []) as any[];
+    const baseKpis = (data.kpis ?? []) as any[];
+    const rateKpis = baseKpis.filter((kpi) => kpi.id === "utilization" || kpi.id === "contract");
+    const peopleKpis = baseKpis.filter((kpi) => kpi.id !== "utilization" && kpi.id !== "contract");
+    const newProject = monthlyRows.find((row) => row.id === "newProject");
+    const completion = monthlyRows.find((row) => row.id === "endingProject");
+    const completed = monthlyRows.find((row) => row.id === "completedProject");
+    const movement = monthlyRows.find((row) => row.id === "headcountDelta");
+    const extras = [
+      newProject
+        ? { id: "new-project", label: "신규 프로젝트", value: newProject.value, unit: "건", icon: "calendar", tone: "blue", delta: newProject.delta }
+        : null,
+      completion
+        ? { id: "completion", label: "완료 예정 프로젝트", value: completion.value, unit: "건", icon: "check", tone: "green", delta: completion.delta }
+        : null,
+      completed
+        ? { id: "completed-project", label: "완료 프로젝트", value: completed.value, unit: "건", icon: "check", tone: "slate", delta: completed.delta }
+        : null,
+      movement
+        ? { id: "movement", label: "인력 변동", value: movement.value, unit: "명", icon: "users", tone: "purple", delta: movement.delta }
+        : null
+    ].filter(Boolean);
+    return [...peopleKpis, ...extras, ...rateKpis];
+  }, [data]);
+
+  const filteredTrend = useMemo(() => {
+    if (!data?.trend) return null;
+    const trend = data.trend;
+    const months = trend.months as string[];
+    const util = trend.utilization as number[];
+    const contract = trend.contractRate as number[];
+    const thisYear = new Date().getFullYear().toString();
+    let indexes = months.map((_, idx) => idx);
+    if (trendFilter === "6m") indexes = indexes.slice(-6);
+    if (trendFilter === "12m") indexes = indexes.slice(-12);
+    if (trendFilter === "year") indexes = indexes.filter((idx) => months[idx].startsWith(thisYear));
+    return {
+      months: indexes.map((idx) => months[idx]),
+      utilization: indexes.map((idx) => util[idx]),
+      contractRate: indexes.map((idx) => contract[idx])
+    };
+  }, [data, trendFilter]);
+
+  if (!mounted || !data || !filteredTrend) return <div ref={rootRef} />;
 
   return (
     <AppShell user={data.meta.user} notifications={data.meta.notifications} current="home" pageTitle="홈">
-      <Hero asOf={data.meta.asOf} hero={data.hero} />
-      <QuickLinks items={data.quickLinks} />
-      <KPIRow asOf={data.meta.asOf} kpis={data.kpis} />
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
-        <RecentProjects rows={data.recentProjects.rows} />
-        <MonthSummary summary={data.monthSummary} />
+      <KPIRow asOf={data.meta.asOf} kpis={mergedKpis} />
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, marginBottom: 16 }}>
+        <section className="pmo-panel" style={{ padding: "20px 22px" }}>
+          <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--tx-1)" }}>최근 6개월 가동률 / 가득률 추이</h2>
+            <TrendFilter value={trendFilter} onChange={setTrendFilter} />
+          </header>
+          <TrendChart trend={filteredTrend} />
+        </section>
+        <TeamHeadcount rows={data.teamHeadcount} />
       </div>
+      <TeamUtilization rows={data.teamUtilization} />
     </AppShell>
+  );
+}
+
+function TrendFilter({ value, onChange }: { value: "6m" | "12m" | "year" | "all"; onChange: (next: "6m" | "12m" | "year" | "all") => void }) {
+  const Btn = ({ id, label }: { id: "6m" | "12m" | "year" | "all"; label: string }) => (
+    <button
+      onClick={() => onChange(id)}
+      style={{
+        height: 32,
+        padding: "0 12px",
+        border: "1px solid var(--line-2)",
+        borderRadius: 8,
+        background: value === id ? "var(--brand)" : "var(--bg-1)",
+        color: value === id ? "#fff" : "var(--tx-3)",
+        fontSize: 13,
+        fontWeight: 600
+      }}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div style={{ display: "inline-flex", gap: 8 }}>
+      <Btn id="6m" label="최근 6개월" />
+      <Btn id="12m" label="최근 12개월" />
+      <Btn id="year" label="올해" />
+      <Btn id="all" label="전체기간" />
+    </div>
+  );
+}
+
+function TrendChart({ trend }: { trend: any }) {
+  const W = 720;
+  const H = 320;
+  const padL = 44;
+  const padR = 24;
+  const padT = 28;
+  const padB = 36;
+  const innerW = W - padL - padR;
+  const innerH = H - padT - padB;
+  const months = trend.months;
+  const u = trend.utilization;
+  const c = trend.contractRate;
+  const yMin = 30;
+  const yMax = 100;
+  const x = (i: number) => padL + (months.length === 1 ? innerW / 2 : (i * innerW) / (months.length - 1));
+  const y = (v: number) => padT + innerH - ((v - yMin) / (yMax - yMin)) * innerH;
+  const line = (vals: number[]) => vals.map((v, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(v)}`).join(" ");
+  const yTicks = [30, 50, 70, 90, 100];
+
+  return (
+    <div style={{ width: "100%", overflow: "hidden" }}>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block", maxHeight: 340 }} role="img" aria-label="가동률 가득률 추이">
+        {yTicks.map((t) => (
+          <g key={t}>
+            <line x1={padL} x2={W - padR} y1={y(t)} y2={y(t)} stroke="var(--line-2)" strokeDasharray={t === yMin ? "0" : "3 4"} />
+            <text x={padL - 10} y={y(t) + 4} fontSize="13" fill="var(--tx-1)" textAnchor="end">
+              {t}%
+            </text>
+          </g>
+        ))}
+        {months.map((m: string, i: number) => (
+          <text key={m} x={x(i)} y={H - 12} fontSize="14" fill="var(--tx-1)" textAnchor="middle">
+            {m.replace("-", ".")}
+          </text>
+        ))}
+        <path d={line(u)} fill="none" stroke="var(--brand)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={line(c)} fill="none" stroke="var(--info)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        {u.map((v: number, i: number) => (
+          <circle key={`u${i}`} cx={x(i)} cy={y(v)} r={i === u.length - 1 ? 5 : 3.2} fill="#fff" stroke="var(--brand)" strokeWidth={i === u.length - 1 ? 2.5 : 2} />
+        ))}
+        {c.map((v: number, i: number) => (
+          <circle key={`c${i}`} cx={x(i)} cy={y(v)} r={i === c.length - 1 ? 5 : 3.2} fill="#fff" stroke="var(--info)" strokeWidth={i === c.length - 1 ? 2.5 : 2} />
+        ))}
+        {u.map((v: number, i: number) =>
+          i !== u.length - 1 ? (
+            <text key={`ul${i}`} x={x(i)} y={y(v) - 10} fontSize="13" fill="var(--tx-4)" textAnchor="middle">
+              {v.toFixed(1)}
+            </text>
+          ) : null
+        )}
+        {c.map((v: number, i: number) =>
+          i !== c.length - 1 ? (
+            <text key={`cl${i}`} x={x(i)} y={y(v) + 16} fontSize="13" fill="var(--tx-4)" textAnchor="middle">
+              {v.toFixed(1)}
+            </text>
+          ) : null
+        )}
+        {(() => {
+          const last = u.length - 1;
+          return (
+            <g>
+              <text x={x(last)} y={y(u[last]) - 12} fontSize="14" fontWeight="700" fill="var(--brand)" textAnchor="middle">
+                {u[last].toFixed(1)}%
+              </text>
+              <text x={x(last)} y={y(c[last]) + 18} fontSize="14" fontWeight="700" fill="var(--info)" textAnchor="middle">
+                {c[last].toFixed(1)}%
+              </text>
+            </g>
+          );
+        })()}
+      </svg>
+    </div>
+  );
+}
+
+function TeamHeadcount({ rows }: { rows: any[] }) {
+  const total = rows.reduce((a, r) => a + r.total, 0);
+  return (
+    <section className="pmo-panel" style={{ padding: "20px 22px", display: "flex", flexDirection: "column" }}>
+      <header style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14 }}>
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--tx-1)" }}>팀별 인력 현황</h2>
+        <span style={{ fontSize: 13, color: "var(--tx-5)", fontWeight: 700 }}>합계 {total}명</span>
+      </header>
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 14 }}>
+        {rows.map((r) => (
+          <li key={r.team} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+              <span style={{ fontSize: 14, fontWeight: 600, color: "var(--tx-1)" }}>{r.team}</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: "var(--tx-1)" }}>
+                {r.total}
+                <span style={{ fontSize: 12, color: "var(--tx-4)", fontWeight: 500, marginLeft: 2 }}>명</span>
+              </span>
+            </div>
+            <div style={{ display: "flex", height: 8, borderRadius: 999, background: "var(--bg-subtle)", overflow: "hidden" }}>
+              {r.running > 0 && <i title={`수행 ${r.running}`} style={{ width: `${(r.running / r.total) * 100}%`, background: "var(--brand)" }} />}
+              {r.proposing > 0 && <i title={`제안 ${r.proposing}`} style={{ width: `${(r.proposing / r.total) * 100}%`, background: "var(--info)" }} />}
+              {r.idle > 0 && <i title={`대기 ${r.idle}`} style={{ width: `${(r.idle / r.total) * 100}%`, background: "var(--warn)" }} />}
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "var(--tx-1)" }}>
+              <span>
+                <i style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "var(--brand)", marginRight: 5, verticalAlign: 1 }} />
+                수행 {r.running}
+              </span>
+              <span>
+                <i style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "var(--info)", marginRight: 5, verticalAlign: 1 }} />
+                제안 {r.proposing}
+              </span>
+              <span>
+                <i style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "var(--warn)", marginRight: 5, verticalAlign: 1 }} />
+                대기 {r.idle}
+              </span>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function DualBar({ utilization, contractRate }: { utilization: number; contractRate: number }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingRight: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span className="num" style={{ fontSize: 14, color: "var(--tx-1)", width: 28, textAlign: "right", fontWeight: 600 }}>
+          가동
+        </span>
+        <div style={{ flex: 1, height: 10, borderRadius: 999, background: "var(--bg-subtle)", overflow: "hidden" }}>
+          <i style={{ display: "block", width: `${utilization}%`, height: "100%", background: "var(--brand)", borderRadius: 999 }} />
+        </div>
+        <span className="num" style={{ fontSize: 12, color: "var(--brand)", fontWeight: 700, width: 46, textAlign: "right" }}>
+          {utilization.toFixed(1)}%
+        </span>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span className="num" style={{ fontSize: 14, color: "var(--tx-1)", width: 28, textAlign: "right", fontWeight: 600 }}>
+          가득
+        </span>
+        <div style={{ flex: 1, height: 10, borderRadius: 999, background: "var(--bg-subtle)", overflow: "hidden" }}>
+          <i style={{ display: "block", width: `${contractRate}%`, height: "100%", background: "var(--info)", borderRadius: 999 }} />
+        </div>
+        <span className="num" style={{ fontSize: 12, color: "var(--info)", fontWeight: 700, width: 46, textAlign: "right" }}>
+          {contractRate.toFixed(1)}%
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function TeamUtilization({ rows }: { rows: any[] }) {
+  const [sortDesc, setSortDesc] = useState(true);
+  const sorted = useMemo(() => {
+    const result = [...rows];
+    result.sort((a, b) => (sortDesc ? b.utilization - a.utilization : a.utilization - b.utilization));
+    return result;
+  }, [rows, sortDesc]);
+  return (
+    <section className="pmo-panel" style={{ padding: "20px 22px" }}>
+      <header style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 16 }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--tx-1)" }}>팀별 가동률 / 가득률</h2>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--tx-4)" }}>현재 기준(스냅샷) · 본부 합계와 정합</p>
+        </div>
+        <button className="pmo-btn" onClick={() => setSortDesc((s) => !s)} style={{ height: 32, padding: "0 12px", fontSize: 13 }}>
+          <Icon name={sortDesc ? "chevronDown" : "chevronUp"} size={12} stroke={2} />
+          가동률 {sortDesc ? "내림차순" : "오름차순"}
+        </button>
+      </header>
+      <table className="pmo-table pmo-table--recent" style={{ tableLayout: "fixed" }}>
+        <colgroup>
+          <col style={{ width: 120 }} />
+          <col style={{ width: 80 }} />
+          <col />
+          <col style={{ width: 80 }} />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>팀명</th>
+            <th style={{ textAlign: "right" }}>인원</th>
+            <th>가동률 / 가득률</th>
+            <th style={{ textAlign: "right", paddingRight: 22 }}>가동률</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((r) => (
+            <tr key={r.team}>
+              <td className="name" style={{ color: "var(--tx-1)", fontWeight: 600 }}>{r.team}</td>
+              <td className="num" style={{ textAlign: "right" }}>{r.headcount}명</td>
+              <td><DualBar utilization={r.utilization} contractRate={r.contractRate} /></td>
+              <td className="num" style={{ textAlign: "right", paddingRight: 22, color: "var(--tx-1)", fontWeight: 700, fontSize: 16 }}>{r.utilization.toFixed(1)}%</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div style={{ display: "flex", gap: 18, marginTop: 14, paddingTop: 12, borderTop: "1px dashed var(--line-2)", fontSize: 13, color: "var(--tx-4)", flexWrap: "wrap" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <i style={{ width: 12, height: 8, borderRadius: 2, background: "var(--brand)" }} />
+          가동률 = (수행 + 제안) / 현재 인원
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <i style={{ width: 12, height: 8, borderRadius: 2, background: "var(--info)" }} />
+          가득률 = 수행 / 현재 인원
+        </span>
+      </div>
+    </section>
   );
 }

@@ -67,29 +67,11 @@ def home_screen(session: DbSession) -> dict[str, object]:
             {"id": "kpi", "icon": "report", "tone": "amber", "title": "KPI 보고서", "desc": "주간·월별\n가동률·가득률 보고서", "href": "/reports/monthly"},
         ],
         "kpis": _dashboard_kpis(snapshot_counts, kpi, prev_kpi),
-        "recentProjects": {"rows": [_project_row(project) for project in _recent_projects(session, 8)]},
-        "monthSummary": _month_summary(session, kpi, prev_kpi),
-    })
-
-
-@router.get("/dashboard")
-def dashboard_screen(session: DbSession) -> dict[str, object]:
-    as_of = _latest_snapshot_date(session)
-    kpi = _latest_kpi(session)
-    prev_kpi = _previous_kpi(session, kpi)
-    snapshot_counts = _snapshot_counts(session, as_of)
-
-    return envelope({
-        "_invariants": [
-            "가동률 = (수행 + 제안) / 현재 인원",
-            "가득률 = 수행 / 현재 인원",
-            "팀 합계 = 현재 스냅샷 합계",
-        ],
-        "meta": _meta(session, as_of),
-        "kpis": _dashboard_kpis(snapshot_counts, kpi, prev_kpi),
         "trend": _kpi_trend(session),
         "teamHeadcount": _team_headcount(session, as_of),
         "teamUtilization": _team_utilization(session, as_of),
+        "recentProjects": {"rows": [_project_row(project) for project in _recent_projects(session, 8)]},
+        "monthSummary": _month_summary(session, kpi, prev_kpi),
     })
 
 
@@ -255,7 +237,6 @@ def _kpi_trend(session: DbSession) -> dict[str, list[Any]]:
         select(MonthlyKpiSummary)
         .where(MonthlyKpiSummary.organization_name == "PMO본부")
         .order_by(desc(MonthlyKpiSummary.year), desc(MonthlyKpiSummary.month))
-        .limit(6)
     ).all()))
     return {
         "months": [f"{row.year:04d}-{row.month:02d}" for row in rows],
@@ -303,18 +284,62 @@ def _project_row(project: Project) -> dict[str, Any]:
 
 
 def _month_summary(session: DbSession, kpi: MonthlyKpiSummary | None, prev: MonthlyKpiSummary | None) -> dict[str, Any]:
-    month = f"{kpi.year:04d}-{kpi.month:02d}" if kpi else ""
+    if kpi:
+        year = kpi.year
+        month_no = kpi.month
+    else:
+        today = date.today()
+        year = today.year
+        month_no = today.month
+    month = f"{year:04d}-{month_no:02d}"
+    month_start = date(year, month_no, 1)
+    if month_no == 12:
+        month_end = date(year + 1, 1, 1)
+        prev_start = date(year, 11, 1)
+    else:
+        month_end = date(year, month_no + 1, 1)
+        prev_start = date(year - 1, 12, 1) if month_no == 1 else date(year, month_no - 1, 1)
+
     utilization = _num(kpi.utilization_rate if kpi else 0)
     contract = _num(kpi.contract_rate if kpi else 0)
     prev_utilization = _num(prev.utilization_rate if prev else utilization)
     prev_contract = _num(prev.contract_rate if prev else contract)
-    new_projects = session.scalar(select(func.count()).select_from(Project).where(Project.start_date >= date(2026, 5, 1))) or 0
-    ending_projects = session.scalar(select(func.count()).select_from(Project).where(Project.end_date <= date(2026, 5, 31), Project.end_date >= date(2026, 5, 1))) or 0
+
+    new_projects = session.scalar(
+        select(func.count()).select_from(Project).where(Project.start_date >= month_start, Project.start_date < month_end)
+    ) or 0
+    prev_new_projects = session.scalar(
+        select(func.count()).select_from(Project).where(Project.start_date >= prev_start, Project.start_date < month_start)
+    ) or 0
+
+    ending_projects = session.scalar(
+        select(func.count()).select_from(Project).where(Project.end_date >= month_start, Project.end_date < month_end)
+    ) or 0
+    prev_ending_projects = session.scalar(
+        select(func.count()).select_from(Project).where(Project.end_date >= prev_start, Project.end_date < month_start)
+    ) or 0
+
+    completed_projects = session.scalar(
+        select(func.count()).select_from(Project).where(
+            Project.status == ProjectStatus.DONE,
+            Project.end_date >= month_start,
+            Project.end_date < month_end,
+        )
+    ) or 0
+    prev_completed_projects = session.scalar(
+        select(func.count()).select_from(Project).where(
+            Project.status == ProjectStatus.DONE,
+            Project.end_date >= prev_start,
+            Project.end_date < month_start,
+        )
+    ) or 0
+
     return {
         "month": month,
         "rows": [
-            {"id": "newProject", "icon": "calendar", "tone": "blue", "label": "신규 프로젝트", "value": f"{new_projects}건"},
-            {"id": "endingProject", "icon": "check", "tone": "green", "label": "완료 예정 프로젝트", "value": f"{ending_projects}건"},
+            {"id": "newProject", "icon": "calendar", "tone": "blue", "label": "신규 프로젝트", "value": f"{new_projects}건", "delta": _delta(float(new_projects - prev_new_projects), "건")},
+            {"id": "endingProject", "icon": "check", "tone": "green", "label": "완료 예정 프로젝트", "value": f"{ending_projects}건", "delta": _delta(float(ending_projects - prev_ending_projects), "건")},
+            {"id": "completedProject", "icon": "check", "tone": "slate", "label": "완료 프로젝트", "value": f"{completed_projects}건", "delta": _delta(float(completed_projects - prev_completed_projects), "건")},
             {"id": "headcountDelta", "icon": "users", "tone": "purple", "label": "인력 변동", "value": "+1명"},
             {"id": "utilization", "donut": True, "color": "brand", "pct": utilization, "label": "가동률", "value": f"{utilization:.1f}%", "delta": _delta(utilization - prev_utilization, "%p")},
             {"id": "contract", "donut": True, "color": "info", "pct": contract, "label": "가득률", "value": f"{contract:.1f}%", "delta": _delta(contract - prev_contract, "%p")},

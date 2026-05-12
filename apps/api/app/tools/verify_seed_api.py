@@ -57,7 +57,6 @@ def _check_endpoints(client: TestClient) -> None:
         ("GET", "/api/project-codes", {}),
         ("GET", "/api/project-logs", {}),
         ("GET", "/api/p1-screens/home", {}),
-        ("GET", "/api/p1-screens/dashboard", {}),
         ("GET", "/api/p1-screens/execution", {}),
         ("GET", "/api/p1-screens/code", {}),
         ("GET", "/api/p1-screens/project-detail", {}),
@@ -93,7 +92,7 @@ def _check_endpoints(client: TestClient) -> None:
     code_filtered = client.get("/api/project-codes", params={"status": "proposing"}).json()
     _assert_envelope(code_filtered, "project_codes.status")
     print(f"project_codes.proposing.total={code_filtered['meta']['total']}")
-    print("p1_screens.ok=6")
+    print("p1_screens.ok=5")
 
 
 def _assert_envelope(payload: dict, label: str) -> None:

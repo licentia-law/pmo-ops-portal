@@ -22,10 +22,14 @@ $env:DATABASE_URL="sqlite:///C:/Users/mycho/Downloads/_Licentia/Coding/pmo-ops-p
 # WEB 서버 실행 (터미널 3, repo root에서 실행)
 cd "C:\Users\mycho\Downloads\_Licentia\Coding\pmo-ops-portal"
 $env:NEXT_PUBLIC_API_BASE_URL="http://127.0.0.1:8001/api"
+
 npm run dev -w @pmo/web -- --hostname 127.0.0.1 --port 3000
 
-# 브라우저 접속
+# 브라우저 접속 (홈)
 http://127.0.0.1:3000/
+
+# 화면 목록
+# docs/manual/screens.md 참고 (대시보드는 홈에 통합됨)
 
 # 포트 충돌 시 예시
 # API: 8002, WEB: 3001

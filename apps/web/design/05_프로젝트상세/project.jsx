@@ -335,7 +335,7 @@ const BasicInfoCard = ({ project }) => (
       </InfoRow>
       <InfoRow label="주관부서">{project.ownerDept}</InfoRow>
       <InfoRow label="영업대표">{project.salesOwner}</InfoRow>
-      <InfoRow label="총괄 PM">{project.supportLead}</InfoRow>
+      <InfoRow label="제안PM">{project.supportLead}</InfoRow>
       <InfoRow label="사업공고번호">
         <span style={{ fontFamily: "var(--font-num)", fontVariantNumeric: "tabular-nums" }}>
           {project.bidNoticeNo}

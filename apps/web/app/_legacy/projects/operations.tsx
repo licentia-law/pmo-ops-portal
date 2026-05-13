@@ -12,7 +12,7 @@ type ProjectForm = {
   client_name: string;
   project_type: ProjectTypeCode;
   status: ProjectStatusCode;
-  pm_name: string;
+  proposal_pm_name: string;
   start_date: string;
   end_date: string;
 };
@@ -22,7 +22,7 @@ const emptyForm: ProjectForm = {
   client_name: "",
   project_type: "main",
   status: "proposing",
-  pm_name: "",
+  proposal_pm_name: "",
   start_date: "",
   end_date: ""
 };
@@ -63,7 +63,7 @@ export default function ProjectOperationsPage() {
     await createProject({
       ...form,
       client_name: form.client_name || null,
-      pm_name: form.pm_name || null,
+      proposal_pm_name: form.proposal_pm_name || null,
       start_date: form.start_date || null,
       end_date: form.end_date || null
     });
@@ -85,7 +85,7 @@ export default function ProjectOperationsPage() {
       { key: "code", header: "프로젝트코드", render: (row) => row.code },
       { key: "name", header: "사업명", render: (row) => <Link href={ROUTES.projectDetail(row.id)}>{row.name}</Link> },
       { key: "type", header: "사업유형", render: (row) => labelFor(PROJECT_TYPES, row.project_type) },
-      { key: "pm", header: "총괄PM", render: (row) => row.pm_name ?? "-" },
+      { key: "pm", header: "제안PM", render: (row) => row.proposal_pm_name ?? "-" },
       { key: "period", header: "기간", render: (row) => `${row.start_date ?? "-"} ~ ${row.end_date ?? "-"}` },
       { key: "status", header: "상태", render: (row) => <StatusBadge code={row.status} /> },
       {
@@ -137,7 +137,7 @@ export default function ProjectOperationsPage() {
           <div className="pmo-filter-fields">
             <label className="pmo-field"><span>사업명</span><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
             <label className="pmo-field"><span>고객사</span><input value={form.client_name} onChange={(event) => setForm({ ...form, client_name: event.target.value })} /></label>
-            <label className="pmo-field"><span>PM</span><input value={form.pm_name} onChange={(event) => setForm({ ...form, pm_name: event.target.value })} /></label>
+            <label className="pmo-field"><span>PM</span><input value={form.proposal_pm_name} onChange={(event) => setForm({ ...form, proposal_pm_name: event.target.value })} /></label>
             <label className="pmo-field"><span>시작일</span><input type="date" value={form.start_date} onChange={(event) => setForm({ ...form, start_date: event.target.value })} /></label>
             <label className="pmo-field"><span>완료일</span><input type="date" value={form.end_date} onChange={(event) => setForm({ ...form, end_date: event.target.value })} /></label>
             <label className="pmo-field"><span>사업유형</span><select value={form.project_type} onChange={(event) => setForm({ ...form, project_type: event.target.value as ProjectTypeCode })}>{PROJECT_TYPES.map((option) => <option value={option.code} key={option.code}>{option.label}</option>)}</select></label>

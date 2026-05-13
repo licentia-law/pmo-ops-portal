@@ -169,9 +169,10 @@
 | `project_type` | enum | 사업유형 |
 | `status` | enum | 현재 상태 |
 | `certainty` | string | 확도 |
-| `pm_name` | string | 총괄 PM/대표 PM |
+| `pm_name` | string | 제안PM/대표 PM |
 | `proposal_pm_name` | string | 제안 PM |
 | `presentation_pm_name` | string | 발표 PM |
+| `delivery_pm_name` | string | 수행 PM |
 | `support_lead` | string | 지원 총괄 |
 | `proposal_team_text` | text | 제안팀 원문/요약 |
 | `amount_text` | string | 화면 표시 금액 예: `14억/11.9억` |

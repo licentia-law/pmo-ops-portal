@@ -56,7 +56,7 @@
   "assignments": [
     { "name": "김책임", "initials": "김책", "role": "PM",       "roleTone": "indigo",
       "team": "PMO1팀", "deployType": "수행", "status": "투입", "onsite": "상주",
-      "from": "2026-04-01", "to": "2026-12-31", "note": "총괄 PM" },
+      "from": "2026-04-01", "to": "2026-12-31", "note": "제안PM" },
     { "name": "이수석", "initials": "이수", "role": "Sub-PM",   "roleTone": "purple",
       "team": "PMO1팀", "deployType": "수행", "status": "투입", "onsite": "상주",
       "from": "2026-04-15", "to": "2026-12-31", "note": "업무/요건 총괄" },

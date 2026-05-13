@@ -36,8 +36,9 @@ def can_mutate_project(user: User, project: Project | None = None) -> bool:
         ProjectStatus.RUNNING,
         ProjectStatus.DONE,
     }
-    # TODO: "제안팀" 판정 기준은 조직/인력 모델 확정 후 PM 외 조건을 추가한다.
-    return project.status in allowed_statuses and project.pm_name == user.name
+    # TODO: "담당 프로젝트" 판정 기준은 조직/인력 모델 확정 후 PM 외 조건을 추가한다.
+    project_pms = {project.proposal_pm_name, project.presentation_pm_name, project.delivery_pm_name}
+    return project.status in allowed_statuses and user.name in project_pms
 
 
 def can_mutate_master(user: User) -> bool:

@@ -38,7 +38,7 @@ def test_project_lifecycle_and_invalid_transition(client: TestClient) -> None:
             "client_name": "내부",
             "project_type": "main",
             "status": "proposing",
-            "pm_name": "관리자",
+            "proposal_pm_name": "관리자",
         },
     )
     assert created.status_code == 201
@@ -70,7 +70,7 @@ def test_read_only_user_cannot_mutate(client: TestClient) -> None:
 def test_project_editor_can_update_own_presented_project_only(client: TestClient) -> None:
     created = client.post(
         "/api/projects",
-        json={"name": "담당자 검증", "project_type": "main", "status": "presented", "pm_name": "pm1"},
+        json={"name": "담당자 검증", "project_type": "main", "status": "presented", "proposal_pm_name": "pm1"},
     )
     project = created.json()["data"]
 

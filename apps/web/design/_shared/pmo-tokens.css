@@ -255,6 +255,32 @@ button { font: inherit; cursor: pointer; }
 .pmo-table .num { font-variant-numeric: tabular-nums; color: var(--tx-3); }
 .pmo-table .name { color: var(--tx-1); font-weight: var(--w-med); }
 
+/* Project master: keep code/name columns visible while horizontal scrolling */
+.pmo-table--code-master thead th:nth-child(1),
+.pmo-table--code-master tbody td:nth-child(1) {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+}
+.pmo-table--code-master thead th:nth-child(2),
+.pmo-table--code-master tbody td:nth-child(2) {
+  position: sticky;
+  left: 108px; /* first column width */
+  z-index: 3;
+}
+.pmo-table--code-master thead th:nth-child(1),
+.pmo-table--code-master thead th:nth-child(2) {
+  background: var(--bg-3);
+}
+.pmo-table--code-master tbody td:nth-child(1),
+.pmo-table--code-master tbody td:nth-child(2) {
+  background: var(--bg-1);
+}
+.pmo-table--code-master tbody tr:hover td:nth-child(1),
+.pmo-table--code-master tbody tr:hover td:nth-child(2) {
+  background: var(--bg-2);
+}
+
 /* Focus ring (a11y) */
 button:focus-visible,
 a:focus-visible,

@@ -22,7 +22,10 @@ export type ProjectRecord = {
   client_name: string | null;
   project_type: ProjectTypeCode;
   status: ProjectStatusCode;
-  pm_name: string | null;
+  proposal_pm_name: string | null;
+  presentation_pm_name: string | null;
+  delivery_pm_name: string | null;
+  memo: string | null;
   start_date: string | null;
   end_date: string | null;
   project_code_id: string | null;

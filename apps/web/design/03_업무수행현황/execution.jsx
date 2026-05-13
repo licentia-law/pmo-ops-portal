@@ -68,13 +68,13 @@ const FilterBar = ({ filters }) => {
 
   return (
     <section className="pmo-panel" style={{ padding: 16, marginBottom: 16 }}>
-      {/* Row 1 — 6 selects (본부 → 팀 → 사업유형 → 상태 → 총괄PM → 영업대표) */}
+      {/* Row 1 — 6 selects (본부 → 팀 → 사업유형 → 상태 → 제안PM → 영업대표) */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 12 }}>
         <Select label="본부"     options={filters.headquarters} value={hq} onChange={setHq} />
         <Select label="팀"       options={teamOptions} value={tm} onChange={setTm} />
         <Select label="사업유형" options={filters.businessTypes} value={bt} onChange={setBt} />
         <Select label="상태"     options={filters.statuses} value={st} onChange={setSt} />
-        <Select label="총괄PM"   options={filters.leadPms} value={pm} onChange={setPm} />
+        <Select label="제안PM"   options={filters.leadPms} value={pm} onChange={setPm} />
         <Select label="영업대표" options={filters.salesOwners} value={so} onChange={setSo} />
       </div>
       {/* Row 2 — period + search + actions */}
@@ -255,7 +255,7 @@ const COLS = [
   { key: "type",      label: "사업유형",     w: 80 },
   { key: "status",    label: "상태",         w: 84 },
   { key: "amount",    label: "사업금액",     w: 90, num: true, alignRight: true },
-  { key: "leadPm",    label: "총괄PM",       w: 80 },
+  { key: "leadPm",    label: "제안PM",       w: 80 },
   { key: "sales",     label: "영업대표",     w: 80 },
   { key: "leadDept",  label: "총괄부서",     w: 110 },
   { key: "start",     label: "시작일",       w: 100, num: true },
@@ -590,7 +590,7 @@ const SelectedDetailPanel = ({ row, base, onClose }) => {
 
       <DetailDivider />
 
-      <DetailRow label="총괄PM">{merged.leadPm}</DetailRow>
+      <DetailRow label="제안PM">{merged.leadPm}</DetailRow>
       <DetailRow label="발표PM">{merged.presentPm}</DetailRow>
       <DetailRow label="제안팀" alignTop>{merged.team}</DetailRow>
 

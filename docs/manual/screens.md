@@ -7,7 +7,7 @@
 ## P1 운영 화면
 1. 홈 (`/`)
 2. 업무수행현황 (`/projects/operations`)
-3. 프로젝트코드 (`/projects/codes`)
+3. 프로젝트 마스터 (`/projects/codes`)
 4. 프로젝트 상세 (`/projects/1`)
 5. 진행이력 (`/projects/logs`)
 

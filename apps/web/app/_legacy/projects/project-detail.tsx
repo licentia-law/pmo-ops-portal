@@ -72,7 +72,7 @@ export default function ProjectDetailPage({ params }: Props) {
         <section className="pmo-grid">
           <SummaryCard label="프로젝트코드" value={project.code} />
           <SummaryCard label="사업유형" value={labelFor(PROJECT_TYPES, project.project_type)} />
-          <SummaryCard label="PM" value={project.pm_name ?? "-"} />
+          <SummaryCard label="PM" value={project.proposal_pm_name ?? "-"} />
           <SummaryCard label="상태" value="" note={labelFor(PROJECT_STATUSES, project.status)} />
         </section>
         {error ? <div className="pmo-panel pmo-error">{error}</div> : null}
@@ -82,7 +82,7 @@ export default function ProjectDetailPage({ params }: Props) {
             <div className="pmo-filter-fields">
               <label className="pmo-field"><span>사업명</span><input defaultValue={project.name} onBlur={(event) => void saveField("name", event.target.value)} /></label>
               <label className="pmo-field"><span>고객사</span><input defaultValue={project.client_name ?? ""} onBlur={(event) => void saveField("client_name", event.target.value)} /></label>
-              <label className="pmo-field"><span>PM</span><input defaultValue={project.pm_name ?? ""} onBlur={(event) => void saveField("pm_name", event.target.value)} /></label>
+              <label className="pmo-field"><span>PM</span><input defaultValue={project.proposal_pm_name ?? ""} onBlur={(event) => void saveField("proposal_pm_name", event.target.value)} /></label>
               <label className="pmo-field"><span>시작일</span><input type="date" defaultValue={project.start_date ?? ""} onBlur={(event) => void saveField("start_date", event.target.value)} /></label>
               <label className="pmo-field"><span>완료일</span><input type="date" defaultValue={project.end_date ?? ""} onBlur={(event) => void saveField("end_date", event.target.value)} /></label>
               <label className="pmo-field">

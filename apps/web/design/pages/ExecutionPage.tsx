@@ -58,10 +58,10 @@ const STATUS_LABEL: Record<string, string> = { proposing: "제안중", presented
 
 const NAV = [
   { kind: "item", id: "home", label: "홈", icon: "home" },
-  { kind: "group", id: "project", label: "프로젝트", icon: "briefcase", items: [{ id: "execution", label: "업무수행현황" }, { id: "code", label: "프로젝트코드" }, { id: "project-detail", label: "프로젝트 상세" }, { id: "history", label: "진행이력" }] },
+  { kind: "group", id: "project", label: "프로젝트", icon: "briefcase", items: [{ id: "execution", label: "업무수행현황" }, { id: "project-detail", label: "프로젝트 상세" }, { id: "history", label: "진행이력" }] },
   { kind: "group", id: "people", label: "인력", icon: "users", items: [{ id: "active", label: "인력재직현황" }, { id: "assignment", label: "인력배치/투입현황" }, { id: "current", label: "인원별 투입(현재)" }, { id: "idle", label: "대기현황" }] },
   { kind: "group", id: "kpi", label: "KPI/보고", icon: "trending", items: [{ id: "weekly", label: "주간현황" }, { id: "monthly", label: "월별가동현황" }] },
-  { kind: "group", id: "admin", label: "관리", icon: "settings", items: [{ id: "users", label: "사용자/권한 관리" }, { id: "master", label: "기준정보 관리" }] }
+  { kind: "group", id: "admin", label: "관리", icon: "settings", items: [{ id: "users", label: "사용자/권한 관리" }, { id: "master", label: "기준정보 관리" }, { id: "code", label: "프로젝트 마스터" }] }
 ] as const;
 
 const ROUTE_BY_ID: Record<string, string> = {
@@ -163,6 +163,24 @@ function formatAmountPair(amountText: string) {
   return `${parts[0]}/${parts[0]}`;
 }
 
+type ExecutionFilterState = {
+  headquarters: string;
+  team: string;
+  businessType: string;
+  status: string;
+  proposalPm: string;
+  salesOwner: string;
+  from: string;
+  to: string;
+  query: string;
+};
+
+function toStatusCode(statusLabelOrCode: string) {
+  if (!statusLabelOrCode || statusLabelOrCode === "전체") return "";
+  const byLabel = Object.entries(STATUS_LABEL).find(([, label]) => label === statusLabelOrCode)?.[0];
+  return byLabel ?? statusLabelOrCode;
+}
+
 function SummaryCard({ item, active, onClick }: { item: any; active: boolean; onClick: () => void }) {
   const iconMap: Record<string, IconName> = { all: "folder", proposal: "execution", running: "play", closed: "circle" };
   const toneMap: Record<string, string> = { all: "#3b6df0", proposal: "#ede5fd", running: "#dcf2e3", closed: "#f08c1f" };
@@ -208,13 +226,28 @@ export default function ExecutionPage() {
   const [activeSummary, setActiveSummary] = useState<string | null>(null);
   const [selectedCode, setSelectedCode] = useState("");
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [filterForm, setFilterForm] = useState<ExecutionFilterState | null>(null);
+  const [appliedFilter, setAppliedFilter] = useState<ExecutionFilterState | null>(null);
   useEffect(() => {
     let alive = true;
     getP1Screen("execution").then((result) => {
       if (alive) {
         const payload = result.data as any;
+        const initialFilter: ExecutionFilterState = {
+          headquarters: "전체",
+          team: "전체",
+          businessType: "전체",
+          status: "전체",
+          proposalPm: "전체",
+          salesOwner: "전체",
+          from: payload.filters.from,
+          to: payload.filters.to,
+          query: "",
+        };
         setData(payload);
         setSelectedCode(payload.selectedRow.code);
+        setFilterForm(initialFilter);
+        setAppliedFilter(initialFilter);
       }
     });
     return () => {
@@ -228,11 +261,30 @@ export default function ExecutionPage() {
     closed: ["win", "loss", "drop", "done"]
   };
   const filteredRows = useMemo(() => {
-    if (!data || !activeSummary) return data?.rows ?? [];
+    if (!data) return [];
+    const byForm = (data.rows ?? []).filter((row: any) => {
+      if (!appliedFilter) return true;
+      if (appliedFilter.headquarters !== "전체" && row.leadDept !== appliedFilter.headquarters) return false;
+      if (appliedFilter.team !== "전체" && row.execDept !== appliedFilter.team) return false;
+      if (appliedFilter.businessType !== "전체" && row.businessType !== appliedFilter.businessType) return false;
+      if (appliedFilter.status !== "전체" && row.status !== toStatusCode(appliedFilter.status)) return false;
+      if (appliedFilter.proposalPm !== "전체" && row.proposalPm !== appliedFilter.proposalPm) return false;
+      if (appliedFilter.salesOwner !== "전체" && row.salesOwner !== appliedFilter.salesOwner) return false;
+      const submitDate = String(row.submission?.datetime ?? "").slice(0, 10);
+      if (appliedFilter.from && submitDate && submitDate < appliedFilter.from) return false;
+      if (appliedFilter.to && submitDate && submitDate > appliedFilter.to) return false;
+      if (appliedFilter.query.trim()) {
+        const q = appliedFilter.query.trim().toLowerCase();
+        const target = `${row.code ?? ""} ${row.name ?? ""} ${row.proposalPm ?? ""} ${row.salesOwner ?? ""} ${row.remark ?? ""}`.toLowerCase();
+        if (!target.includes(q)) return false;
+      }
+      return true;
+    });
+    if (!activeSummary) return byForm;
     const allowed = statusFilterBySummary[activeSummary] ?? [];
-    if (allowed.length === 0) return data.rows;
-    return data.rows.filter((row: any) => allowed.includes(row.status));
-  }, [activeSummary, data]);
+    if (allowed.length === 0) return byForm;
+    return byForm.filter((row: any) => allowed.includes(row.status));
+  }, [activeSummary, appliedFilter, data]);
   const selectedRow = useMemo(() => filteredRows.find((row: any) => row.code === selectedCode) ?? data?.rows?.find((row: any) => row.code === selectedCode) ?? null, [filteredRows, selectedCode, data]);
   useEffect(() => {
     if (!filteredRows.some((row: any) => row.code === selectedCode) && filteredRows[0]) {
@@ -245,17 +297,18 @@ export default function ExecutionPage() {
     ? data.selectedRow
     : {
         ...selectedRow,
-        presentPm: selectedRow.leadPm,
-        team: `${selectedRow.leadPm} 중심 배치`,
+        presentPm: selectedRow.proposalPm,
+        deliveryPm: selectedRow.deliveryPm ?? selectedRow.proposalPm,
+        team: selectedRow.team ?? "-",
         period: `${selectedRow.startDate} ~ ${selectedRow.endDate}`,
-        submission: { datetime: "-", format: "-", note: "-" },
-        presentation: { datetime: "-", format: "-", note: "-" },
-        rfpNo: "-",
-        rfpDate: "-",
+        submission: selectedRow.submission ?? { datetime: "-", format: "-", note: "-" },
+        presentation: selectedRow.presentation ?? { datetime: "-", format: "-", note: "-" },
+        rfpNo: selectedRow.rfpNo ?? "-",
+        rfpDate: selectedRow.rfpDate ?? "-",
         recentActivity: { datetime: selectedRow.modifiedAt, lines: [selectedRow.remark] },
         memo: [selectedRow.remark]
       };
-  if (!data) return null;
+  if (!data || !filterForm) return null;
   const amountPair = formatAmountPair(currentDetail.amountText ?? "");
   const teamText = String(currentDetail.team ?? "");
   const teamHead = teamText.replace(/\s*\(총\s*\d+명\)\s*$/, "").trim();
@@ -266,11 +319,26 @@ export default function ExecutionPage() {
     <AppShell user={data.meta.user} notifications={data.meta.notifications} current="execution" pageTitle="업무수행현황">
       <section className="pmo-panel" style={{ padding: 16, marginBottom: 16 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 12 }}>
-          {["본부", "팀", "사업유형", "상태", "총괄PM", "영업대표"].map((label, idx) => (
+          {["본부", "팀", "사업유형", "상태", "제안PM", "영업대표"].map((label, idx) => (
             <label key={label} className="pmo-field">
               <span style={{ fontSize: 14 }}>{label}</span>
-              <select defaultValue="전체" style={{ fontSize: 14 }}>
-                {(idx === 0 ? data.filters.headquarters : idx === 1 ? data.filters.teams : idx === 2 ? data.filters.businessTypes : idx === 3 ? data.filters.statuses : idx === 4 ? data.filters.leadPms : data.filters.salesOwners).map((opt: string) => <option value={opt} key={opt}>{opt}</option>)}
+              <select
+                value={idx === 0 ? filterForm.headquarters : idx === 1 ? filterForm.team : idx === 2 ? filterForm.businessType : idx === 3 ? filterForm.status : idx === 4 ? filterForm.proposalPm : filterForm.salesOwner}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFilterForm((prev) => {
+                    if (!prev) return prev;
+                    if (idx === 0) return { ...prev, headquarters: value };
+                    if (idx === 1) return { ...prev, team: value };
+                    if (idx === 2) return { ...prev, businessType: value };
+                    if (idx === 3) return { ...prev, status: value };
+                    if (idx === 4) return { ...prev, proposalPm: value };
+                    return { ...prev, salesOwner: value };
+                  });
+                }}
+                style={{ fontSize: 14 }}
+              >
+                {(idx === 0 ? data.filters.headquarters : idx === 1 ? data.filters.teams : idx === 2 ? data.filters.businessTypes : idx === 3 ? data.filters.statuses : idx === 4 ? (data.filters.proposalPms ?? data.filters.leadPms ?? []) : data.filters.salesOwners).map((opt: string) => <option value={opt} key={opt}>{opt}</option>)}
               </select>
             </label>
           ))}
@@ -279,21 +347,45 @@ export default function ExecutionPage() {
           <label className="pmo-field" style={{ minWidth: 320 }}>
             <span style={{ fontSize: 14 }}>기간 (제안접수 기준)</span>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input type="date" defaultValue={data.filters.from} style={{ fontSize: 14 }} />
+              <input type="date" value={filterForm.from} onChange={(e) => setFilterForm((prev) => prev ? { ...prev, from: e.target.value } : prev)} style={{ fontSize: 14 }} />
               <span style={{ color: "var(--tx-5)" }}>~</span>
-              <input type="date" defaultValue={data.filters.to} style={{ fontSize: 14 }} />
+              <input type="date" value={filterForm.to} onChange={(e) => setFilterForm((prev) => prev ? { ...prev, to: e.target.value } : prev)} style={{ fontSize: 14 }} />
             </div>
           </label>
           <label className="pmo-field" style={{ flex: 1 }}>
             <span style={{ fontSize: 14 }}>검색어</span>
-            <input placeholder="프로젝트명, 코드, PM, 메모 검색" style={{ fontSize: 14 }} />
+            <input value={filterForm.query} onChange={(e) => setFilterForm((prev) => prev ? { ...prev, query: e.target.value } : prev)} placeholder="프로젝트명, 코드, PM, 메모 검색" style={{ fontSize: 14 }} />
           </label>
           <div style={{ display: "flex", gap: 8 }}>
-            <button className="pmo-btn pmo-btn-primary" style={{ background: "var(--brand)", color: "#fff", borderColor: "var(--brand)" }}>
+            <button
+              className="pmo-btn pmo-btn-primary"
+              style={{ background: "var(--brand)", color: "#fff", borderColor: "var(--brand)" }}
+              onClick={() => setAppliedFilter(filterForm)}
+            >
               <Icon name="search" size={14} stroke={2} style={{ marginRight: 4 }} />
               조회
             </button>
-            <button className="pmo-btn">초기화</button>
+            <button
+              className="pmo-btn"
+              onClick={() => {
+                const reset: ExecutionFilterState = {
+                  headquarters: "전체",
+                  team: "전체",
+                  businessType: "전체",
+                  status: "전체",
+                  proposalPm: "전체",
+                  salesOwner: "전체",
+                  from: data.filters.from,
+                  to: data.filters.to,
+                  query: "",
+                };
+                setFilterForm(reset);
+                setAppliedFilter(reset);
+                setActiveSummary(null);
+              }}
+            >
+              초기화
+            </button>
             <button className="pmo-btn"><Icon name="report" size={14} stroke={1.8} style={{ marginRight: 4 }} />엑셀 내보내기</button>
             <button className="pmo-btn pmo-btn-primary" style={{ background: "var(--brand)", color: "#fff", borderColor: "var(--brand)" }}>
               <Icon name="plus" size={14} stroke={2} style={{ marginRight: 4 }} />
@@ -317,7 +409,7 @@ export default function ExecutionPage() {
       <section style={{ display: "grid", gridTemplateColumns: isDetailOpen ? "minmax(0, 1fr) 360px" : "minmax(0, 1fr)", gap: 16 }}>
         <div className="pmo-panel" style={{ padding: 0, overflow: "hidden" }}>
           <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--line-2)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <strong style={{ fontSize: 18 }}>프로젝트 목록</strong>
+            <strong style={{ fontSize: 18 }}>사업 목록</strong>
             <span style={{ fontSize: 14, color: "var(--tx-4)" }}>
               총 {filteredRows.length}건
               {summaryFilterLabel ? <span style={{ color: "var(--brand)", fontWeight: 600 }}> · 필터: {summaryFilterLabel}</span> : null}
@@ -327,7 +419,7 @@ export default function ExecutionPage() {
             <table className="pmo-table pmo-table--recent">
               <thead>
                 <tr>
-                  <th>코드</th><th>사업명</th><th>사업유형</th><th>상태</th><th>사업금액</th><th>총괄PM</th><th>영업대표</th><th>변경일시</th><th>변경자</th>
+                  <th>사업명</th><th>상태</th><th>사업유형</th><th>사업금액</th><th>영업대표</th><th>제안PM</th><th>변경일시</th><th>변경자</th>
                 </tr>
               </thead>
               <tbody>
@@ -340,13 +432,12 @@ export default function ExecutionPage() {
                     }}
                     style={{ cursor: "pointer", background: selectedCode === row.code ? "var(--brand-bg)" : undefined }}
                   >
-                    <td className="num" style={{ color: "var(--brand)", fontWeight: 700 }}>{row.code}</td>
                     <td style={{ fontWeight: 600 }}>{row.name}</td>
-                    <td><BizChip type={row.businessType} /></td>
                     <td><StatusBadge code={row.status} /></td>
+                    <td><BizChip type={row.businessType} /></td>
                     <td className="num">{formatAmountPair(row.amountText)}</td>
-                    <td>{row.leadPm}</td>
                     <td>{row.salesOwner}</td>
+                    <td>{row.proposalPm}</td>
                     <td className="num">{row.modifiedAt}</td>
                     <td>{row.modifier}</td>
                   </tr>
@@ -386,8 +477,9 @@ export default function ExecutionPage() {
           <div style={{ fontSize: 20, lineHeight: 1.3, fontWeight: 700, color: "var(--tx-1)", marginBottom: 14 }}>{currentDetail.name}</div>
 
           <div style={{ borderTop: "1px solid var(--line-2)", paddingTop: 12, display: "grid", gap: 10, fontSize: 14 }}>
-            <div className="pmo-kv"><span style={{ fontWeight: 700, color: "var(--tx-2)" }}>총괄PM</span><strong>{currentDetail.leadPm}</strong></div>
+            <div className="pmo-kv"><span style={{ fontWeight: 700, color: "var(--tx-2)" }}>제안PM</span><strong>{currentDetail.proposalPm}</strong></div>
             <div className="pmo-kv"><span style={{ fontWeight: 700, color: "var(--tx-2)" }}>발표PM</span><strong>{currentDetail.presentPm}</strong></div>
+            <div className="pmo-kv"><span style={{ fontWeight: 700, color: "var(--tx-2)" }}>수행PM</span><strong>{currentDetail.deliveryPm ?? "-"}</strong></div>
             <div className="pmo-kv">
               <span style={{ fontWeight: 700, color: "var(--tx-2)" }}>제안팀</span>
               <span style={{ textAlign: "right" }}>

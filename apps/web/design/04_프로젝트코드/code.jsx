@@ -335,7 +335,7 @@ const ProjectTable = ({ rows, totalCount, statusFilter }) => {
               <HeaderCell width={70}>확도</HeaderCell>
               <HeaderCell width={120}>영업부서</HeaderCell>
               <HeaderCell width={92}>영업대표</HeaderCell>
-              <HeaderCell width={100}>총괄 PM</HeaderCell>
+              <HeaderCell width={100}>제안PM</HeaderCell>
               <HeaderCell width={108}>시작일</HeaderCell>
               <HeaderCell width={108}>종료일</HeaderCell>
               <HeaderCell width={84}>사용여부</HeaderCell>

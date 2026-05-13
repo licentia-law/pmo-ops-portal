@@ -30,7 +30,7 @@ def list_projects(session: DbSession, params: ListParams = Depends()) -> dict[st
     statement = apply_text_search(
         statement,
         params.q,
-        [Project.code, Project.name, Project.pm_name, Project.client_name, Project.sales_owner],
+        [Project.code, Project.name, Project.proposal_pm_name, Project.presentation_pm_name, Project.delivery_pm_name, Project.client_name, Project.sales_owner],
     )
     if params.status:
         statement = statement.where(Project.status == ProjectStatus(params.status))
@@ -119,10 +119,9 @@ def update_project(
             project_code.name = project.name
             project_code.project_type = project.project_type
             project_code.status = project.status
-            project_code.owner_name = project.pm_name
+            project_code.owner_name = project.proposal_pm_name
             project_code.sales_department = project.sales_department
             project_code.sales_owner = project.sales_owner
-            project_code.support_lead = project.support_lead
     if next_status is not None and next_status != previous_status:
         session.add(
             ProjectLog(

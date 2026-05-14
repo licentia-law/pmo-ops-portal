@@ -170,6 +170,7 @@ type EditForm = {
   code: string;
   name: string;
   clientName: string;
+  salesDept: string;
   projectType: string;
   status: string;
   certainty: string;
@@ -193,7 +194,6 @@ type EditForm = {
   useProposalPresentationTime: boolean;
   presentationFormat: string;
   presentationNote: string;
-  recentActivityAt: string;
   memo: string;
   useStatus: string;
 };
@@ -273,6 +273,28 @@ const SELECT_STYLE: CSSProperties = {
   backgroundPosition: "right 10px center"
 };
 
+const GROUP_SECTION_STYLE: CSSProperties = {
+  padding: 14,
+  marginBottom: 12,
+  border: "1.5px solid #cfd8e7",
+  background: "#f8fbff",
+  boxShadow: "inset 0 0 0 1px rgba(255,255,255,.7)"
+};
+
+const GROUP_TITLE_STYLE: CSSProperties = {
+  margin: "0 0 10px",
+  fontSize: 15,
+  fontWeight: 800,
+  color: "var(--tx-2)",
+  padding: "6px 10px",
+  borderRadius: 8,
+  border: "1px solid #d8e2f0",
+  background: "linear-gradient(180deg, #ffffff 0%, #f3f7fd 100%)",
+  letterSpacing: "0.01em"
+};
+
+const MEMO_MAX_LENGTH = 50;
+
 function CodePageImpl() {
   const [data, setData] = useState<any | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -286,6 +308,7 @@ function CodePageImpl() {
   const [editForm, setEditForm] = useState<EditForm | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [memoLengthError, setMemoLengthError] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
     getP1Screen("code").then((result) => {
@@ -302,6 +325,18 @@ function CodePageImpl() {
     () =>
       Array.from(new Set<string>((data?.rows ?? []).map((r: any) => String(r.salesOwner ?? "").trim()).filter((v: string) => v && v !== "-")))
         .sort((a, b) => a.localeCompare(b, "ko-KR")),
+    [data]
+  );
+  const ownerDeptBySalesOwner = useMemo<Record<string, string>>(
+    () =>
+      (data?.rows ?? []).reduce((acc: Record<string, string>, row: any) => {
+        const owner = String(row.salesOwner ?? "").trim();
+        const dept = String(row.salesDept ?? "").trim();
+        if (owner && owner !== "-" && dept && dept !== "-" && !acc[owner]) {
+          acc[owner] = dept;
+        }
+        return acc;
+      }, {}),
     [data]
   );
   const leadPmsForEdit = useMemo<string[]>(
@@ -344,6 +379,7 @@ function CodePageImpl() {
       code: row.code ?? "",
       name: row.name ?? "",
       clientName: row.clientName && row.clientName !== "-" ? row.clientName : "",
+      salesDept: row.salesDept && row.salesDept !== "-" ? row.salesDept : "",
       projectType: String(row.projectType ?? "주사업"),
       status: row.status ?? "proposing",
       certainty: row.certainty ?? "",
@@ -367,11 +403,11 @@ function CodePageImpl() {
       useProposalPresentationTime: splitDateTime(row.proposalPresentationAt).useTime,
       presentationFormat: row.presentationFormat && row.presentationFormat !== "-" ? row.presentationFormat : "",
       presentationNote: row.presentationNote && row.presentationNote !== "-" ? row.presentationNote : "",
-      recentActivityAt: toDateTimeLocal(row.recentActivityAt),
       memo: row.memo && row.memo !== "-" ? row.memo : "",
       useStatus: row.useStatus ?? "사용"
     });
     setSaveError(null);
+    setMemoLengthError(null);
   };
 
   const closeEdit = () => {
@@ -379,6 +415,7 @@ function CodePageImpl() {
     setEditingRow(null);
     setEditForm(null);
     setSaveError(null);
+    setMemoLengthError(null);
   };
 
   const saveEdit = async () => {
@@ -393,6 +430,7 @@ function CodePageImpl() {
         project_type: mappedProjectType,
         status: editForm.status as any,
         certainty: editForm.certainty.trim() || null,
+        sales_department: editForm.salesDept.trim() || null,
         sales_owner: editForm.salesOwner.trim() || null,
         start_date: editForm.fromDate || null,
         end_date: editForm.toDate || null,
@@ -412,6 +450,7 @@ function CodePageImpl() {
           client_name: editForm.clientName.trim() || null,
           project_type: mappedProjectType as any,
           status: editForm.status as any,
+          sales_department: editForm.salesDept.trim() || null,
           sales_owner: editForm.salesOwner.trim() || null,
           proposal_pm_name: editForm.proposalPm.trim() || null,
           presentation_pm_name: editForm.presentPm.trim() || null,
@@ -427,7 +466,6 @@ function CodePageImpl() {
           presentation_at: presentationAtValue,
           presentation_format: editForm.presentationFormat.trim() || null,
           presentation_note: editForm.presentationNote.trim() || null,
-          recent_activity_at: fromDateTimeLocal(editForm.recentActivityAt),
           memo: editForm.memo.trim() || null,
           start_date: editForm.fromDate || null,
           end_date: editForm.toDate || null,
@@ -450,7 +488,7 @@ function CodePageImpl() {
                   amountText: amountTextValue ?? row.amountText ?? "-",
                   totalAmount: totalAmountValue,
                   companyAmount: companyAmountValue,
-                  salesDept: row.salesDept ?? "-",
+                  salesDept: editForm.salesDept || "-",
                   salesOwner: updatedData.sales_owner ?? "-",
                   proposalPm: editForm.proposalPm || row.proposalPm || "-",
                   presentPm: editForm.presentPm || "-",
@@ -465,7 +503,6 @@ function CodePageImpl() {
                   proposalPresentationAt: presentationAtValue || "-",
                   presentationFormat: editForm.presentationFormat || "-",
                   presentationNote: editForm.presentationNote || "-",
-                  recentActivityAt: fromDateTimeLocal(editForm.recentActivityAt) || "-",
                   memo: editForm.memo || "-",
                   useStatus: updatedData.is_active ? "사용" : "미사용",
                 }
@@ -539,7 +576,7 @@ function CodePageImpl() {
           <table className="pmo-table pmo-table--recent pmo-table--code-master" style={{ tableLayout: "fixed" }}>
             <thead>
               <tr>
-                <th style={{ textAlign: "center", width: 108 }}>코드</th>
+                <th style={{ textAlign: "center", width: 132 }}>코드</th>
                 <th style={{ textAlign: "center", width: 200 }}>사업명</th>
                 <th style={{ textAlign: "center", width: 128 }}>고객사</th>
                 <th style={{ textAlign: "center", width: 90 }}>사업유형</th>
@@ -564,13 +601,12 @@ function CodePageImpl() {
                 <th style={{ textAlign: "center", width: 132 }}>발표 유의사항</th>
                 <th style={{ textAlign: "center", width: 124 }}>최근활동일</th>
                 <th style={{ textAlign: "center", width: 84 }}>사용여부</th>
-                <th style={{ textAlign: "center", width: 104 }}>작업</th>
               </tr>
             </thead>
             <tbody>
               {visibleRows.length === 0 ? (
                 <tr>
-                  <td colSpan={26} style={{ padding: "60px 20px", textAlign: "center", color: "var(--tx-4)" }}>
+                  <td colSpan={25} style={{ padding: "60px 20px", textAlign: "center", color: "var(--tx-4)" }}>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
                       <Icon name="search" size={28} stroke={1.5} style={{ color: "var(--tx-5)" }} />
                       <span style={{ fontWeight: 600, color: "var(--tx-3)" }}>해당 조건의 프로젝트 코드가 없습니다.</span>
@@ -580,7 +616,20 @@ function CodePageImpl() {
                 </tr>
               ) : visibleRows.map((r: any) => (
                 <tr key={r.code}>
-                  <td className="num" style={{ textAlign: "center", color: "var(--brand-700)", fontWeight: 600, fontSize: 14 }}>{r.code}</td>
+                  <td className="num" style={{ textAlign: "center", color: "var(--brand-700)", fontWeight: 600, fontSize: 14, whiteSpace: "nowrap" }}>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <button
+                        className="pmo-btn"
+                        style={{ width: 24, minWidth: 24, height: 24, padding: 0, justifyContent: "center", fontSize: 12 }}
+                        onClick={() => openEdit(r)}
+                        title="편집"
+                        aria-label={`${r.code} 편집`}
+                      >
+                        ✏
+                      </button>
+                      <span>{r.code}</span>
+                    </div>
+                  </td>
                   <td className="name" style={{ textAlign: "center", whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.45, fontSize: 14 }}>{r.name}</td>
                   <td style={{ textAlign: "center", fontSize: 14 }}>{r.clientName || "-"}</td>
                   <td style={{ textAlign: "center", fontSize: 14 }}>
@@ -607,11 +656,6 @@ function CodePageImpl() {
                   <td style={{ textAlign: "center", fontSize: 14, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.4 }}>{r.presentationNote || "-"}</td>
                   <td className="num" style={{ textAlign: "center", fontSize: 14 }}>{r.recentActivityAt || "-"}</td>
                   <td style={{ textAlign: "center", fontSize: 14 }}><UseChip value={r.useStatus} /></td>
-                  <td style={{ textAlign: "center", fontSize: 14 }}>
-                    <button className="pmo-btn" style={{ height: 30, padding: "0 12px", fontSize: 14 }} onClick={() => openEdit(r)}>
-                      편집
-                    </button>
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -640,129 +684,262 @@ function CodePageImpl() {
       </footer>
 
       {editingRow && editForm ? (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.28)", zIndex: 40, display: "flex", justifyContent: "flex-end" }}>
-          <aside className="pmo-panel" style={{ width: 460, maxWidth: "100%", height: "100%", borderRadius: 0, padding: 20, overflowY: "auto" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.4)", zIndex: 40, display: "flex", justifyContent: "center", alignItems: "center", padding: 20 }}>
+          <aside className="pmo-panel" style={{ width: "min(1200px, 92vw)", height: "88vh", borderRadius: 12, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                flex: "0 0 auto",
+                background: "#ffffff",
+                zIndex: 5,
+                padding: "14px 20px 10px",
+                borderBottom: "1px solid var(--line-2)",
+                boxShadow: "0 2px 10px rgba(15,23,42,.06)"
+              }}
+            >
               <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>프로젝트 관리 편집</h3>
               <button onClick={closeEdit} style={{ border: 0, background: "transparent", fontSize: 24, color: "var(--tx-4)", cursor: "pointer" }}>×</button>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
-              <label className="pmo-field"><span>코드</span><input value={editForm.code} onChange={(e) => setEditForm({ ...editForm, code: e.target.value })} /></label>
-              <label className="pmo-field"><span>프로젝트명</span><input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></label>
-              <label className="pmo-field"><span>고객사</span><input value={editForm.clientName} onChange={(e) => setEditForm({ ...editForm, clientName: e.target.value })} /></label>
-              <label className="pmo-field"><span>사업유형</span>
-                <select value={editForm.projectType} onChange={(e) => setEditForm({ ...editForm, projectType: e.target.value })}>
-                  {["주사업", "부사업", "하도", "협력"].map((v) => <option key={v} value={v}>{v}</option>)}
-                </select>
-              </label>
-              <label className="pmo-field"><span>상태</span>
-                <select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}>
-                  {Object.keys(STATUS_LABEL).map((code) => <option key={code} value={code}>{STATUS_LABEL[code]}</option>)}
-                </select>
-              </label>
-              <label className="pmo-field">
-                <span>확도</span>
-                <select value={editForm.certainty} onChange={(e) => setEditForm({ ...editForm, certainty: e.target.value })}>
-                  <option value="">선택 안함</option>
-                  {certainties.map((certainty) => (
-                    <option key={certainty} value={certainty}>{certainty}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="pmo-field">
-                <span>사업금액</span>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                  <input value={editForm.totalAmount} onChange={(e) => setEditForm({ ...editForm, totalAmount: e.target.value })} placeholder="총액(억)" />
-                  <input value={editForm.companyAmount} onChange={(e) => setEditForm({ ...editForm, companyAmount: e.target.value })} placeholder="당사금액(억)" />
+
+            <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "16px 20px 12px" }}>
+            <section className="pmo-panel" style={GROUP_SECTION_STYLE}>
+              <h4 style={GROUP_TITLE_STYLE}>프로젝트 기본정보</h4>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 }}>
+                <label className="pmo-field" style={{ gridRow: 1, gridColumn: 1 }}><span>상태</span>
+                  <select value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}>
+                    {Object.keys(STATUS_LABEL).map((code) => <option key={code} value={code}>{STATUS_LABEL[code]}</option>)}
+                  </select>
+                </label>
+                <div style={{ gridRow: 1, gridColumn: 2 }} />
+                <div style={{ gridRow: 1, gridColumn: 3 }} />
+                <div style={{ gridRow: 1, gridColumn: 4 }} />
+
+                <label className="pmo-field" style={{ gridRow: 2, gridColumn: 1 }}><span>코드</span><input value={editForm.code} onChange={(e) => setEditForm({ ...editForm, code: e.target.value })} /></label>
+                <label className="pmo-field" style={{ gridRow: 2, gridColumn: 2 }}><span>프로젝트명</span><input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></label>
+                <label className="pmo-field" style={{ gridRow: 2, gridColumn: 3 }}><span>공고번호</span><input value={editForm.bidNoticeNo} onChange={(e) => setEditForm({ ...editForm, bidNoticeNo: e.target.value })} /></label>
+                <label className="pmo-field" style={{ gridRow: 2, gridColumn: 4 }}><span>공고일</span><input type="date" value={editForm.bidNoticeDate} onChange={(e) => setEditForm({ ...editForm, bidNoticeDate: e.target.value })} /></label>
+
+                <label className="pmo-field" style={{ gridRow: 3, gridColumn: 1 }}><span>고객사</span><input value={editForm.clientName} onChange={(e) => setEditForm({ ...editForm, clientName: e.target.value })} /></label>
+                <label className="pmo-field" style={{ gridRow: 3, gridColumn: 2 }}><span>사업유형</span>
+                  <select value={editForm.projectType} onChange={(e) => setEditForm({ ...editForm, projectType: e.target.value })}>
+                    {["주사업", "부사업", "하도", "협력"].map((v) => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                </label>
+                <label className="pmo-field" style={{ gridRow: 3, gridColumn: 3 }}>
+                  <span>확도</span>
+                  <select value={editForm.certainty} onChange={(e) => setEditForm({ ...editForm, certainty: e.target.value })}>
+                    <option value="">선택 안함</option>
+                    {certainties.map((certainty) => (
+                      <option key={certainty} value={certainty}>{certainty}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="pmo-field" style={{ gridRow: 3, gridColumn: 4 }}>
+                  <span>사업금액 (총액 / 당사금액, 억)</span>
+                  <div style={{ display: "grid", gridTemplateColumns: "minmax(120px, 1fr) minmax(120px, 1fr)", gap: 8 }}>
+                    <input value={editForm.totalAmount} onChange={(e) => setEditForm({ ...editForm, totalAmount: e.target.value })} placeholder="총액(억)" style={{ minWidth: 0 }} />
+                    <input value={editForm.companyAmount} onChange={(e) => setEditForm({ ...editForm, companyAmount: e.target.value })} placeholder="당사금액(억)" style={{ minWidth: 0 }} />
+                  </div>
+                </label>
                 </div>
-              </label>
-              <label className="pmo-field">
-                <span>영업대표</span>
-                <select value={editForm.salesOwner} onChange={(e) => setEditForm({ ...editForm, salesOwner: e.target.value })}>
-                  <option value="">선택 안함</option>
-                  {salesOwnersForEdit.map((owner) => (
-                    <option key={owner} value={owner}>{owner}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="pmo-field">
-                <span>제안PM</span>
-                <select value={editForm.proposalPm} onChange={(e) => setEditForm({ ...editForm, proposalPm: e.target.value })}>
-                  <option value="">선택 안함</option>
-                  {leadPmsForEdit.map((pm) => (
-                    <option key={pm} value={pm}>{pm}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="pmo-field">
-                <span>발표PM</span>
-                <select value={editForm.presentPm} onChange={(e) => setEditForm({ ...editForm, presentPm: e.target.value })}>
-                  <option value="">선택 안함</option>
-                  {leadPmsForEdit.map((pm) => (
-                    <option key={pm} value={pm}>{pm}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="pmo-field">
-                <span>수행PM</span>
-                <select value={editForm.deliveryPm} onChange={(e) => setEditForm({ ...editForm, deliveryPm: e.target.value })}>
-                  <option value="">선택 안함</option>
-                  {leadPmsForEdit.map((pm) => (
-                    <option key={pm} value={pm}>{pm}</option>
-                  ))}
-                </select>
-              </label>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <label className="pmo-field"><span>시작일</span><input type="date" value={editForm.fromDate} onChange={(e) => setEditForm({ ...editForm, fromDate: e.target.value })} /></label>
-                <label className="pmo-field"><span>종료일</span><input type="date" value={editForm.toDate} onChange={(e) => setEditForm({ ...editForm, toDate: e.target.value })} /></label>
+            </section>
+
+            <section className="pmo-panel" style={GROUP_SECTION_STYLE}>
+              <h4 style={GROUP_TITLE_STYLE}>인력 목록</h4>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
+                <label className="pmo-field" style={{ gridRow: 1, gridColumn: 1 }}>
+                  <span>영업대표</span>
+                  <select
+                    value={editForm.salesOwner}
+                    onChange={(e) => {
+                      const nextOwner = e.target.value;
+                      const nextDept = ownerDeptBySalesOwner[nextOwner] ?? editForm.salesDept;
+                      setEditForm({ ...editForm, salesOwner: nextOwner, salesDept: nextDept });
+                    }}
+                  >
+                    <option value="">선택 안함</option>
+                    {salesOwnersForEdit.map((owner) => (
+                      <option key={owner} value={owner}>{owner}</option>
+                    ))}
+                  </select>
+                </label>
+                <div style={{ gridRow: 1, gridColumn: 2 }} />
+                <div style={{ gridRow: 1, gridColumn: 3 }} />
+                <label className="pmo-field" style={{ gridRow: 2, gridColumn: 1 }}>
+                  <span>제안PM</span>
+                  <select value={editForm.proposalPm} onChange={(e) => setEditForm({ ...editForm, proposalPm: e.target.value })}>
+                    <option value="">선택 안함</option>
+                    {leadPmsForEdit.map((pm) => (
+                      <option key={pm} value={pm}>{pm}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="pmo-field" style={{ gridRow: 2, gridColumn: 2 }}>
+                  <span>발표PM</span>
+                  <select value={editForm.presentPm} onChange={(e) => setEditForm({ ...editForm, presentPm: e.target.value })}>
+                    <option value="">선택 안함</option>
+                    {leadPmsForEdit.map((pm) => (
+                      <option key={pm} value={pm}>{pm}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="pmo-field" style={{ gridRow: 2, gridColumn: 3 }}>
+                  <span>수행PM</span>
+                  <select value={editForm.deliveryPm} onChange={(e) => setEditForm({ ...editForm, deliveryPm: e.target.value })}>
+                    <option value="">선택 안함</option>
+                    {leadPmsForEdit.map((pm) => (
+                      <option key={pm} value={pm}>{pm}</option>
+                    ))}
+                  </select>
+                </label>
               </div>
-              <label className="pmo-field"><span>공고번호</span><input value={editForm.bidNoticeNo} onChange={(e) => setEditForm({ ...editForm, bidNoticeNo: e.target.value })} /></label>
-              <label className="pmo-field"><span>공고일</span><input type="date" value={editForm.bidNoticeDate} onChange={(e) => setEditForm({ ...editForm, bidNoticeDate: e.target.value })} /></label>
-              <label className="pmo-field">
-                <span>제안 제출일/방법</span>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "center" }}>
-                  <input type="date" value={editForm.proposalSubmissionDate} onChange={(e) => setEditForm({ ...editForm, proposalSubmissionDate: e.target.value })} />
-                  <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--tx-3)", fontWeight: 600 }}>
-                    <input type="checkbox" checked={editForm.useProposalSubmissionTime} onChange={(e) => setEditForm({ ...editForm, useProposalSubmissionTime: e.target.checked })} />
-                    시간 사용
-                  </label>
-                </div>
-                <input type="time" value={editForm.proposalSubmissionTime} disabled={!editForm.useProposalSubmissionTime} onChange={(e) => setEditForm({ ...editForm, proposalSubmissionTime: e.target.value })} />
-                <select value={editForm.submissionFormat} onChange={(e) => setEditForm({ ...editForm, submissionFormat: e.target.value })}>
-                  <option value="">선택 안함</option>
-                  <option value="온라인">온라인</option>
-                  <option value="오프라인">오프라인</option>
-                </select>
-                <input value={editForm.submissionNote} onChange={(e) => setEditForm({ ...editForm, submissionNote: e.target.value })} placeholder="제출 유의사항" />
-              </label>
-              <label className="pmo-field">
-                <span>제안 발표일/방법</span>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, alignItems: "center" }}>
-                  <input type="date" value={editForm.proposalPresentationDate} onChange={(e) => setEditForm({ ...editForm, proposalPresentationDate: e.target.value })} />
-                  <label style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--tx-3)", fontWeight: 600 }}>
-                    <input type="checkbox" checked={editForm.useProposalPresentationTime} onChange={(e) => setEditForm({ ...editForm, useProposalPresentationTime: e.target.checked })} />
-                    시간 사용
-                  </label>
-                </div>
-                <input type="time" value={editForm.proposalPresentationTime} disabled={!editForm.useProposalPresentationTime} onChange={(e) => setEditForm({ ...editForm, proposalPresentationTime: e.target.value })} />
-                <select value={editForm.presentationFormat} onChange={(e) => setEditForm({ ...editForm, presentationFormat: e.target.value })}>
-                  <option value="">선택 안함</option>
-                  <option value="온라인">온라인</option>
-                  <option value="오프라인">오프라인</option>
-                </select>
-                <input value={editForm.presentationNote} onChange={(e) => setEditForm({ ...editForm, presentationNote: e.target.value })} placeholder="발표 유의사항" />
-              </label>
-              <label className="pmo-field"><span>최근활동일</span><input type="datetime-local" value={editForm.recentActivityAt} onChange={(e) => setEditForm({ ...editForm, recentActivityAt: e.target.value })} /></label>
-              <label className="pmo-field"><span>메모</span><textarea value={editForm.memo} onChange={(e) => setEditForm({ ...editForm, memo: e.target.value })} rows={3} style={{ resize: "vertical", minHeight: 84 }} /></label>
-              <label className="pmo-field"><span>사용여부</span>
-                <select value={editForm.useStatus} onChange={(e) => setEditForm({ ...editForm, useStatus: e.target.value })}>
-                  <option value="사용">사용</option>
-                  <option value="미사용">미사용</option>
-                </select>
-              </label>
+            </section>
+
+            <section className="pmo-panel" style={GROUP_SECTION_STYLE}>
+              <h4 style={GROUP_TITLE_STYLE}>제안 작업</h4>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <section className="pmo-panel" style={{ padding: 12, border: "1px solid #d9e2f0", background: "#fff", gridColumn: "1 / 2", gridRow: 1 }}>
+                  <h5 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 700, color: "var(--tx-2)" }}>기본 일정</h5>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <label className="pmo-field"><span>시작일</span><input type="date" value={editForm.fromDate} onChange={(e) => setEditForm({ ...editForm, fromDate: e.target.value })} /></label>
+                    <label className="pmo-field"><span>종료일</span><input type="date" value={editForm.toDate} onChange={(e) => setEditForm({ ...editForm, toDate: e.target.value })} /></label>
+                  </div>
+                </section>
+                <div style={{ gridColumn: "2 / 3", gridRow: 1 }} />
+                <section className="pmo-panel" style={{ padding: 12, border: "1px solid #d9e2f0", background: "#fff", gridColumn: "1 / 2", gridRow: 2 }}>
+                  <h5 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 700, color: "var(--tx-2)" }}>제안 제출일/방법</h5>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 10, alignItems: "end" }}>
+                    <label className="pmo-field">
+                      <span>제출일</span>
+                      <input type="date" value={editForm.proposalSubmissionDate} onChange={(e) => setEditForm({ ...editForm, proposalSubmissionDate: e.target.value })} />
+                    </label>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12.5, color: "var(--tx-3)", fontWeight: 600, whiteSpace: "nowrap", marginBottom: 10 }}>
+                      <input type="checkbox" style={{ width: 14, height: 14 }} checked={editForm.useProposalSubmissionTime} onChange={(e) => setEditForm({ ...editForm, useProposalSubmissionTime: e.target.checked })} />
+                      시간 사용
+                    </label>
+                    <label className="pmo-field">
+                      <span style={{ color: editForm.useProposalSubmissionTime ? "var(--tx-3)" : "var(--tx-5)" }}>제출시간</span>
+                      <input
+                        type="time"
+                        value={editForm.proposalSubmissionTime}
+                        disabled={!editForm.useProposalSubmissionTime}
+                        onChange={(e) => setEditForm({ ...editForm, proposalSubmissionTime: e.target.value })}
+                        style={{ opacity: editForm.useProposalSubmissionTime ? 1 : 0.55 }}
+                      />
+                    </label>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "minmax(120px, 1fr) minmax(0, 3fr)", gap: 10, marginTop: 10 }}>
+                    <label className="pmo-field" style={{ minWidth: 0 }}>
+                      <span>제출 형식</span>
+                      <select
+                        style={{ minWidth: 0, width: "100%" }}
+                        value={editForm.submissionFormat}
+                        onChange={(e) => setEditForm({ ...editForm, submissionFormat: e.target.value })}
+                      >
+                        <option value="">선택 안함</option>
+                        <option value="온라인">온라인</option>
+                        <option value="오프라인">오프라인</option>
+                      </select>
+                    </label>
+                    <label className="pmo-field" style={{ minWidth: 0 }}>
+                      <span>제출 유의사항</span>
+                      <input
+                        value={editForm.submissionNote}
+                        onChange={(e) => setEditForm({ ...editForm, submissionNote: e.target.value })}
+                        placeholder="제출 유의사항"
+                        style={{ minWidth: 0, width: "100%" }}
+                      />
+                    </label>
+                  </div>
+                </section>
+                <section className="pmo-panel" style={{ padding: 12, border: "1px solid #d9e2f0", background: "#fff", gridColumn: "2 / 3", gridRow: 2 }}>
+                  <h5 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 700, color: "var(--tx-2)" }}>제안 발표일/방법</h5>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 10, alignItems: "end" }}>
+                    <label className="pmo-field">
+                      <span>발표일</span>
+                      <input type="date" value={editForm.proposalPresentationDate} onChange={(e) => setEditForm({ ...editForm, proposalPresentationDate: e.target.value })} />
+                    </label>
+                    <label style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12.5, color: "var(--tx-3)", fontWeight: 600, whiteSpace: "nowrap", marginBottom: 10 }}>
+                      <input type="checkbox" style={{ width: 14, height: 14 }} checked={editForm.useProposalPresentationTime} onChange={(e) => setEditForm({ ...editForm, useProposalPresentationTime: e.target.checked })} />
+                      시간 사용
+                    </label>
+                    <label className="pmo-field">
+                      <span style={{ color: editForm.useProposalPresentationTime ? "var(--tx-3)" : "var(--tx-5)" }}>발표시간</span>
+                      <input
+                        type="time"
+                        value={editForm.proposalPresentationTime}
+                        disabled={!editForm.useProposalPresentationTime}
+                        onChange={(e) => setEditForm({ ...editForm, proposalPresentationTime: e.target.value })}
+                        style={{ opacity: editForm.useProposalPresentationTime ? 1 : 0.55 }}
+                      />
+                    </label>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "minmax(120px, 1fr) minmax(0, 3fr)", gap: 10, marginTop: 10 }}>
+                    <label className="pmo-field" style={{ minWidth: 0 }}>
+                      <span>발표 형식</span>
+                      <select
+                        style={{ minWidth: 0, width: "100%" }}
+                        value={editForm.presentationFormat}
+                        onChange={(e) => setEditForm({ ...editForm, presentationFormat: e.target.value })}
+                      >
+                        <option value="">선택 안함</option>
+                        <option value="온라인">온라인</option>
+                        <option value="오프라인">오프라인</option>
+                      </select>
+                    </label>
+                    <label className="pmo-field" style={{ minWidth: 0 }}>
+                      <span>발표 유의사항</span>
+                      <input
+                        value={editForm.presentationNote}
+                        onChange={(e) => setEditForm({ ...editForm, presentationNote: e.target.value })}
+                        placeholder="발표 유의사항"
+                        style={{ minWidth: 0, width: "100%" }}
+                      />
+                    </label>
+                  </div>
+                </section>
+              </div>
+            </section>
+
+            <section className="pmo-panel" style={GROUP_SECTION_STYLE}>
+              <h4 style={GROUP_TITLE_STYLE}>기타</h4>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, alignItems: "start" }}>
+                <label className="pmo-field" style={{ gridColumn: "1 / 2" }}>
+                  <span>사용여부</span>
+                  <select value={editForm.useStatus} onChange={(e) => setEditForm({ ...editForm, useStatus: e.target.value })}>
+                    <option value="사용">사용</option>
+                    <option value="미사용">미사용</option>
+                  </select>
+                </label>
+                <label className="pmo-field" style={{ gridColumn: "2 / 5" }}>
+                  <span>메모</span>
+                  <input
+                    value={editForm.memo}
+                    onChange={(e) => {
+                      const nextMemo = e.target.value;
+                      if (nextMemo.length > MEMO_MAX_LENGTH) {
+                        setMemoLengthError(`메모는 ${MEMO_MAX_LENGTH}자까지만 입력할 수 있습니다.`);
+                        return;
+                      }
+                      setMemoLengthError(null);
+                      setEditForm({ ...editForm, memo: nextMemo });
+                    }}
+                    placeholder="메모"
+                    style={{ height: 36, minWidth: 0, width: "100%", fontSize: 13.5, fontWeight: 500, color: "var(--tx-1)", fontFamily: "inherit" }}
+                  />
+                  {memoLengthError ? <span style={{ color: "var(--crit)", fontSize: 12, fontWeight: 700 }}>{memoLengthError}</span> : null}
+                </label>
+              </div>
+            </section>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
               {saveError ? <div style={{ fontSize: 13, color: "var(--crit)", fontWeight: 600 }}>{saveError}</div> : null}
             </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
+            </div>
+
+            <div style={{ flex: "0 0 auto", display: "flex", justifyContent: "flex-end", gap: 8, padding: "12px 20px 16px", borderTop: "1px solid var(--line-2)", background: "#fff" }}>
               <button className="pmo-btn" onClick={closeEdit} disabled={saving}>취소</button>
               <button className="pmo-btn pmo-btn-primary" style={{ background: "var(--brand)", borderColor: "var(--brand)", color: "#fff" }} onClick={saveEdit} disabled={saving}>
                 {saving ? "저장 중..." : "저장"}

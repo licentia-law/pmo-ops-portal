@@ -1,6 +1,11 @@
 import { EMPLOYMENT_STATUSES, ROUTES, labelFor } from "@pmo/shared-types";
 import { personnelMock } from "@pmo/shared-mocks";
 import { AppShell, BaseTable, FilterBar, Pagination, SelectFilter, TextFilter, type Column } from "@pmo/shared-ui";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "인력 관리"
+};
 
 const columns: Column<(typeof personnelMock)[number]>[] = [
   { key: "name", header: "이름", render: (row) => row.name },
@@ -11,7 +16,7 @@ const columns: Column<(typeof personnelMock)[number]>[] = [
 
 export default function PeopleEmploymentPage() {
   return (
-    <AppShell currentPath={ROUTES.peopleEmployment} pageTitle="인력재직현황">
+    <AppShell currentPath={ROUTES.peopleEmployment} pageTitle="인력 관리">
       <div className="pmo-page-stack">
         <FilterBar actions={<button className="pmo-btn">조회</button>}>
           <TextFilter label="검색어" placeholder="이름/팀" />
@@ -23,3 +28,4 @@ export default function PeopleEmploymentPage() {
     </AppShell>
   );
 }
+

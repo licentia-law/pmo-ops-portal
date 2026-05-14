@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { getP1Screen } from "../../app/lib/api";
+import { PmoShell } from "../components/PmoShell";
 
 type IconName =
   | "home"
@@ -55,89 +56,6 @@ function Icon({ name, size = 16, stroke = 1.6, fill = "none", style }: { name: I
 }
 
 const STATUS_LABEL: Record<string, string> = { proposing: "제안중", presented: "발표완료", win: "WIN", loss: "LOSS", drop: "DROP", running: "수행중", support: "업무지원", done: "완료" };
-
-const NAV = [
-  { kind: "item", id: "home", label: "홈", icon: "home" },
-  { kind: "group", id: "project", label: "프로젝트", icon: "briefcase", items: [{ id: "execution", label: "업무수행현황" }, { id: "project-detail", label: "프로젝트 상세" }, { id: "history", label: "진행이력" }] },
-  { kind: "group", id: "people", label: "인력", icon: "users", items: [{ id: "active", label: "인력재직현황" }, { id: "assignment", label: "인력배치/투입현황" }, { id: "current", label: "인원별 투입(현재)" }, { id: "idle", label: "대기현황" }] },
-  { kind: "group", id: "kpi", label: "KPI/보고", icon: "trending", items: [{ id: "weekly", label: "주간현황" }, { id: "monthly", label: "월별가동현황" }] },
-  { kind: "group", id: "admin", label: "관리", icon: "settings", items: [{ id: "users", label: "사용자/권한 관리" }, { id: "master", label: "기준정보 관리" }, { id: "code", label: "프로젝트 마스터" }] }
-] as const;
-
-const ROUTE_BY_ID: Record<string, string> = {
-  home: "/",
-  execution: "/projects/operations",
-  code: "/projects/codes",
-  "project-detail": "/projects/1",
-  history: "/projects/logs",
-  active: "/people/employment",
-  assignment: "/people/assignments",
-  current: "/people/current",
-  idle: "/people/waiting",
-  weekly: "/reports/weekly",
-  monthly: "/reports/monthly"
-};
-
-function SidebarItem({ id, label, current, indent }: { id: string; label: string; current: string; indent?: boolean }) {
-  const active = id === current;
-  return <a href={ROUTE_BY_ID[id] ?? "#"} style={{ display: "flex", alignItems: "center", height: 36, padding: indent ? "0 16px 0 44px" : "0 16px", borderRadius: 8, margin: "0 8px", fontSize: 15.5, fontWeight: active ? 600 : 500, color: active ? "var(--brand)" : "var(--tx-3)", background: active ? "var(--brand-bg)" : "transparent" }}>{label}</a>;
-}
-
-function SidebarGroup({ group, current }: { group: any; current: string }) {
-  const [open, setOpen] = useState(group.id === "project");
-  return (
-    <div style={{ marginBottom: 4 }}>
-      <button onClick={() => setOpen(!open)} style={{ display: "flex", alignItems: "center", gap: 10, width: "calc(100% - 16px)", height: 36, padding: "0 12px", margin: "0 8px", background: "transparent", border: 0, borderRadius: 8, color: "var(--tx-3)", fontWeight: 600, fontSize: 15.5 }}>
-        <Icon name={group.icon as IconName} size={16} stroke={1.7} style={{ color: "var(--tx-4)" }} />
-        <span style={{ flex: 1, textAlign: "left" }}>{group.label}</span>
-        <Icon name={open ? "chevronUp" : "chevronDown"} size={14} stroke={2} style={{ color: "var(--tx-5)" }} />
-      </button>
-      {open ? <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }}>{group.items.map((it: any) => <SidebarItem key={it.id} id={it.id} label={it.label} current={current} indent />)}</div> : null}
-    </div>
-  );
-}
-
-function AppShell({ user, notifications, current = "execution", pageTitle = "업무수행현황", children }: { user: any; notifications?: number; current?: string; pageTitle?: string; children: ReactNode }) {
-  return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg-0)" }}>
-      <aside style={{ width: "var(--side-w)", flex: "0 0 var(--side-w)", background: "var(--bg-side)", borderRight: "1px solid var(--line-2)", display: "flex", flexDirection: "column", position: "sticky", top: 0, height: "100vh" }}>
-        <a href="#" style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 16px", height: 64, flex: "0 0 auto", borderBottom: "1px solid var(--line-2)" }}>
-          <span style={{ width: 32, height: 32, borderRadius: 8, background: "linear-gradient(135deg, #4F46E5, #7c3aed)", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#fff", flex: "0 0 auto", boxShadow: "inset 0 -2px 0 rgba(0,0,0,.15)" }}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M3 4l5-2 5 2v5c0 3-3 5-5 5s-5-2-5-5z" /></svg>
-          </span>
-          <span style={{ fontSize: 16, fontWeight: 700, color: "var(--tx-1)", lineHeight: 1.2, letterSpacing: "0.01em" }}>PMO 업무수행<br />관리시스템</span>
-        </a>
-        <nav style={{ flex: 1, overflowY: "auto", padding: "12px 0" }}>
-          {NAV.map((node) => node.kind === "item" ? <a key={node.id} href={ROUTE_BY_ID[node.id] ?? "#"} style={{ display: "flex", alignItems: "center", gap: 10, height: 38, padding: "0 12px", margin: "0 8px 6px", borderRadius: 8, background: node.id === current ? "var(--brand-bg)" : "transparent", color: node.id === current ? "var(--brand)" : "var(--tx-2)", fontSize: 16, fontWeight: node.id === current ? 700 : 600 }}><Icon name={node.icon as IconName} size={16} stroke={1.8} />{node.label}</a> : <SidebarGroup key={node.id} group={node} current={current} />)}
-        </nav>
-      </aside>
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-        <header style={{ height: "var(--header-h)", background: "var(--bg-1)", borderBottom: "1px solid var(--line-2)", display: "flex", alignItems: "center", padding: "0 24px", gap: 16, position: "sticky", top: 0, zIndex: 5 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--tx-3)", fontSize: 16, fontWeight: 600 }}>
-            <Icon name="menu" size={18} stroke={1.8} style={{ color: "var(--tx-4)" }} />
-            <span style={{ color: "var(--tx-1)", fontSize: 18, fontWeight: 700 }}>{pageTitle}</span>
-          </div>
-          <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
-            <div className="pmo-search"><Icon name="search" size={16} stroke={1.8} /><input placeholder="프로젝트/인력 검색" /></div>
-          </div>
-          <button style={{ position: "relative", width: 38, height: 38, border: 0, borderRadius: 10, background: "transparent", color: "var(--tx-3)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-            <Icon name="bell" size={18} stroke={1.8} />
-            {notifications && notifications > 0 ? <span style={{ position: "absolute", top: 6, right: 6, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 8, background: "var(--crit)", color: "#fff", fontSize: 10, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", border: "2px solid var(--bg-1)", boxSizing: "content-box" }}>{notifications}</span> : null}
-          </button>
-          <button style={{ display: "flex", alignItems: "center", gap: 10, height: 38, padding: "0 10px 0 6px", border: 0, borderRadius: 10, background: "transparent" }}>
-            <span style={{ width: 30, height: 30, borderRadius: "50%", background: "linear-gradient(135deg, #c7d0fb, #a5b4fc)", color: "#3730a3", fontWeight: 700, fontSize: 12, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>김P</span>
-            <span style={{ display: "flex", flexDirection: "column", lineHeight: 1.2, textAlign: "left" }}>
-              <span style={{ fontSize: 15, fontWeight: 600, color: "var(--tx-1)" }}>{user.name}</span>
-              <span style={{ fontSize: 13, color: "var(--tx-4)" }}>{user.team} · {user.role}</span>
-            </span>
-            <Icon name="chevronDown" size={14} stroke={2} style={{ color: "var(--tx-5)" }} />
-          </button>
-        </header>
-        <main style={{ flex: 1, padding: "24px 28px 32px" }}>{children}</main>
-      </div>
-    </div>
-  );
-}
 
 function StatusBadge({ code, fontSize }: { code: string; fontSize?: number }) {
   return <span className={`pmo-badge pmo-badge--${code}`} style={fontSize ? { fontSize } : undefined}>{STATUS_LABEL[code] ?? code}</span>;
@@ -316,7 +234,7 @@ export default function ExecutionPage() {
   const summaryFilterLabel = activeSummary ? (data.summary.find((s: any) => s.id === activeSummary)?.label ?? null) : null;
 
   return (
-    <AppShell user={data.meta.user} notifications={data.meta.notifications} current="execution" pageTitle="업무수행현황">
+    <PmoShell user={data.meta.user} notifications={data.meta.notifications} currentId="project-operations" pageTitle="업무수행현황">
       <section className="pmo-panel" style={{ padding: 16, marginBottom: 16 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 12 }}>
           {["본부", "팀", "사업유형", "상태", "제안PM", "영업대표"].map((label, idx) => (
@@ -528,6 +446,6 @@ export default function ExecutionPage() {
         </aside>
         ) : null}
       </section>
-    </AppShell>
+    </PmoShell>
   );
 }

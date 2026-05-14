@@ -16,14 +16,13 @@ export const MENU_CONFIG: MenuGroup[] = [
   {
     id: "home",
     label: "홈",
-    items: [{ id: "home", label: "홈", href: ROUTES.home }, { id: "dashboard", label: "대시보드", href: ROUTES.dashboard }]
+    items: [{ id: "home", label: "홈", href: ROUTES.home }]
   },
   {
     id: "projects",
     label: "프로젝트",
     items: [
       { id: "project-operations", label: "업무수행현황", href: ROUTES.projectOperations },
-      { id: "project-codes", label: "프로젝트코드", href: ROUTES.projectCodes },
       { id: "project-detail", label: "프로젝트 상세", href: ROUTES.projectDetail() },
       { id: "project-logs", label: "진행이력", href: ROUTES.projectLogs }
     ]
@@ -32,7 +31,6 @@ export const MENU_CONFIG: MenuGroup[] = [
     id: "people",
     label: "인력",
     items: [
-      { id: "people-employment", label: "인력재직현황", href: ROUTES.peopleEmployment },
       { id: "people-assignments", label: "인력배치/투입현황", href: ROUTES.peopleAssignments },
       { id: "people-current", label: "인원별 투입(현재)", href: ROUTES.peopleCurrent },
       { id: "people-waiting", label: "대기현황", href: ROUTES.peopleWaiting }
@@ -52,10 +50,12 @@ export const MENU_CONFIG: MenuGroup[] = [
   },
   {
     id: "admin",
-    label: "관리자",
+    label: "관리",
     items: [
       { id: "admin-users", label: "사용자/권한 관리", href: ROUTES.adminUsers },
       { id: "admin-master-data", label: "기준정보 관리", href: ROUTES.adminMasterData },
+      { id: "project-codes", label: "프로젝트 관리", href: ROUTES.projectCodes },
+      { id: "people-employment", label: "인력 관리", href: ROUTES.peopleEmployment },
       { id: "admin-holidays", label: "공휴일 관리", href: ROUTES.adminHolidays },
       { id: "admin-monthly-closing", label: "월마감/스냅샷", href: ROUTES.adminMonthlyClosing }
     ]

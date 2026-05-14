@@ -135,7 +135,6 @@
 | `certainty` | string | 확도/우세/경쟁 등 |
 | `sales_department` | string | 영업부서 |
 | `sales_owner` | string | 영업대표 |
-| `support_lead` | string | 지원담당/총괄 |
 | `owner_name` | string | 기존 API 호환용 담당자 |
 | `start_date` | date | 시작일 |
 | `end_date` | date | 종료일 |
@@ -169,16 +168,12 @@
 | `project_type` | enum | 사업유형 |
 | `status` | enum | 현재 상태 |
 | `certainty` | string | 확도 |
-| `pm_name` | string | 제안PM/대표 PM |
 | `proposal_pm_name` | string | 제안 PM |
 | `presentation_pm_name` | string | 발표 PM |
 | `delivery_pm_name` | string | 수행 PM |
-| `support_lead` | string | 지원 총괄 |
-| `proposal_team_text` | text | 제안팀 원문/요약 |
 | `amount_text` | string | 화면 표시 금액 예: `14억/11.9억` |
 | `total_amount` | numeric | 총 사업금액(숫자) |
 | `company_amount` | numeric | 당사 금액(숫자) |
-| `currency` | string | 기본 `KRW` |
 | `start_date` | date | 프로젝트 기간 시작 |
 | `end_date` | date | 프로젝트 기간 종료 |
 | `bid_notice_no` | string | 공고번호 |
@@ -204,6 +199,41 @@
   - 종료: `win`, `loss`, `drop`, `done`
 - 프로젝트 상세 검증용 대표 레코드 1건은 일정, 금액, PM, 공고, memo를 모두 채운다.
 - `amount_text`는 화면 표시용으로 반드시 `총액/당사금액` 형식 문자열을 넣는다.
+
+### 프로젝트 관리 화면 컬럼 매핑 (구현 기준)
+
+기준 화면: `프로젝트 관리 > 프로젝트 목록`
+
+| 화면 컬럼 | API 필드 (`/api/p1-screens/code`) | DB 소스 |
+| --- | --- | --- |
+| 코드 | `code` | `project_codes.code` |
+| 사업명 | `name` | `project_codes.name` |
+| 고객사 | `clientName` | `projects.client_name` |
+| 상태 | `status` | `project_codes.status` |
+| 사업유형 | `projectType` | `project_codes.project_type` |
+| 확도 | `certainty` | `project_codes.certainty` |
+| 사업금액 | `amountText` | `projects.amount_text` (없으면 `projects.total_amount/company_amount`로 계산) |
+| 영업부서 | `salesDept` | `projects.sales_department` 우선, 없으면 `project_codes.sales_department` |
+| 영업대표 | `salesOwner` | `project_codes.sales_owner` |
+| 제안PM | `proposalPm` | `projects.proposal_pm_name` |
+| 발표PM | `presentPm` | `projects.presentation_pm_name` |
+| 수행PM | `deliveryPm` | `projects.delivery_pm_name` |
+| 시작일 | `fromDate` | `project_codes.start_date` |
+| 종료일 | `toDate` | `project_codes.end_date` |
+| 공고번호 | `bidNoticeNo` | `projects.bid_notice_no` |
+| 공고일 | `bidNoticeDate` | `projects.bid_notice_date` |
+| 제안 제출일 | `proposalSubmissionAt` | `projects.submission_at` |
+| 제출 형식 | `submissionFormat` | `projects.submission_format` |
+| 제출 유의사항 | `submissionNote` | `projects.submission_note` |
+| 제안 발표일 | `proposalPresentationAt` | `projects.presentation_at` |
+| 발표 형식 | `presentationFormat` | `projects.presentation_format` |
+| 발표 유의사항 | `presentationNote` | `projects.presentation_note` |
+| 최근활동일 | `recentActivityAt` | `projects.recent_activity_at` |
+| 사용여부 | `useStatus` | `project_codes.is_active` |
+
+참고:
+- `totalAmount`, `companyAmount`, `memo`는 API에 포함되지만 목록 테이블 보조/편집용 필드다.
+- `pre_notice_no`, `pre_notice_date`는 스키마에 존재하나 현재 목록 컬럼에는 미노출이다.
 
 ### project_assignments
 

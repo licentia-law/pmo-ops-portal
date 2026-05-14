@@ -106,6 +106,7 @@ def code_screen(session: DbSession) -> dict[str, object]:
     codes = session.scalars(select(ProjectCode).order_by(ProjectCode.code)).all()
     code_ids = [code.id for code in codes]
     projects_by_code_id: dict[str, Project] = {}
+    team_members_by_project_id: dict[str, list[str]] = {}
     if code_ids:
         linked_projects = session.scalars(
             select(Project)
@@ -115,6 +116,7 @@ def code_screen(session: DbSession) -> dict[str, object]:
         for project in linked_projects:
             if project.project_code_id and project.project_code_id not in projects_by_code_id:
                 projects_by_code_id[project.project_code_id] = project
+        team_members_by_project_id = _code_team_members(session, [project.id for project in linked_projects])
     counts = Counter(code.status for code in codes)
     status_order = [
         ProjectStatus.PROPOSING,
@@ -133,7 +135,14 @@ def code_screen(session: DbSession) -> dict[str, object]:
             {"id": status.value, "code": status.value, "label": STATUS_LABELS[status], "value": counts[status], "unit": "건"}
             for status in status_order
         ],
-        "rows": [_code_row(code, projects_by_code_id.get(code.id)) for code in codes],
+        "rows": [
+            _code_row(
+                code,
+                projects_by_code_id.get(code.id),
+                team_members_by_project_id.get(projects_by_code_id[code.id].id, []) if code.id in projects_by_code_id else [],
+            )
+            for code in codes
+        ],
     })
 
 
@@ -437,12 +446,51 @@ def _execution_team_text(session: DbSession, project: Project) -> str:
     return "-"
 
 
-def _code_row(code: ProjectCode, project: Project | None = None) -> dict[str, Any]:
+def _code_team_members(session: DbSession, project_ids: list[str]) -> dict[str, list[str]]:
+    if not project_ids:
+        return {}
+    grouped: dict[str, list[str]] = defaultdict(list)
+    seen: dict[str, set[str]] = defaultdict(set)
+    assignments = session.scalars(
+        select(ProjectAssignment)
+        .where(ProjectAssignment.project_id.in_(project_ids))
+        .order_by(ProjectAssignment.sequence_no, ProjectAssignment.created_at)
+    ).all()
+    for assignment in assignments:
+        if not assignment.project_id:
+            continue
+        person = assignment.personnel
+        if not person or not person.name:
+            continue
+        position = (person.position_name or "").strip()
+        member = f"{person.name} {position}".strip()
+        dedup_key = f"{person.id or person.name}|{member}"
+        if dedup_key in seen[assignment.project_id]:
+            continue
+        seen[assignment.project_id].add(dedup_key)
+        grouped[assignment.project_id].append(member)
+    return grouped
+
+
+def _code_row(code: ProjectCode, project: Project | None = None, team_members: list[str] | None = None) -> dict[str, Any]:
     sales_dept = (
         (project.sales_department if project and project.sales_department else None)
         or code.sales_department
         or "-"
     )
+    pm_exclusions = {
+        (project.proposal_pm_name or "").strip(),
+        (project.presentation_pm_name or "").strip(),
+        (project.delivery_pm_name or "").strip(),
+    } if project else set()
+    filtered_members = []
+    for member in team_members or []:
+        member_name = member.split(" ", 1)[0].strip()
+        if member_name and member_name in pm_exclusions:
+            continue
+        filtered_members.append(member)
+    team_text = " / ".join(filtered_members) if filtered_members else "-"
+
     return {
         "id": code.id,
         "projectId": project.id if project else None,
@@ -460,6 +508,7 @@ def _code_row(code: ProjectCode, project: Project | None = None) -> dict[str, An
         "proposalPm": (project.proposal_pm_name if project else None) or "-",
         "presentPm": (project.presentation_pm_name if project else None) or "-",
         "deliveryPm": (project.delivery_pm_name if project else None) or "-",
+        "proposalDeliveryTeam": team_text,
         "fromDate": _date(code.start_date) or "-",
         "toDate": _date(code.end_date) or "-",
         "bidNoticeNo": (project.bid_notice_no if project else None) or "-",

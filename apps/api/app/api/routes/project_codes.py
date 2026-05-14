@@ -54,6 +54,19 @@ def create_project_code(
 ) -> dict[str, object]:
     if not can_mutate_master(user):
         raise HTTPException(status_code=403, detail="프로젝트코드 등록 권한이 없습니다.")
+    required_checks: list[tuple[str, object]] = [
+        ("코드명", payload.name),
+        ("사업유형", payload.project_type),
+        ("상태", payload.status),
+        ("확도", payload.certainty),
+        ("영업부서", payload.sales_department),
+        ("영업대표", payload.sales_owner),
+        ("시작일", payload.start_date),
+        ("종료일", payload.end_date),
+    ]
+    missing_required = [label for label, value in required_checks if value is None or (isinstance(value, str) and not value.strip())]
+    if missing_required:
+        raise HTTPException(status_code=400, detail=f"필수 항목 누락: {', '.join(missing_required)}")
     code = payload.code or next_code(session)
     if session.scalar(select(ProjectCode).where(ProjectCode.code == code)):
         raise HTTPException(status_code=409, detail="이미 사용 중인 프로젝트 코드입니다.")

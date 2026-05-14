@@ -59,6 +59,28 @@ def list_projects(session: DbSession, params: ListParams = Depends()) -> dict[st
 def create_project(payload: ProjectCreate, session: DbSession, user: CurrentUser) -> dict[str, object]:
     if not can_mutate_project(user):
         raise HTTPException(status_code=403, detail="프로젝트 등록 권한이 없습니다.")
+    required_checks: list[tuple[str, object]] = [
+        ("프로젝트명", payload.name),
+        ("고객사", payload.client_name),
+        ("사업유형", payload.project_type),
+        ("상태", payload.status),
+        ("확도", payload.certainty),
+        ("총 사업금액", payload.total_amount),
+        ("당사 사업금액", payload.company_amount),
+        ("영업대표", payload.sales_owner),
+        ("영업부서", payload.sales_department),
+        ("제안PM", payload.proposal_pm_name),
+        ("발표PM", payload.presentation_pm_name),
+        ("수행PM", payload.delivery_pm_name),
+        ("시작일", payload.start_date),
+        ("종료일", payload.end_date),
+        ("제안 제출일", payload.submission_at),
+        ("제출 형식", payload.submission_format),
+        ("프로젝트 코드 연결값", payload.project_code_id),
+    ]
+    missing_required = [label for label, value in required_checks if value is None or (isinstance(value, str) and not value.strip())]
+    if missing_required:
+        raise HTTPException(status_code=400, detail=f"필수 항목 누락: {', '.join(missing_required)}")
     code = payload.code or next_project_code(session)
     if session.scalar(select(Project).where(Project.code == code)):
         raise HTTPException(status_code=409, detail="이미 사용 중인 프로젝트 코드입니다.")

@@ -382,6 +382,7 @@ def _execution_filters(projects: list[Project]) -> dict[str, Any]:
 
 def _execution_row(session: DbSession, project: Project) -> dict[str, Any]:
     return {
+        "projectId": project.id,
         "code": project.code,
         "name": project.name,
         "businessType": PROJECT_TYPE_LABELS[project.project_type],
@@ -407,9 +408,9 @@ def _execution_row(session: DbSession, project: Project) -> dict[str, Any]:
 
 def _execution_detail(session: DbSession, project: Project) -> dict[str, Any]:
     logs = [
-        log.summary or log.content
+        log.content
         for log in project.logs[:2]
-        if log.summary or log.content
+        if log.content
     ]
     return {
         **_execution_row(session, project),
@@ -548,6 +549,7 @@ def _representative_project(session: DbSession) -> Project | None:
 
 def _project_detail_header(project: Project) -> dict[str, Any]:
     return {
+        "id": project.id,
         "code": project.code,
         "name": project.name,
         "status": project.status.value,
@@ -608,17 +610,17 @@ def _project_recent_log(log: ProjectLog) -> dict[str, Any]:
     return {
         "id": log.id,
         "datetime": _datetime(log.logged_at),
-        "summary": log.summary or log.content,
+        "summary": log.content,
         "author": log.author_name or "-",
-        "authorRole": log.author_team or "",
-        "stateLabel": "진행" if log.status in RUNNING_STATUSES or log.status in PROPOSAL_STATUSES else "완료",
+        "authorRole": "",
+        "stateLabel": "완료" if log.log_status.value == "done" else ("진행" if log.log_status.value == "in_progress" else "메모"),
     }
 
 
 def _history_filters(session: DbSession) -> dict[str, Any]:
     projects = session.scalars(select(Project).order_by(Project.code).limit(20)).all()
     authors = sorted({name for name in session.scalars(select(ProjectLog.author_name)).all() if name})
-    categories = sorted({name for name in session.scalars(select(ProjectLog.category)).all() if name})
+    categories = ["메모", "진행", "완료"]
     return {
         "projects": [{"value": "all", "label": "전체"}, *[{"value": p.code, "label": f"{p.code} · {p.name}"} for p in projects]],
         "categories": ["전체", *categories],
@@ -634,15 +636,16 @@ def _history_log(log: ProjectLog, idx: int) -> dict[str, Any]:
     project = log.project
     return {
         "id": idx,
+        "projectId": project.id if project else None,
         "datetime": _datetime(log.logged_at),
-        "category": log.category or "기타",
+        "category": "완료" if log.log_status.value == "done" else ("진행" if log.log_status.value == "in_progress" else "메모"),
         "projectCode": project.code if project else "-",
         "projectName": project.name if project else "-",
         "author": log.author_name or "-",
         "authorInitials": _initials(log.author_name or "-"),
-        "authorTeam": log.author_team or "-",
-        "summary": log.summary or log.content,
-        "detail": log.detail or {},
+        "authorTeam": "-",
+        "summary": log.content,
+        "detail": {},
     }
 
 
@@ -652,7 +655,7 @@ def _history_by_project(session: DbSession) -> list[dict[str, Any]]:
         .join(ProjectLog, ProjectLog.project_id == Project.id)
         .group_by(Project.id)
         .order_by(desc(func.count(ProjectLog.id)))
-        .limit(6)
+        .limit(10)
     )
     return [
         {"rank": idx + 1, "code": code, "name": name, "count": count}
@@ -669,8 +672,8 @@ def _recent_status_changes(session: DbSession) -> list[dict[str, Any]]:
             "code": log.project.code if log.project else "-",
             "name": log.project.name if log.project else "-",
             "datetime": _datetime(log.logged_at),
-            "from": log.previous_status.value if log.previous_status else log.status.value,
-            "to": log.next_status.value if log.next_status else log.status.value,
+            "from": log.previous_status.value if log.previous_status else "-",
+            "to": log.next_status.value if log.next_status else "-",
         }
         for log in logs
     ]

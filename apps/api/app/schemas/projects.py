@@ -2,7 +2,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
-from app.enums import ProjectStatus, ProjectType
+from app.enums import ProjectLogStatus, ProjectStatus, ProjectType
 
 
 class ProjectCodeBase(BaseModel):
@@ -137,28 +137,24 @@ class ProjectRead(ProjectBase):
 
 class ProjectLogBase(BaseModel):
     project_id: str
-    status: ProjectStatus
-    previous_status: ProjectStatus | None = None
-    next_status: ProjectStatus | None = None
-    category: str | None = None
-    logged_at: datetime | None = None
-    author_name: str | None = None
-    author_team: str | None = None
-    summary: str | None = None
+    log_status: ProjectLogStatus
     content: str = Field(min_length=1)
-    detail: dict | None = None
-    related_schedule_label: str | None = None
-    related_schedule_at: datetime | None = None
-    source_sheet: str | None = None
 
 
 class ProjectLogCreate(ProjectLogBase):
     pass
 
 
+class ProjectLogUpdate(BaseModel):
+    content: str | None = Field(default=None, min_length=1)
+    log_status: ProjectLogStatus | None = None
+
+
 class ProjectLogRead(ProjectLogBase):
     id: str
     logged_at: datetime
+    author_name: str
+    updated_by_name: str | None = None
     project_name: str | None = None
     project_code: str | None = None
     created_at: datetime

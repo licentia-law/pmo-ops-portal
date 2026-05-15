@@ -12,6 +12,7 @@ from app.enums import (
     HolidayType,
     OrganizationRole,
     ProjectStatus,
+    ProjectLogStatus,
     ProjectType,
     UserPermission,
 )
@@ -167,19 +168,13 @@ class ProjectLog(Base, TimestampMixin):
 
     id: Mapped[str] = uuid_pk()
     project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id"))
-    status: Mapped[ProjectStatus] = mapped_column(Enum(ProjectStatus, **ENUM_VALUE_KWARGS), nullable=False)
+    log_status: Mapped[ProjectLogStatus] = mapped_column(Enum(ProjectLogStatus, **ENUM_VALUE_KWARGS), nullable=False)
     previous_status: Mapped[ProjectStatus | None] = mapped_column(Enum(ProjectStatus, **ENUM_VALUE_KWARGS))
     next_status: Mapped[ProjectStatus | None] = mapped_column(Enum(ProjectStatus, **ENUM_VALUE_KWARGS))
-    category: Mapped[str | None] = mapped_column(String(100))
     logged_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    author_name: Mapped[str | None] = mapped_column(String(100))
-    author_team: Mapped[str | None] = mapped_column(String(100))
-    summary: Mapped[str | None] = mapped_column(String(500))
+    author_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    updated_by_name: Mapped[str | None] = mapped_column(String(100))
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    detail: Mapped[dict | None] = mapped_column(JSON)
-    related_schedule_label: Mapped[str | None] = mapped_column(String(100))
-    related_schedule_at: Mapped[datetime | None] = mapped_column(DateTime)
-    source_sheet: Mapped[str | None] = mapped_column(String(100))
 
     project: Mapped[Project | None] = relationship(back_populates="logs")
 

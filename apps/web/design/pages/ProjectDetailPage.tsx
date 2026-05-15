@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { getP1Screen } from "../../app/lib/api";
+import { useParams } from "next/navigation";
+import { getP1ScreenWithQuery } from "../../app/lib/api";
 import { PmoShell } from "../components/PmoShell";
 
 type IconName =
@@ -203,9 +204,9 @@ function AssignmentsPanel({ rows }: { rows: any[] }) {
   </section>;
 }
 
-function RecentLogsPanel({ logs }: { logs: any[] }) {
+function RecentLogsPanel({ logs, projectId }: { logs: any[]; projectId?: string }) {
   return <section className="pmo-panel" style={{ padding: "20px 22px 14px" }}>
-    <header style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 14 }}><h2 className="pmo-section-title" style={{ margin: 0 }}>최근 진행사항</h2><span style={{ fontSize: 14, color: "var(--tx-4)", fontWeight: 600 }}>최근 {logs.length}건</span><a href="/projects/logs" className="pmo-btn" style={{ marginLeft: "auto", height: 32, padding: "0 14px", fontSize: 14, display: "inline-flex", alignItems: "center", gap: 6 }}>전체 이력 보기<Icon name="arrowRight" size={12} stroke={2} /></a></header>
+    <header style={{ display: "flex", alignItems: "baseline", gap: 12, marginBottom: 14 }}><h2 className="pmo-section-title" style={{ margin: 0 }}>최근 진행사항</h2><span style={{ fontSize: 14, color: "var(--tx-4)", fontWeight: 600 }}>최근 {logs.length}건</span><a href={projectId ? `/projects/logs?project_id=${projectId}` : "/projects/logs"} className="pmo-btn" style={{ marginLeft: "auto", height: 32, padding: "0 14px", fontSize: 14, display: "inline-flex", alignItems: "center", gap: 6 }}>전체 이력 보기<Icon name="arrowRight" size={12} stroke={2} /></a></header>
     <div style={{ overflowX: "auto", marginLeft: -22, marginRight: -22 }}>
       <table className="pmo-table pmo-table--recent">
         <thead><tr><th>일시</th><th>내용</th><th>작성자</th><th style={{ textAlign: "center" }}>상태</th></tr></thead>
@@ -216,18 +217,24 @@ function RecentLogsPanel({ logs }: { logs: any[] }) {
 }
 
 export default function ProjectDetailPage() {
+  const params = useParams<{ projectId: string }>();
+  const projectId = params?.projectId;
   const [data, setData] = useState<any | null>(null);
   useEffect(() => {
+    if (!projectId) return;
     let alive = true;
-    getP1Screen("project-detail").then((result) => {
+    const decodedProjectId = decodeURIComponent(projectId);
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(decodedProjectId);
+    const query: Record<string, string> = isUuid ? { project_id: decodedProjectId } : { code: decodedProjectId };
+    getP1ScreenWithQuery("project-detail", query).then((result) => {
       if (alive) setData(result.data);
     });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [projectId]);
   if (!data) return null;
-  return <PmoShell user={data.meta.user} notifications={data.meta.notifications} currentId="project-detail" pageTitle="프로젝트 상세">
+  return <PmoShell user={data.meta.user} notifications={data.meta.notifications} currentId="project-operations" pageTitle="프로젝트 상세">
     <PageHeader project={data.project} />
     <section style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)", gap: 16, marginBottom: 16, alignItems: "stretch" }}>
       <BasicInfoCard project={data.project} />
@@ -235,6 +242,6 @@ export default function ProjectDetailPage() {
       <KpiCard kpi={data.kpi} />
     </section>
     <AssignmentsPanel rows={data.assignments} />
-    <RecentLogsPanel logs={data.logs} />
+    <RecentLogsPanel logs={data.logs} projectId={data.project?.id} />
   </PmoShell>;
 }

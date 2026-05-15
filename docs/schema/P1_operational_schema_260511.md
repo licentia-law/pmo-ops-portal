@@ -289,39 +289,21 @@
 | --- | --- | --- |
 | `id` | string uuid | PK |
 | `project_id` | FK | `projects.id` |
-| `status` | enum | 로그 시점 상태 |
+| `log_status` | enum | 진행이력 상태 (`memo`, `in_progress`, `done`) |
 | `previous_status` | enum nullable | 상태 변경 전 |
 | `next_status` | enum nullable | 상태 변경 후 |
-| `category` | string | 상태 변경, 투입 인력 변경, 발표 일정 등록, 진행 메모 등 |
 | `logged_at` | datetime | 이력 발생 일시 |
 | `author_name` | string | 작성자 |
-| `author_team` | string | 작성자 팀 |
-| `summary` | string | 목록 요약 |
+| `updated_by_name` | string nullable | 최종 변경자 |
 | `content` | text | 본문 |
-| `detail` | JSON | 선택 이력 상세용 구조 |
-| `related_schedule_label` | string | 관련 일정 라벨 |
-| `related_schedule_at` | datetime | 관련 일정 |
-| `source_sheet` | string | 원천 시트명 |
-
-`detail` 예:
-
-```json
-{
-  "이슈": "제안서 발표 일정 등록",
-  "조치사항": "발표자료 최종 점검 완료",
-  "다음 단계": "고객 발표 진행 후 결과 공유",
-  "관련 일정": {
-    "label": "발표 일정",
-    "date": "2026-05-20 10:00"
-  }
-}
-```
 
 더미 데이터 기준:
 
 - 프로젝트별 최소 2~5건 이상 생성한다.
 - 진행이력 페이지 요약 카드 검증을 위해 최근 7일 로그, 상태 변경 로그를 충분히 포함한다.
 - 상태 변경 로그는 `previous_status`, `next_status`를 채운다.
+- 등록 API에서는 `log_status`를 `memo` 또는 `in_progress`만 허용한다.
+- 수정 API에서는 `memo -> memo`, `in_progress -> in_progress|done`만 허용한다.
 
 ### holidays
 

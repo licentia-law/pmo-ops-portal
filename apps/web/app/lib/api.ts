@@ -50,9 +50,10 @@ export type ProjectLogRecord = {
   project_id: string;
   project_name: string | null;
   project_code: string | null;
-  status: ProjectStatusCode;
+  log_status: "memo" | "in_progress" | "done";
   logged_at: string;
-  author_name: string | null;
+  author_name: string;
+  updated_by_name: string | null;
   content: string;
   created_at: string;
   updated_at: string;
@@ -66,6 +67,7 @@ export type ListQuery = {
   status?: string;
   project_type?: string;
   project_id?: string;
+  log_status?: "memo" | "in_progress" | "done";
 };
 
 function qs(query?: ListQuery): string {
@@ -137,6 +139,19 @@ export function getProjectLog(logId: string) {
   return request<ProjectLogRecord>(`/project-logs/${logId}`);
 }
 
+export function updateProjectLog(logId: string, payload: Partial<ProjectLogRecord>) {
+  return request<ProjectLogRecord>(`/project-logs/${logId}`, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
 export function getP1Screen<T = unknown>(screen: string) {
   return request<T>(`/p1-screens/${screen}`);
+}
+
+export function getP1ScreenWithQuery<T = unknown>(screen: string, query?: Record<string, string>) {
+  const params = new URLSearchParams();
+  Object.entries(query ?? {}).forEach(([key, value]) => {
+    if (value) params.set(key, value);
+  });
+  const suffix = params.toString() ? `?${params.toString()}` : "";
+  return request<T>(`/p1-screens/${screen}${suffix}`);
 }

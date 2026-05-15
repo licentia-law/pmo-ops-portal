@@ -23,7 +23,6 @@ export const MENU_CONFIG: MenuGroup[] = [
     label: "프로젝트",
     items: [
       { id: "project-operations", label: "업무수행현황", href: ROUTES.projectOperations },
-      { id: "project-detail", label: "프로젝트 상세", href: ROUTES.projectDetail() },
       { id: "project-logs", label: "진행이력", href: ROUTES.projectLogs }
     ]
   },

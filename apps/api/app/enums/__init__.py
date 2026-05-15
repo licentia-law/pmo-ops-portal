@@ -12,6 +12,12 @@ class ProjectStatus(StrEnum):
     DONE = "done"
 
 
+class ProjectLogStatus(StrEnum):
+    MEMO = "memo"
+    IN_PROGRESS = "in_progress"
+    DONE = "done"
+
+
 class ProjectType(StrEnum):
     MAIN = "main"
     SUB = "sub"

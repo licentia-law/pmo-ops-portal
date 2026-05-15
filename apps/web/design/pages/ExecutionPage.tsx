@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { getP1Screen } from "../../app/lib/api";
 import { PmoShell } from "../components/PmoShell";
 
@@ -140,10 +141,10 @@ function SummaryCard({ item, active, onClick }: { item: any; active: boolean; on
 }
 
 export default function ExecutionPage() {
+  const router = useRouter();
   const [data, setData] = useState<any | null>(null);
   const [activeSummary, setActiveSummary] = useState<string | null>(null);
   const [selectedCode, setSelectedCode] = useState("");
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [filterForm, setFilterForm] = useState<ExecutionFilterState | null>(null);
   const [appliedFilter, setAppliedFilter] = useState<ExecutionFilterState | null>(null);
   useEffect(() => {
@@ -209,28 +210,7 @@ export default function ExecutionPage() {
       setSelectedCode(filteredRows[0].code);
     }
   }, [filteredRows, selectedCode]);
-  const currentDetail = !data || !selectedRow
-    ? null
-    : selectedCode === data.selectedRow.code
-    ? data.selectedRow
-    : {
-        ...selectedRow,
-        presentPm: selectedRow.proposalPm,
-        deliveryPm: selectedRow.deliveryPm ?? selectedRow.proposalPm,
-        team: selectedRow.team ?? "-",
-        period: `${selectedRow.startDate} ~ ${selectedRow.endDate}`,
-        submission: selectedRow.submission ?? { datetime: "-", format: "-", note: "-" },
-        presentation: selectedRow.presentation ?? { datetime: "-", format: "-", note: "-" },
-        rfpNo: selectedRow.rfpNo ?? "-",
-        rfpDate: selectedRow.rfpDate ?? "-",
-        recentActivity: { datetime: selectedRow.modifiedAt, lines: [selectedRow.remark] },
-        memo: [selectedRow.remark]
-      };
   if (!data || !filterForm) return null;
-  const amountPair = formatAmountPair(currentDetail.amountText ?? "");
-  const teamText = String(currentDetail.team ?? "");
-  const teamHead = teamText.replace(/\s*\(총\s*\d+명\)\s*$/, "").trim();
-  const teamCount = teamText.match(/\(총\s*\d+명\)/)?.[0] ?? "";
   const summaryFilterLabel = activeSummary ? (data.summary.find((s: any) => s.id === activeSummary)?.label ?? null) : null;
 
   return (
@@ -324,7 +304,7 @@ export default function ExecutionPage() {
         ))}
       </section>
 
-      <section style={{ display: "grid", gridTemplateColumns: isDetailOpen ? "minmax(0, 1fr) 360px" : "minmax(0, 1fr)", gap: 16 }}>
+      <section style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 16 }}>
         <div className="pmo-panel" style={{ padding: 0, overflow: "hidden" }}>
           <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--line-2)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <strong style={{ fontSize: 18 }}>사업 목록</strong>
@@ -346,7 +326,9 @@ export default function ExecutionPage() {
                     key={row.code}
                     onClick={() => {
                       setSelectedCode(row.code);
-                      setIsDetailOpen(true);
+                      if (row.projectId) {
+                        router.push(`/projects/${row.projectId}`);
+                      }
                     }}
                     style={{ cursor: "pointer", background: selectedCode === row.code ? "var(--brand-bg)" : undefined }}
                   >
@@ -383,68 +365,6 @@ export default function ExecutionPage() {
           </div>
         </div>
 
-        {isDetailOpen && currentDetail ? (
-        <aside className="pmo-panel" style={{ padding: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <h2 style={{ margin: 0, fontSize: 18, lineHeight: 1.2 }}>선택 프로젝트 상세</h2>
-            <button onClick={() => setIsDetailOpen(false)} style={{ border: 0, background: "transparent", color: "var(--tx-4)", fontSize: 24, lineHeight: 1, cursor: "pointer" }}>×</button>
-          </div>
-          <div style={{ fontSize: 14, color: "var(--tx-4)", fontWeight: 700 }}>프로젝트코드</div>
-          <div style={{ fontSize: 20, lineHeight: 1.3, fontWeight: 800, color: "var(--brand)", marginBottom: 8 }}>{currentDetail.code}</div>
-          <div style={{ fontSize: 14, color: "var(--tx-4)", fontWeight: 700 }}>사업명</div>
-          <div style={{ fontSize: 20, lineHeight: 1.3, fontWeight: 700, color: "var(--tx-1)", marginBottom: 14 }}>{currentDetail.name}</div>
-
-          <div style={{ borderTop: "1px solid var(--line-2)", paddingTop: 12, display: "grid", gap: 10, fontSize: 14 }}>
-            <div className="pmo-kv"><span style={{ fontWeight: 700, color: "var(--tx-2)" }}>제안PM</span><strong>{currentDetail.proposalPm}</strong></div>
-            <div className="pmo-kv"><span style={{ fontWeight: 700, color: "var(--tx-2)" }}>발표PM</span><strong>{currentDetail.presentPm}</strong></div>
-            <div className="pmo-kv"><span style={{ fontWeight: 700, color: "var(--tx-2)" }}>수행PM</span><strong>{currentDetail.deliveryPm ?? "-"}</strong></div>
-            <div className="pmo-kv">
-              <span style={{ fontWeight: 700, color: "var(--tx-2)" }}>제안팀</span>
-              <span style={{ textAlign: "right" }}>
-                {teamHead}
-                {teamCount ? <><br />{teamCount}</> : null}
-              </span>
-            </div>
-            <div className="pmo-kv"><span style={{ fontWeight: 700, color: "var(--tx-2)" }}>프로젝트 기간</span><span>{currentDetail.period}</span></div>
-            <div className="pmo-kv"><span style={{ fontWeight: 700, color: "var(--tx-2)" }}>상태</span><StatusBadge code={currentDetail.status} fontSize={14} /></div>
-            <div className="pmo-kv"><span style={{ fontWeight: 700, color: "var(--tx-2)" }}>사업유형</span><BizChip type={currentDetail.businessType} /></div>
-            <div className="pmo-kv"><span style={{ fontWeight: 700, color: "var(--tx-2)" }}>사업금액</span><strong>{amountPair}</strong></div>
-          </div>
-
-          <div style={{ borderTop: "1px solid var(--line-2)", marginTop: 12, paddingTop: 12, display: "grid", gap: 8, fontSize: 14 }}>
-            <div style={{ fontWeight: 700, color: "var(--tx-1)" }}>제출 일정</div>
-            <div className="pmo-kv"><span>일시</span><span>{currentDetail.submission.datetime}</span></div>
-            <div className="pmo-kv"><span>형식</span><span>{currentDetail.submission.format}</span></div>
-            <div className="pmo-kv"><span>비고</span><span>{currentDetail.submission.note}</span></div>
-          </div>
-
-          <div style={{ borderTop: "1px solid var(--line-2)", marginTop: 12, paddingTop: 12, display: "grid", gap: 8, fontSize: 14 }}>
-            <div style={{ fontWeight: 700, color: "var(--tx-1)" }}>발표 일정</div>
-            <div className="pmo-kv"><span>일시</span><span>{currentDetail.presentation.datetime}</span></div>
-            <div className="pmo-kv"><span>형식</span><span>{currentDetail.presentation.format}</span></div>
-            <div className="pmo-kv"><span>비고</span><span>{currentDetail.presentation.note}</span></div>
-            <div style={{ borderTop: "1px solid var(--line-2)", marginTop: 6, paddingTop: 6 }} />
-            <div className="pmo-kv"><span>공고번호</span><span>{currentDetail.rfpNo}</span></div>
-            <div className="pmo-kv"><span>공고일</span><span>{currentDetail.rfpDate}</span></div>
-          </div>
-
-          <div style={{ borderTop: "1px solid var(--line-2)", marginTop: 12, paddingTop: 12 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--tx-1)", marginBottom: 6 }}>최근 활동</div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "var(--tx-3)", marginBottom: 4 }}>{currentDetail.recentActivity.datetime}</div>
-            {currentDetail.recentActivity.lines.map((line: string) => <div key={line} style={{ fontSize: 14, color: "var(--tx-3)", lineHeight: 1.55 }}>• {line}</div>)}
-          </div>
-
-          <div style={{ borderTop: "1px solid var(--line-2)", marginTop: 12, paddingTop: 12 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: "var(--tx-1)", marginBottom: 6 }}>참고 메모</div>
-            {currentDetail.memo.map((line: string) => <div key={line} style={{ fontSize: 14, color: "var(--tx-3)", lineHeight: 1.55 }}>{line}</div>)}
-          </div>
-
-          <button className="pmo-btn pmo-btn-primary" style={{ width: "100%", height: 40, marginTop: 14, justifyContent: "center", background: "var(--brand)" }}>
-            프로젝트 상세 보기
-            <Icon name="chevronRight" size={14} stroke={2} />
-          </button>
-        </aside>
-        ) : null}
       </section>
     </PmoShell>
   );

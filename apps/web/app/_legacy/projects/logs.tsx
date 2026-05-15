@@ -48,7 +48,7 @@ export default function ProjectLogsPage() {
       setError("프로젝트와 내용을 입력해야 합니다.");
       return;
     }
-    await createProjectLog({ project_id: project.id, status: project.status, content });
+    await createProjectLog({ project_id: project.id, log_status: "memo", content });
     setContent("");
     await load();
   }
@@ -64,7 +64,7 @@ export default function ProjectLogsPage() {
       { key: "project", header: "프로젝트", render: (row) => `${row.project_code ?? "-"} ${row.project_name ?? ""}` },
       { key: "author", header: "작성자", render: (row) => row.author_name ?? "-" },
       { key: "content", header: "내용", render: (row) => row.content },
-      { key: "status", header: "상태", render: (row) => <StatusBadge code={row.status} /> },
+      { key: "status", header: "상태", render: (row) => <span>{row.log_status}</span> },
       { key: "detail", header: "작업", render: (row) => <button className="pmo-btn" onClick={() => void openDetail(row.id)}>상세</button> }
     ],
     []
@@ -94,7 +94,7 @@ export default function ProjectLogsPage() {
             {selected ? (
               <>
                 <div className="pmo-kv"><span>프로젝트</span><strong>{selected.project_name}</strong></div>
-                <div className="pmo-kv"><span>상태</span><StatusBadge code={selected.status} /></div>
+                <div className="pmo-kv"><span>상태</span><span>{selected.log_status}</span></div>
                 <div className="pmo-kv"><span>작성자</span><strong>{selected.author_name ?? "-"}</strong></div>
                 <p>{selected.content}</p>
               </>

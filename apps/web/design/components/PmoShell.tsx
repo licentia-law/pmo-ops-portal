@@ -11,7 +11,6 @@ type ShellIconName =
   | "settings"
   | "chevronDown"
   | "chevronUp"
-  | "search"
   | "bell"
   | "menu";
 
@@ -23,7 +22,6 @@ const SHELL_ICONS: Record<ShellIconName, string> = {
   settings: "M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7zM19.4 15a1 1 0 0 0 .2 1.1l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1 1 0 0 0-1.7.7v.4a2 2 0 0 1-4 0v-.2a1 1 0 0 0-1.7-.7l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1 1 0 0 0-.7-1.7H5a2 2 0 0 1 0-4h.2a1 1 0 0 0 .7-1.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1 1 0 0 0 1.7-.7V5a2 2 0 0 1 4 0v.2a1 1 0 0 0 1.7.7l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1 1 0 0 0-.7 1.7H19a2 2 0 0 1 0 4h-.2a1 1 0 0 0-.4 0",
   chevronDown: "M6 9l6 6 6-6",
   chevronUp: "M6 15l6-6 6 6",
-  search: "M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14zM21 21l-4.3-4.3",
   bell: "M6 8a6 6 0 0 1 12 0c0 7 3 5 3 9H3c0-4 3-2 3-9zM10 21a2 2 0 0 0 4 0",
   menu: "M4 6h16M4 12h16M4 18h16"
 };
@@ -47,7 +45,6 @@ type PmoShellProps = {
   currentId: string;
   pageTitle: string;
   notifications?: number;
-  searchPlaceholder?: string;
   user?: Partial<PmoShellUser>;
 };
 
@@ -139,7 +136,6 @@ export function PmoShell({
   currentId,
   pageTitle,
   notifications,
-  searchPlaceholder = "프로젝트/인력 검색",
   user
 }: PmoShellProps) {
   const currentUser: PmoShellUser = {
@@ -196,12 +192,7 @@ export function PmoShell({
             <ShellIcon name="menu" size={18} stroke={1.8} style={{ color: "var(--tx-4)" }} />
             <span style={{ color: "var(--tx-1)", fontSize: 18, fontWeight: 700 }}>{pageTitle}</span>
           </div>
-          <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
-            <div className="pmo-search">
-              <ShellIcon name="search" size={16} stroke={1.8} />
-              <input placeholder={searchPlaceholder} />
-            </div>
-          </div>
+          <div style={{ flex: 1 }} />
           <button style={{ position: "relative", width: 38, height: 38, border: 0, borderRadius: 10, background: "transparent", color: "var(--tx-3)", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
             <ShellIcon name="bell" size={18} stroke={1.8} />
             {notifications && notifications > 0 ? <span style={{ position: "absolute", top: 6, right: 6, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 8, background: "var(--crit)", color: "#fff", fontSize: 10, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", border: "2px solid var(--bg-1)", boxSizing: "content-box" }}>{notifications}</span> : null}

@@ -53,7 +53,7 @@ export default function ProjectDetailPage({ params }: Props) {
       { key: "loggedAt", header: "일자", render: (row) => new Date(row.logged_at).toLocaleString("ko-KR") },
       { key: "author", header: "작성자", render: (row) => row.author_name ?? "-" },
       { key: "content", header: "내용", render: (row) => row.content },
-      { key: "status", header: "상태", render: (row) => <StatusBadge code={row.status} /> }
+      { key: "status", header: "상태", render: (row) => <span>{row.log_status}</span> }
     ],
     []
   );

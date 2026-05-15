@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from app.api.common import ListParams, apply_text_search, envelope, paginate, parse_sort
 from app.api.deps import CurrentUser, DbSession
 from app.domain.projects import allowed_next_statuses, can_mutate_project, is_valid_status_transition
-from app.enums import ProjectStatus, ProjectType
+from app.enums import ProjectLogStatus, ProjectStatus, ProjectType
 from app.models.core import Project, ProjectCode, ProjectLog
 from app.schemas.projects import ProjectCreate, ProjectRead, ProjectUpdate
 
@@ -95,9 +95,10 @@ def create_project(payload: ProjectCreate, session: DbSession, user: CurrentUser
     session.add(
         ProjectLog(
             project_id=project.id,
-            status=project.status,
+            log_status=ProjectLogStatus.MEMO,
             logged_at=project.created_at,
             author_name=user.name,
+            updated_by_name=user.name,
             content="프로젝트 등록",
         )
     )
@@ -148,9 +149,12 @@ def update_project(
         session.add(
             ProjectLog(
                 project_id=project.id,
-                status=project.status,
+                log_status=ProjectLogStatus.DONE if project.status == ProjectStatus.DONE else ProjectLogStatus.IN_PROGRESS,
+                previous_status=previous_status,
+                next_status=project.status,
                 logged_at=datetime.utcnow(),
                 author_name=user.name,
+                updated_by_name=user.name,
                 content=f"상태 변경: {previous_status.value} -> {project.status.value}",
             )
         )

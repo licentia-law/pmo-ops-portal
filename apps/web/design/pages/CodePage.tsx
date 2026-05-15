@@ -148,7 +148,27 @@ function CertaintyChip({ value }: { value: string }) {
     "확보": { fg: "#4338CA", bg: "#eef1ff", line: "#c7d0fb" }
   };
   const t = tones[value];
-  if (!t) return <span style={{ color: "var(--tx-3)" }}>{value}</span>;
+  if (!t) {
+    return (
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          padding: "2px 8px",
+          background: "#eef1f6",
+          color: "#475569",
+          border: "1px solid #d8dee8",
+          borderRadius: 6,
+          fontSize: 14,
+          fontWeight: 600,
+          lineHeight: 1.5,
+          whiteSpace: "nowrap",
+        }}
+      >
+        {value}
+      </span>
+    );
+  }
   return <span style={{ display: "inline-flex", alignItems: "center", padding: "2px 8px", background: t.bg, color: t.fg, border: `1px solid ${t.line}`, borderRadius: 6, fontSize: 14, fontWeight: 600, lineHeight: 1.5 }}>{value}</span>;
 }
 

@@ -385,6 +385,7 @@ def _execution_row(session: DbSession, project: Project) -> dict[str, Any]:
         "projectId": project.id,
         "code": project.code,
         "name": project.name,
+        "clientName": project.client_name or "-",
         "businessType": PROJECT_TYPE_LABELS[project.project_type],
         "status": project.status.value,
         "amountText": project.amount_text or _amount_text(project),

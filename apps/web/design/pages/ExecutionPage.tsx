@@ -89,10 +89,55 @@ type ExecutionFilterState = {
   status: string;
   proposalPm: string;
   salesOwner: string;
+  periodPreset: "all" | "recent3m" | "thisMonth" | "lastMonth" | "thisYear";
   from: string;
   to: string;
   query: string;
 };
+
+function fmtDate(date: Date) {
+  const y = date.getFullYear();
+  const m = `${date.getMonth() + 1}`.padStart(2, "0");
+  const d = `${date.getDate()}`.padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function getPeriodRange(preset: ExecutionFilterState["periodPreset"], baseDate?: Date) {
+  const today = baseDate ?? new Date();
+  if (preset === "all") return { from: "", to: "", label: "전체" };
+  if (preset === "thisMonth") return { from: fmtDate(new Date(today.getFullYear(), today.getMonth(), 1)), to: fmtDate(today), label: "이번달" };
+  if (preset === "lastMonth") {
+    const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const end = new Date(today.getFullYear(), today.getMonth(), 0);
+    return { from: fmtDate(start), to: fmtDate(end), label: "지난달" };
+  }
+  if (preset === "thisYear") return { from: `${today.getFullYear()}-01-01`, to: fmtDate(today), label: "올해" };
+  const from = new Date(today);
+  from.setMonth(from.getMonth() - 3);
+  return { from: fmtDate(from), to: fmtDate(today), label: "최근 3개월" };
+}
+
+function PeriodPicker({ value, from, to, onChange }: { value: ExecutionFilterState["periodPreset"]; from: string; to: string; onChange: (value: ExecutionFilterState["periodPreset"]) => void }) {
+  const PRESETS: Array<{ value: ExecutionFilterState["periodPreset"]; label: string }> = [
+    { value: "all", label: "전체" },
+    { value: "recent3m", label: "최근 3개월" },
+    { value: "thisMonth", label: "이번달" },
+    { value: "lastMonth", label: "지난달" },
+    { value: "thisYear", label: "올해" }
+  ];
+  return (
+    <div style={{ position: "relative" }}>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as ExecutionFilterState["periodPreset"])}
+        style={{ appearance: "none", width: "100%", height: 36, padding: "0 40px 0 10px", background: "var(--bg-1)", border: "1px solid var(--line-2)", borderRadius: 6, color: "var(--tx-2)", fontSize: 14, fontFamily: "inherit", fontWeight: 700 }}
+      >
+        {PRESETS.map((preset) => <option key={preset.value} value={preset.value}>{preset.label}</option>)}
+      </select>
+      <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: "var(--tx-4)", pointerEvents: "none" }}><Icon name="calendar" size={14} stroke={1.8} /></span>
+    </div>
+  );
+}
 
 function toStatusCode(statusLabelOrCode: string) {
   if (!statusLabelOrCode || statusLabelOrCode === "전체") return "";
@@ -147,6 +192,7 @@ export default function ExecutionPage() {
   const [selectedCode, setSelectedCode] = useState("");
   const [filterForm, setFilterForm] = useState<ExecutionFilterState | null>(null);
   const [appliedFilter, setAppliedFilter] = useState<ExecutionFilterState | null>(null);
+  const periodBaseDate = useMemo(() => new Date(), []);
   useEffect(() => {
     let alive = true;
     getP1Screen("execution").then((result) => {
@@ -159,8 +205,9 @@ export default function ExecutionPage() {
           status: "전체",
           proposalPm: "전체",
           salesOwner: "전체",
-          from: payload.filters.from,
-          to: payload.filters.to,
+          periodPreset: "all",
+          from: "",
+          to: "",
           query: "",
         };
         setData(payload);
@@ -241,20 +288,24 @@ export default function ExecutionPage() {
             </label>
           ))}
         </div>
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-end", marginTop: 12 }}>
-          <label className="pmo-field" style={{ minWidth: 320 }}>
-            <span style={{ fontSize: 14 }}>기간 (제안접수 기준)</span>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input type="date" value={filterForm.from} onChange={(e) => setFilterForm((prev) => prev ? { ...prev, from: e.target.value } : prev)} style={{ fontSize: 14 }} />
-              <span style={{ color: "var(--tx-5)" }}>~</span>
-              <input type="date" value={filterForm.to} onChange={(e) => setFilterForm((prev) => prev ? { ...prev, to: e.target.value } : prev)} style={{ fontSize: 14 }} />
-            </div>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(240px, 320px) minmax(320px, 1fr) auto", gap: 12, alignItems: "end", marginTop: 12 }}>
+          <label className="pmo-field">
+            <span style={{ fontSize: 14 }}>기간</span>
+            <PeriodPicker
+              value={filterForm.periodPreset}
+              from={filterForm.from}
+              to={filterForm.to}
+              onChange={(preset) => {
+                const range = getPeriodRange(preset, periodBaseDate);
+                setFilterForm((prev) => (prev ? { ...prev, periodPreset: preset, from: range.from, to: range.to } : prev));
+              }}
+            />
           </label>
-          <label className="pmo-field" style={{ flex: 1 }}>
+          <label className="pmo-field">
             <span style={{ fontSize: 14 }}>검색어</span>
             <input value={filterForm.query} onChange={(e) => setFilterForm((prev) => prev ? { ...prev, query: e.target.value } : prev)} placeholder="프로젝트명, 코드, PM, 메모 검색" style={{ fontSize: 14 }} />
           </label>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", whiteSpace: "nowrap" }}>
             <button
               className="pmo-btn pmo-btn-primary"
               style={{ background: "var(--brand)", color: "#fff", borderColor: "var(--brand)" }}
@@ -273,8 +324,9 @@ export default function ExecutionPage() {
                   status: "전체",
                   proposalPm: "전체",
                   salesOwner: "전체",
-                  from: data.filters.from,
-                  to: data.filters.to,
+                  periodPreset: "all",
+                  from: "",
+                  to: "",
                   query: "",
                 };
                 setFilterForm(reset);
@@ -284,8 +336,11 @@ export default function ExecutionPage() {
             >
               초기화
             </button>
-            <button className="pmo-btn"><Icon name="report" size={14} stroke={1.8} style={{ marginRight: 4 }} />엑셀 내보내기</button>
-            <button className="pmo-btn pmo-btn-primary" style={{ background: "var(--brand)", color: "#fff", borderColor: "var(--brand)" }}>
+            <button
+              className="pmo-btn pmo-btn-primary"
+              style={{ background: "var(--brand)", color: "#fff", borderColor: "var(--brand)" }}
+              onClick={() => router.push("/projects/codes?create=1")}
+            >
               <Icon name="plus" size={14} stroke={2} style={{ marginRight: 4 }} />
               신규 프로젝트 등록
             </button>
@@ -317,29 +372,50 @@ export default function ExecutionPage() {
             <table className="pmo-table pmo-table--recent">
               <thead>
                 <tr>
-                  <th>사업명</th><th>상태</th><th>사업유형</th><th>사업금액</th><th>영업대표</th><th>제안PM</th><th>변경일시</th><th>변경자</th>
+                  <th style={{ width: 56, textAlign: "center" }}></th><th>상태</th><th>사업명</th><th>고객사</th><th>영업대표</th><th>제안PM</th><th>수행PM</th><th>종료일</th><th style={{ textAlign: "center" }}>프로젝트 상세</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredRows.slice(0, 12).map((row: any) => (
                   <tr
                     key={row.code}
-                    onClick={() => {
-                      setSelectedCode(row.code);
-                      if (row.projectId) {
-                        router.push(`/projects/${row.projectId}`);
-                      }
-                    }}
+                    onClick={() => setSelectedCode(row.code)}
                     style={{ cursor: "pointer", background: selectedCode === row.code ? "var(--brand-bg)" : undefined }}
                   >
-                    <td style={{ fontWeight: 600 }}>{row.name}</td>
+                    <td style={{ textAlign: "center" }}>
+                      <button
+                        className="pmo-btn"
+                        style={{ width: 24, minWidth: 24, height: 24, padding: 0, justifyContent: "center", fontSize: 12 }}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          router.push(`/projects/codes?editCode=${encodeURIComponent(row.code)}`);
+                        }}
+                        title="편집"
+                        aria-label={`${row.code} 편집`}
+                      >
+                        ✏
+                      </button>
+                    </td>
                     <td><StatusBadge code={row.status} /></td>
-                    <td><BizChip type={row.businessType} /></td>
-                    <td className="num">{formatAmountPair(row.amountText)}</td>
+                    <td style={{ fontWeight: 600 }}>{row.name}</td>
+                    <td>{row.clientName ?? "-"}</td>
                     <td>{row.salesOwner}</td>
                     <td>{row.proposalPm}</td>
-                    <td className="num">{row.modifiedAt}</td>
-                    <td>{row.modifier}</td>
+                    <td>{row.deliveryPm ?? "-"}</td>
+                    <td className="num">{row.endDate ?? "-"}</td>
+                    <td style={{ textAlign: "center" }}>
+                      <button
+                        aria-label="프로젝트 상세 보기"
+                        title="프로젝트 상세 보기"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (row.projectId) router.push(`/projects/${row.projectId}`);
+                        }}
+                        style={{ width: 28, height: 28, padding: 0, background: "transparent", border: "1px solid var(--line-2)", borderRadius: 6, color: "var(--tx-3)", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
+                      >
+                        <Icon name="chevronRight" size={13} stroke={2} />
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

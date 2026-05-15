@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createProject, createProjectCode, getP1Screen, updateProject, updateProjectCode } from "../../app/lib/api";
 import { PmoShell } from "../components/PmoShell";
 
@@ -460,6 +461,11 @@ const GROUP_TITLE_STYLE: CSSProperties = {
 const MEMO_MAX_LENGTH = 50;
 
 function CodePageImpl() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const openedByQueryRef = useRef(false);
+  const openedEditByQueryRef = useRef(false);
   const [data, setData] = useState<any | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [customerFilter, setCustomerFilter] = useState("전체");
@@ -565,7 +571,63 @@ function CodePageImpl() {
     return filteredRows.slice(start, start + pageSize);
   }, [filteredRows, page, pageSize, totalPages]);
 
-  if (!data) return null;
+  useEffect(() => {
+    if (!data) return;
+    if (openedByQueryRef.current) return;
+    if (searchParams.get("create") !== "1") return;
+
+    const rows = data.rows ?? [];
+    const year = new Date().getFullYear();
+    const currentYearPrefix = `P${year}`;
+    const sequenceByYear = rows
+      .map((row: any) => String(row.code ?? "").trim())
+      .filter((code: string) => code.startsWith(currentYearPrefix))
+      .map((code: string) => Number(code.slice(currentYearPrefix.length)))
+      .filter((seq: number) => Number.isFinite(seq));
+    const next = (sequenceByYear.length ? Math.max(...sequenceByYear) : 0) + 1;
+    const nextCode = `${currentYearPrefix}${String(next).padStart(3, "0")}`;
+
+    setModalMode("create");
+    setEditingRow(null);
+    setEditForm({
+      code: nextCode,
+      name: "",
+      clientName: "",
+      salesDept: "",
+      projectType: "주사업",
+      status: "proposing",
+      certainty: "",
+      totalAmount: "10",
+      companyAmount: "5",
+      salesOwner: "",
+      proposalPm: "",
+      presentPm: "",
+      deliveryPm: "",
+      fromDate: "",
+      toDate: "",
+      bidNoticeNo: "",
+      bidNoticeDate: "",
+      proposalSubmissionDate: "",
+      proposalSubmissionTime: "",
+      useProposalSubmissionTime: false,
+      submissionFormat: "",
+      submissionNote: "",
+      proposalPresentationDate: "",
+      proposalPresentationTime: "",
+      useProposalPresentationTime: false,
+      presentationFormat: "",
+      presentationNote: "",
+      memo: "",
+      useStatus: "사용",
+    });
+    setSaveError(null);
+    setMemoLengthError(null);
+    setValidationError(null);
+    setFieldErrors({});
+    openedByQueryRef.current = true;
+    router.replace(pathname, { scroll: false });
+  }, [data, pathname, router, searchParams]);
+
   const errorInputStyle = (key: keyof EditForm): CSSProperties => (
     fieldErrors[key]
       ? { borderColor: "var(--crit)", boxShadow: "0 0 0 1px var(--crit) inset" }
@@ -727,6 +789,18 @@ function CodePageImpl() {
     setValidationError(null);
     setFieldErrors({});
   };
+
+  useEffect(() => {
+    if (!data) return;
+    if (openedEditByQueryRef.current) return;
+    const editCode = searchParams.get("editCode");
+    if (!editCode) return;
+    const found = (data.rows ?? []).find((row: any) => String(row.code ?? "") === editCode);
+    if (!found) return;
+    openEdit(found);
+    openedEditByQueryRef.current = true;
+    router.replace(pathname, { scroll: false });
+  }, [data, pathname, router, searchParams]);
 
   const closeEdit = () => {
     if (saving) return;
@@ -919,10 +993,12 @@ function CodePageImpl() {
     }
   };
 
+  if (!data) return null;
+
   return (
     <PmoShell user={data.meta.user} notifications={data.meta.notifications} currentId="project-codes" pageTitle="프로젝트 관리">
       <section className="pmo-panel" style={{ padding: 18, marginBottom: 16 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 2fr auto auto", gap: 12, alignItems: "flex-end" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, alignItems: "flex-end" }}>
           <label className="pmo-field" style={{ minWidth: 0, flex: 1 }}>
             <span style={{ fontSize: 14 }}>고객사</span>
             <select style={SELECT_STYLE} value={customerFilter} onChange={(e) => { setCustomerFilter(e.target.value); setPage(1); }}>
@@ -949,18 +1025,14 @@ function CodePageImpl() {
               {["전체", "사용", "미사용"].map((v) => <option key={v} value={v}>{v}</option>)}
             </select>
           </label>
-          <label className="pmo-field" style={{ minWidth: 0, flex: 2 }}>
+          <label className="pmo-field" style={{ minWidth: 0, gridColumn: "span 2" }}>
             <span style={{ fontSize: 14 }}>검색어</span>
             <div style={{ display: "flex", alignItems: "center", gap: 8, height: 38, padding: "0 12px", border: "1px solid var(--line-2)", borderRadius: 8, background: "#fff" }}>
               <Icon name="search" size={15} stroke={1.8} style={{ color: "var(--tx-5)" }} />
               <input value={query} onChange={(e) => { setQuery(e.target.value); setPage(1); }} placeholder="사업명, 고객사, 영업대표, PM 검색" style={{ border: 0, outline: "none", background: "transparent", flex: 1, fontSize: 14, color: "var(--tx-1)" }} />
             </div>
           </label>
-          <button className="pmo-btn" style={{ height: 38, padding: "0 14px", whiteSpace: "nowrap", alignSelf: "end" }}>
-            <Icon name="report" size={14} stroke={1.8} style={{ marginRight: 4 }} />
-            엑셀 내보내기
-          </button>
-          <button className="pmo-btn pmo-btn-primary" style={{ height: 38, padding: "0 14px", whiteSpace: "nowrap", alignSelf: "end", background: "var(--brand)", borderColor: "var(--brand)", color: "#fff" }} onClick={openCreate}>
+          <button className="pmo-btn pmo-btn-primary" style={{ height: 38, minWidth: 170, padding: "0 14px", whiteSpace: "nowrap", justifyContent: "center", alignSelf: "end", background: "var(--brand)", borderColor: "var(--brand)", color: "#fff" }} onClick={openCreate}>
             <Icon name="plus" size={14} stroke={2} style={{ marginRight: 4 }} />
             신규 프로젝트 등록
           </button>
@@ -1363,7 +1435,6 @@ function CodePageImpl() {
               </section>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
-                {validationError ? <div style={{ fontSize: 13, color: "var(--crit)", fontWeight: 600 }}>{validationError}</div> : null}
                 {saveError ? <div style={{ fontSize: 13, color: "var(--crit)", fontWeight: 600 }}>{saveError}</div> : null}
               </div>
             </div>

@@ -112,7 +112,7 @@ function PeriodPicker({ value, from, to, onChange }: { value: PeriodPreset; from
   const PRESETS: Array<{ value: PeriodPreset; label: string }> = [
     { value: "all", label: "전체" },
     { value: "recent3m", label: "최근 3개월" },
-    { value: "thisMonth", label: "이번 달" },
+    { value: "thisMonth", label: "이번달" },
     { value: "lastMonth", label: "지난달" },
     { value: "thisYear", label: "올해" }
   ];

@@ -125,16 +125,16 @@ function PeriodPicker({ value, from, to, onChange }: { value: PeriodPreset; from
   return <div ref={ref} style={{ position: "relative" }}><button onClick={() => setOpen((o) => !o)} style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 40, width: "100%", padding: "0 14px", background: "var(--bg-1)", border: "1px solid var(--line-2)", borderRadius: "var(--r-md)", fontSize: 14, color: "var(--tx-1)", fontWeight: 600 }}><span style={{ flex: 1, textAlign: "left" }}>{currentLabel} ({from} ~ {to})</span><Icon name="calendar" size={15} stroke={1.8} style={{ color: "var(--tx-4)" }} /></button>{open ? <div style={{ position: "absolute", top: 44, right: 0, zIndex: 40, minWidth: 200, padding: 6, background: "var(--bg-1)", border: "1px solid var(--line-2)", borderRadius: 10, boxShadow: "var(--sh-pop)", display: "flex", flexDirection: "column", gap: 2 }}>{PRESETS.map((preset) => <button key={preset.value} onClick={() => { onChange(preset.value); setOpen(false); }} style={{ height: 34, padding: "0 12px", textAlign: "left", border: 0, borderRadius: 6, background: value === preset.value ? "var(--brand-bg)" : "transparent", color: value === preset.value ? "var(--brand-700)" : "var(--tx-2)", fontSize: 13, fontWeight: value === preset.value ? 700 : 500 }}>{preset.label}</button>)}</div> : null}</div>;
 }
 
-function HistoryFilter({ filters, form, periodBaseDate, onChange, onSearch, onReset, onCreate }: { filters: any; form: HistoryFilterState; periodBaseDate: Date; onChange: (next: Partial<HistoryFilterState>) => void; onSearch: () => void; onReset: () => void; onCreate: () => void }) {
+function HistoryFilter({ filters, projectOptions, form, periodBaseDate, onChange, onSearch, onReset, onCreate }: { filters: any; projectOptions: Array<{ value: string; label: string }>; form: HistoryFilterState; periodBaseDate: Date; onChange: (next: Partial<HistoryFilterState>) => void; onSearch: () => void; onReset: () => void; onCreate: () => void }) {
   const FieldLabel = ({ children }: { children: ReactNode }) => <div style={{ fontSize: 14, color: "var(--tx-3)", fontWeight: 700, marginBottom: 8 }}>{children}</div>;
   return <section className="pmo-panel" style={{ padding: "20px 22px", marginBottom: 16 }}>
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(180px, 1fr)) minmax(320px, 1.6fr) auto", gap: 12, alignItems: "end" }}>
-      <div><FieldLabel>프로젝트</FieldLabel><Select value={form.project} onChange={(value) => onChange({ project: value })} w="100%">{filters.projects.map((p: any) => <option key={p.value} value={p.value}>{p.value === "all" ? "전체" : String(p.label).split("·").slice(1).join("·").trim() || String(p.label)}</option>)}</Select></div>
-      <div><FieldLabel>이력 유형</FieldLabel><Select value={form.category} onChange={(value) => onChange({ category: value })} w="100%">{filters.categories.map((c: string) => <option key={c} value={c}>{c}</option>)}</Select></div>
-      <div><FieldLabel>작성자</FieldLabel><Select value={form.author} onChange={(value) => onChange({ author: value })} w="100%">{filters.authors.map((a: string) => <option key={a} value={a}>{a}</option>)}</Select></div>
-      <div style={{ minWidth: 0 }}><FieldLabel>기간</FieldLabel><PeriodPicker value={form.periodPreset} from={form.from} to={form.to} onChange={(preset) => { const range = getPeriodRange(preset, periodBaseDate); onChange({ periodPreset: preset, from: range.from, to: range.to }); }} /></div>
-      <div style={{ minWidth: 0 }}><FieldLabel>검색어</FieldLabel><div style={{ display: "flex", alignItems: "center", gap: 10, height: 40, padding: "0 12px", background: "var(--bg-1)", border: "1px solid var(--line-2)", borderRadius: "var(--r-md)", color: "var(--tx-5)" }}><Icon name="search" size={15} stroke={1.8} /><input value={form.query} onChange={(e) => onChange({ query: e.target.value })} placeholder="사업명, 작성자/변경자 검색" style={{ border: 0, outline: "none", background: "transparent", font: "inherit", width: "100%", color: "var(--tx-1)", fontSize: 14 }} /></div></div>
-      <div style={{ display: "inline-flex", gap: 8, alignItems: "center", paddingBottom: 1, whiteSpace: "nowrap" }}><button onClick={onSearch} className="pmo-btn pmo-btn-primary" style={{ height: 40, minWidth: 86, padding: "0 18px", fontSize: 14, fontWeight: 700, background: "var(--brand)", borderColor: "var(--brand)", color: "#fff", display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="search" size={14} stroke={2} />조회</button><button onClick={onReset} className="pmo-btn" style={{ height: 40, minWidth: 72, padding: "0 18px", fontSize: 14, fontWeight: 600 }}>초기화</button><button onClick={onCreate} className="pmo-btn pmo-btn-primary" style={{ height: 40, minWidth: 138, padding: "0 14px", whiteSpace: "nowrap", background: "var(--brand)", borderColor: "var(--brand)", color: "#fff" }}><Icon name="plus" size={14} stroke={2} style={{ marginRight: 4 }} />진행 이력 등록</button></div>
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(12, minmax(0, 1fr))", gap: 12, alignItems: "end" }}>
+      <div style={{ gridColumn: "span 3", minWidth: 0 }}><FieldLabel>프로젝트</FieldLabel><Select value={form.project} onChange={(value) => onChange({ project: value })} w="100%">{projectOptions.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}</Select></div>
+      <div style={{ gridColumn: "span 3", minWidth: 0 }}><FieldLabel>이력 유형</FieldLabel><Select value={form.category} onChange={(value) => onChange({ category: value })} w="100%">{filters.categories.map((c: string) => <option key={c} value={c}>{c}</option>)}</Select></div>
+      <div style={{ gridColumn: "span 3", minWidth: 0 }}><FieldLabel>작성자</FieldLabel><Select value={form.author} onChange={(value) => onChange({ author: value })} w="100%">{filters.authors.map((a: string) => <option key={a} value={a}>{a}</option>)}</Select></div>
+      <div style={{ gridColumn: "span 3", minWidth: 0 }}><FieldLabel>기간</FieldLabel><PeriodPicker value={form.periodPreset} from={form.from} to={form.to} onChange={(preset) => { const range = getPeriodRange(preset, periodBaseDate); onChange({ periodPreset: preset, from: range.from, to: range.to }); }} /></div>
+      <div style={{ gridColumn: "span 8", minWidth: 0 }}><FieldLabel>검색어</FieldLabel><div style={{ display: "flex", alignItems: "center", gap: 10, height: 40, padding: "0 12px", background: "var(--bg-1)", border: "1px solid var(--line-2)", borderRadius: "var(--r-md)", color: "var(--tx-5)" }}><Icon name="search" size={15} stroke={1.8} /><input value={form.query} onChange={(e) => onChange({ query: e.target.value })} placeholder="사업명, 작성자/변경자 검색" style={{ border: 0, outline: "none", background: "transparent", font: "inherit", width: "100%", color: "var(--tx-1)", fontSize: 14 }} /></div></div>
+      <div style={{ gridColumn: "span 4", display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 8, alignItems: "center", paddingBottom: 1 }}><button onClick={onSearch} className="pmo-btn pmo-btn-primary" style={{ height: 40, minWidth: 86, padding: "0 18px", fontSize: 14, fontWeight: 700, background: "var(--brand)", borderColor: "var(--brand)", color: "#fff", display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="search" size={14} stroke={2} />조회</button><button onClick={onReset} className="pmo-btn" style={{ height: 40, minWidth: 72, padding: "0 18px", fontSize: 14, fontWeight: 600 }}>초기화</button><button onClick={onCreate} className="pmo-btn pmo-btn-primary" style={{ height: 40, minWidth: 138, padding: "0 14px", whiteSpace: "nowrap", background: "var(--brand)", borderColor: "var(--brand)", color: "#fff" }}><Icon name="plus" size={14} stroke={2} style={{ marginRight: 4 }} />진행 이력 등록</button></div>
     </div>
   </section>;
 }
@@ -201,7 +201,7 @@ function EditLogButton({ row, onEdit }: { row: any; onEdit: (row: any) => void }
 function LogsTable({ rows, totalCount, summaryFilterLabel, onEdit, page, pageSize, totalPages, onPageChange, onPageSizeChange }: { rows: any[]; totalCount: number; summaryFilterLabel: string | null; onEdit: (row: any) => void; page: number; pageSize: number; totalPages: number; onPageChange: (page: number) => void; onPageSizeChange: (size: number) => void }) {
   return <section className="pmo-panel" style={{ padding: "20px 22px 14px", display: "flex", flexDirection: "column" }}>
     <header style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 14 }}><h2 className="pmo-section-title" style={{ margin: 0, fontSize: 18 }}>진행이력 목록</h2><span style={{ fontSize: 14, color: "var(--tx-4)", fontWeight: 600 }}>총 {totalCount.toLocaleString()}건</span><span style={{ marginLeft: "auto", fontSize: 14, color: "var(--tx-4)", fontWeight: 600 }}>검색결과 {totalCount.toLocaleString()}건{summaryFilterLabel ? <span style={{ marginLeft: 8, color: "var(--brand)", fontWeight: 700 }}>{summaryFilterLabel}</span> : null}</span></header>
-    <div style={{ overflowX: "auto", marginLeft: -22, marginRight: -22 }}><table className="pmo-table pmo-table--recent"><colgroup><col style={{ width: 208 }} /><col style={{ width: 380 }} /><col style={{ width: 140 }} /><col style={{ width: 600 }} /><col style={{ width: 92 }} /><col style={{ width: 110 }} /></colgroup><thead><tr><th>일시</th><th>사업명</th><th>작성자/변경자</th><th>내용</th><th>상태</th><th style={{ textAlign: "center" }}>프로젝트 상세</th></tr></thead><tbody>{rows.map((r) => { const authorWithRole = r.authorTeam && r.authorTeam !== "-" ? `${r.author} ${r.authorTeam}` : r.author; return <tr key={r.id}><td className="num" style={{ color: "var(--tx-2)", fontWeight: 600, whiteSpace: "nowrap" }}><div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><EditLogButton row={r} onEdit={onEdit} /><span><span style={{ color: "var(--tx-2)" }}>{r.datetime.slice(0, 10)}</span><span style={{ color: "var(--tx-4)", marginLeft: 8 }}>{r.datetime.slice(11)}</span></span></div></td><td style={{ color: "var(--tx-1)", fontWeight: 600, whiteSpace: "normal", wordBreak: "keep-all", lineHeight: 1.5 }}>{r.projectName}</td><td style={{ color: "var(--tx-1)", fontWeight: 700, whiteSpace: "normal", wordBreak: "keep-all", lineHeight: 1.5 }}>{authorWithRole}</td><td style={{ color: "var(--tx-2)", whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.6 }}>{r.summary}</td><td><CategoryChip name={r.category} /></td><td style={{ textAlign: "center" }}><ProjectDetailButton row={r} /></td></tr>; })}</tbody></table></div>
+    <div style={{ overflowX: "auto", marginLeft: -22, marginRight: -22 }}><table className="pmo-table pmo-table--recent"><colgroup><col style={{ width: 208 }} /><col style={{ width: 380 }} /><col style={{ width: 600 }} /><col style={{ width: 140 }} /><col style={{ width: 92 }} /><col style={{ width: 110 }} /></colgroup><thead><tr><th>일시</th><th>사업명</th><th>내용</th><th>작성자/변경자</th><th>상태</th><th style={{ textAlign: "center" }}>프로젝트 상세</th></tr></thead><tbody>{rows.map((r) => { const authorWithRole = r.authorTeam && r.authorTeam !== "-" ? `${r.author} ${r.authorTeam}` : r.author; return <tr key={r.id}><td className="num" style={{ color: "var(--tx-2)", fontWeight: 600, fontSize: 14, whiteSpace: "nowrap" }}><div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><EditLogButton row={r} onEdit={onEdit} /><span style={{ color: "var(--tx-2)", fontWeight: 600, fontSize: 14, lineHeight: 1.6 }}>{r.datetime}</span></div></td><td style={{ color: "var(--tx-2)", fontWeight: 600, fontSize: 14, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.6 }}>{r.projectName}</td><td style={{ color: "var(--tx-2)", whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.6, fontWeight: 600, fontSize: 14 }}>{r.summary}</td><td style={{ color: "var(--tx-2)", fontWeight: 600, fontSize: 14, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.6 }}>{authorWithRole}</td><td><CategoryChip name={r.category} /></td><td style={{ textAlign: "center" }}><ProjectDetailButton row={r} /></td></tr>; })}</tbody></table></div>
     <Pagination totalCount={totalCount} page={page} pageSize={pageSize} totalPages={totalPages} onPageChange={onPageChange} onPageSizeChange={onPageSizeChange} />
   </section>;
 }
@@ -217,7 +217,7 @@ function RecentStatusPanel({ rows }: { rows: any[] }) {
   return <SidePanel title="최근 상태 변경" action={<MoreLink />}><div style={{ display: "flex", flexDirection: "column" }}>{rows.map((r, i) => <div key={r.code + r.datetime} style={{ padding: "12px 0", borderBottom: i === rows.length - 1 ? 0 : "1px solid var(--line-1)", display: "flex", flexDirection: "column", gap: 6 }}><div style={{ display: "flex", alignItems: "baseline", gap: 8 }}><span style={{ fontSize: 12, color: "var(--tx-5)", fontWeight: 700 }}>{r.code}</span><span style={{ fontSize: 13, color: "var(--tx-1)", fontWeight: 700, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>· {r.name}</span></div><div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ fontSize: 11.5, color: "var(--tx-5)", flex: 1 }}>{r.datetime}</span><StatusBadge code={r.from} /><Icon name="arrowRight" size={11} stroke={2} style={{ color: "var(--tx-5)" }} /><StatusBadge code={r.to} /></div></div>)}</div></SidePanel>;
 }
 function ByProjectPanel({ rows }: { rows: any[] }) {
-  return <SidePanel title="프로젝트별 이력 건수" action={<MoreLink />}><div style={{ overflowX: "hidden" }}><table className="pmo-table" style={{ fontSize: 14, width: "100%", tableLayout: "fixed" }}><colgroup><col style={{ width: 50 }} /><col /><col style={{ width: 80 }} /></colgroup><thead><tr><th style={{ textAlign: "center", fontSize: 14 }}>순위</th><th style={{ textAlign: "center", fontSize: 14 }}>사업명</th><th style={{ textAlign: "center", fontSize: 14 }}>이력 건수</th></tr></thead><tbody>{rows.map((r) => <tr key={r.code}><td className="num" style={{ textAlign: "center", color: "var(--tx-3)", fontWeight: 700, fontSize: 14 }}>{r.code === "etc" ? "—" : r.rank}</td><td style={{ textAlign: "center", color: "var(--tx-1)", fontWeight: 600, fontSize: 14, whiteSpace: "normal", wordBreak: "keep-all", overflowWrap: "anywhere", lineHeight: 1.45 }}>{r.name}</td><td className="num" style={{ textAlign: "center", color: "var(--tx-1)", fontWeight: 700, fontSize: 14 }}>{r.count.toLocaleString()}</td></tr>)}</tbody></table></div></SidePanel>;
+  return <SidePanel title="프로젝트별 이력 건수"><div style={{ overflowX: "hidden" }}><table className="pmo-table" style={{ fontSize: 14, width: "100%", tableLayout: "fixed" }}><colgroup><col style={{ width: 50 }} /><col /><col style={{ width: 80 }} /></colgroup><thead><tr><th style={{ textAlign: "center", fontSize: 14 }}>순위</th><th style={{ textAlign: "center", fontSize: 14 }}>사업명</th><th style={{ textAlign: "center", fontSize: 14 }}>이력 건수</th></tr></thead><tbody>{rows.map((r) => <tr key={r.code}><td className="num" style={{ textAlign: "center", color: "var(--tx-3)", fontWeight: 700, fontSize: 14 }}>{r.code === "etc" ? "—" : r.rank}</td><td style={{ textAlign: "center", color: "var(--tx-1)", fontWeight: 600, fontSize: 14, whiteSpace: "normal", wordBreak: "keep-all", overflowWrap: "anywhere", lineHeight: 1.45 }}>{r.name}</td><td className="num" style={{ textAlign: "center", color: "var(--tx-1)", fontWeight: 700, fontSize: 14 }}>{r.count.toLocaleString()}</td></tr>)}</tbody></table></div></SidePanel>;
 }
 export default function HistoryPage() {
   const [data, setData] = useState<any | null>(null);
@@ -237,7 +237,16 @@ export default function HistoryPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const createProjectOptions = useMemo(
-    () => [...projectRows].sort((a: any, b: any) => new Date(String(b.created_at ?? 0)).getTime() - new Date(String(a.created_at ?? 0)).getTime()),
+    () => [...projectRows].sort((a: any, b: any) => String(b.code ?? "").localeCompare(String(a.code ?? ""), "ko-KR", { numeric: true })),
+    [projectRows]
+  );
+  const projectFilterOptions = useMemo(
+    () => [
+      { value: "all", label: "전체" },
+      ...[...projectRows]
+        .sort((a: any, b: any) => String(b.code ?? "").localeCompare(String(a.code ?? ""), "ko-KR", { numeric: true }))
+        .map((p: any) => ({ value: String(p.code ?? ""), label: `${String(p.code ?? "-")} | ${String(p.name ?? "-")}` }))
+    ],
     [projectRows]
   );
   const periodBaseDate = useMemo(() => {
@@ -434,6 +443,7 @@ export default function HistoryPage() {
   return <PmoShell user={data.meta.user} notifications={data.meta.notifications} currentId="project-logs" pageTitle="진행이력">
     <HistoryFilter
       filters={data.filters}
+      projectOptions={projectFilterOptions}
       form={filterForm}
       periodBaseDate={periodBaseDate}
       onChange={(next) => setFilterForm((prev) => prev ? { ...prev, ...next } : prev)}
@@ -509,11 +519,11 @@ export default function HistoryPage() {
             <label className="pmo-field" style={{ minWidth: 0 }}>
               <span>프로젝트</span>
               <select value={createForm.projectId} onChange={(event) => setCreateForm({ ...createForm, projectId: event.target.value })}>
-                {createProjectOptions.map((project: any) => <option key={project.id} value={project.id}>{project.name}</option>)}
+                {createProjectOptions.map((project: any) => <option key={project.id} value={project.id}>{`${project.code ?? "-"} | ${project.name ?? "-"}`}</option>)}
               </select>
             </label>
             <label className="pmo-field" style={{ minWidth: 0 }}>
-              <span>상태</span>
+              <span>이력 구분</span>
               <select value={createForm.logStatus} onChange={(event) => setCreateForm({ ...createForm, logStatus: event.target.value as "memo" | "in_progress" })}>
                 <option value="memo">메모</option>
                 <option value="in_progress">진행</option>
@@ -528,9 +538,9 @@ export default function HistoryPage() {
                 style={{ height: 36, minWidth: 0, width: "100%", fontSize: 13.5, fontWeight: 500, color: "var(--tx-1)", fontFamily: "inherit" }}
               />
               <span style={{ marginTop: 6, fontSize: 12, color: "var(--tx-5)", lineHeight: 1.45 }}>
-                프로젝트는 최근 생성된 순서로 노출됩니다.
+                프로젝트는 코드 내림차순으로 노출됩니다.
                 <br />
-                상태는 등록 시 메모/진행을 선택할 수 있으며 추후 편집을 통해 '진행'에서 '완료'로 변환할 수 있습니다.
+                이력 구분은 등록 시 메모/진행을 선택할 수 있으며 추후 편집을 통해 '진행'에서 '완료'로 변환할 수 있습니다.
               </span>
             </label>
           </div>

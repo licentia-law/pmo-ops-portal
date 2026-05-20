@@ -22,7 +22,7 @@ def list_project_codes(session: DbSession, params: ListParams = Depends()) -> di
     statement = apply_text_search(
         statement,
         params.q,
-        [ProjectCode.code, ProjectCode.name, ProjectCode.owner_name, ProjectCode.sales_owner],
+        [ProjectCode.code, ProjectCode.name],
     )
     if params.status:
         statement = statement.where(ProjectCode.status == ProjectStatus(params.status))
@@ -59,10 +59,6 @@ def create_project_code(
         ("사업유형", payload.project_type),
         ("상태", payload.status),
         ("확도", payload.certainty),
-        ("영업부서", payload.sales_department),
-        ("영업대표", payload.sales_owner),
-        ("시작일", payload.start_date),
-        ("종료일", payload.end_date),
     ]
     missing_required = [label for label, value in required_checks if value is None or (isinstance(value, str) and not value.strip())]
     if missing_required:

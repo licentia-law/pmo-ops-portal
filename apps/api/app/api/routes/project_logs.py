@@ -5,6 +5,7 @@ from sqlalchemy import select
 
 from app.api.common import ListParams, apply_text_search, envelope, paginate, parse_sort
 from app.api.deps import CurrentUser, DbSession
+from app.domain.personnel import person_name_with_title, user_display_name
 from app.domain.projects import can_mutate_project
 from app.enums import ProjectLogStatus
 from app.models.core import Project, ProjectLog
@@ -13,10 +14,12 @@ from app.schemas.projects import ProjectLogCreate, ProjectLogRead, ProjectLogUpd
 router = APIRouter()
 
 
-def serialize_log(log: ProjectLog) -> dict[str, object]:
+def serialize_log(session: DbSession, log: ProjectLog) -> dict[str, object]:
     payload = ProjectLogRead.model_validate(log).model_dump(mode="json")
     payload["project_name"] = log.project.name if log.project else None
     payload["project_code"] = log.project.code if log.project else None
+    payload["author_name"] = person_name_with_title(session, payload.get("author_name"))
+    payload["updated_by_name"] = person_name_with_title(session, payload.get("updated_by_name"))
     return payload
 
 
@@ -53,7 +56,7 @@ def list_project_logs(
     )
     rows, total = paginate(session, statement, params.page, params.page_size)
     return envelope(
-        [serialize_log(row) for row in rows],
+        [serialize_log(session, row) for row in rows],
         {"page": params.page, "page_size": params.page_size, "total": total},
     )
 
@@ -76,14 +79,14 @@ def create_project_log(
         project_id=payload.project_id,
         log_status=payload.log_status,
         logged_at=datetime.utcnow(),
-        author_name=user.name,
-        updated_by_name=user.name,
+        author_name=user_display_name(session, user),
+        updated_by_name=user_display_name(session, user),
         content=payload.content,
     )
     session.add(log)
     session.commit()
     session.refresh(log)
-    return envelope(serialize_log(log))
+    return envelope(serialize_log(session, log))
 
 
 @router.patch("/{log_id}")
@@ -116,10 +119,10 @@ def update_project_log(
     if next_log_status is not None:
         log.log_status = next_log_status
     log.logged_at = datetime.utcnow()
-    log.updated_by_name = user.name
+    log.updated_by_name = user_display_name(session, user)
     session.commit()
     session.refresh(log)
-    return envelope(serialize_log(log))
+    return envelope(serialize_log(session, log))
 
 
 @router.get("/{log_id}")
@@ -127,4 +130,4 @@ def get_project_log(log_id: str, session: DbSession) -> dict[str, object]:
     log = session.get(ProjectLog, log_id)
     if log is None:
         raise HTTPException(status_code=404, detail="진행이력을 찾을 수 없습니다.")
-    return envelope(serialize_log(log))
+    return envelope(serialize_log(session, log))

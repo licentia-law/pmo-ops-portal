@@ -32,6 +32,21 @@ class AssignmentType(StrEnum):
     UNASSIGNED = "unassigned"
 
 
+class AssignmentStatus(StrEnum):
+    PLANNED = "planned"
+    ASSIGNED = "assigned"
+    ENDED = "ended"
+
+
+class ProjectAssignmentRole(StrEnum):
+    PROPOSAL_PM = "proposal_pm"
+    PRESENTATION_PM = "presentation_pm"
+    DELIVERY_PM = "delivery_pm"
+    PROPOSAL_TEAM = "proposal_team"
+    DELIVERY_TEAM = "delivery_team"
+    SUPPORT_TEAM = "support_team"
+
+
 class EmploymentStatus(StrEnum):
     ACTIVE = "active"
     LEAVE = "leave"

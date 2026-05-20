@@ -2,6 +2,10 @@
 
 작성일: 2026-05-11
 
+> 업데이트: 2026-05-19  
+> 본 문서는 최초 스키마 설계 기록이다.  
+> 현재 운영 기준(SSOT 통합/컬럼 정리/역할·상태 enum 정규화)은 `docs/schema/schema_project.md`를 우선 적용한다.
+
 ## 1. 목적
 
 이 문서는 `PRD_260506_1415.md`, `analysis_pmo_excel_260429_1749.md`, 그리고 현재 구현된 P1 화면(홈, 대시보드, 업무수행현황, 프로젝트코드, 프로젝트 상세, 진행이력)을 기준으로 더미/시드 데이터를 만들기 위한 DB 스키마 기준을 정의한다.
@@ -56,6 +60,25 @@
 | `proposal` | 제안 |
 | `support` | 지원 |
 | `unassigned` | 미투입/대기 |
+
+### AssignmentStatus (추가)
+
+| value | 의미 |
+| --- | --- |
+| `planned` | 예정 |
+| `assigned` | 투입 |
+| `ended` | 종료 |
+
+### ProjectAssignmentRole (추가)
+
+| value | 화면 라벨 |
+| --- | --- |
+| `proposal_pm` | 제안PM |
+| `presentation_pm` | 발표PM |
+| `delivery_pm` | 수행PM |
+| `proposal_team` | 제안팀 |
+| `delivery_team` | 수행팀 |
+| `support_team` | 지원팀 |
 
 ### EmploymentStatus
 
@@ -123,7 +146,7 @@
 
 엑셀 `프로젝트코드` 시트 성격의 프로젝트 마스터다. 코드 목록 페이지의 원천이다.
 
-주요 컬럼:
+주요 컬럼(최신 기준):
 
 | 컬럼 | 타입 | 설명 |
 | --- | --- | --- |
@@ -133,14 +156,17 @@
 | `project_type` | enum | 주사업/부사업/하도/협력 |
 | `status` | enum | 정규화 상태 |
 | `certainty` | string | 확도/우세/경쟁 등 |
-| `sales_department` | string | 영업부서 |
-| `sales_owner` | string | 영업대표 |
-| `owner_name` | string | 기존 API 호환용 담당자 |
-| `start_date` | date | 시작일 |
-| `end_date` | date | 종료일 |
 | `is_active` | boolean | 사용여부 |
 | `source_sheet` | string | 원천 시트명 |
-| `note` | text | 비고 |
+| `created_at`, `updated_at` | datetime | 엔터티 메타 |
+
+삭제 반영 컬럼:
+- `owner_name`
+- `note`
+- `sales_department`
+- `sales_owner`
+- `start_date`
+- `end_date`
 
 더미 데이터 기준:
 
@@ -152,7 +178,7 @@
 
 업무수행현황, 프로젝트 상세, 진행이력의 중심 테이블이다. 엑셀 `업무수행현황`의 비정형 원장을 정규화한 테이블이다.
 
-주요 컬럼:
+주요 컬럼(최신 기준):
 
 | 컬럼 | 타입 | 설명 |
 | --- | --- | --- |
@@ -161,8 +187,6 @@
 | `code` | string | 프로젝트 코드 |
 | `name` | string | 사업명 |
 | `client_name` | string | 고객사 |
-| `owner_department` | string | 주관부서 |
-| `lead_department` | string | 본부/리드부서 |
 | `sales_department` | string | 영업부서 |
 | `sales_owner` | string | 영업대표 |
 | `project_type` | enum | 사업유형 |
@@ -178,8 +202,6 @@
 | `end_date` | date | 프로젝트 기간 종료 |
 | `bid_notice_no` | string | 공고번호 |
 | `bid_notice_date` | date | 공고일 |
-| `pre_notice_no` | string | 사전공고번호 |
-| `pre_notice_date` | date | 사전공고일 |
 | `submission_at` | datetime | 제출 일시 |
 | `submission_format` | string | 제출 형식 |
 | `submission_note` | text | 제출 비고 |
@@ -188,8 +210,14 @@
 | `presentation_note` | text | 발표 비고 |
 | `recent_activity_at` | datetime | 최근 활동 일시 |
 | `memo` | text | 참고 메모 |
-| `source_sheet` | string | 원천 시트명 |
-| `raw_payload` | JSON | 엑셀 원본 보존용 |
+
+삭제 반영 컬럼:
+- `owner_department`
+- `lead_department`
+- `pre_notice_no`
+- `pre_notice_date`
+- `source_sheet`
+- `raw_payload`
 
 더미 데이터 기준:
 
@@ -207,19 +235,19 @@
 | 화면 컬럼 | API 필드 (`/api/p1-screens/code`) | DB 소스 |
 | --- | --- | --- |
 | 코드 | `code` | `project_codes.code` |
-| 사업명 | `name` | `project_codes.name` |
+| 사업명 | `name` | `projects.name` |
 | 고객사 | `clientName` | `projects.client_name` |
-| 상태 | `status` | `project_codes.status` |
-| 사업유형 | `projectType` | `project_codes.project_type` |
-| 확도 | `certainty` | `project_codes.certainty` |
+| 상태 | `status` | `projects.status` |
+| 사업유형 | `projectType` | `projects.project_type` |
+| 확도 | `certainty` | `projects.certainty` |
 | 사업금액 | `amountText` | `projects.amount_text` (없으면 `projects.total_amount/company_amount`로 계산) |
-| 영업부서 | `salesDept` | `projects.sales_department` 우선, 없으면 `project_codes.sales_department` |
-| 영업대표 | `salesOwner` | `project_codes.sales_owner` |
+| 영업부서 | `salesDept` | `projects.sales_department` |
+| 영업대표 | `salesOwner` | `projects.sales_owner` |
 | 제안PM | `proposalPm` | `projects.proposal_pm_name` |
 | 발표PM | `presentPm` | `projects.presentation_pm_name` |
 | 수행PM | `deliveryPm` | `projects.delivery_pm_name` |
-| 시작일 | `fromDate` | `project_codes.start_date` |
-| 종료일 | `toDate` | `project_codes.end_date` |
+| 시작일 | `fromDate` | `projects.start_date` |
+| 종료일 | `toDate` | `projects.end_date` |
 | 공고번호 | `bidNoticeNo` | `projects.bid_notice_no` |
 | 공고일 | `bidNoticeDate` | `projects.bid_notice_date` |
 | 제안 제출일 | `proposalSubmissionAt` | `projects.submission_at` |
@@ -233,7 +261,7 @@
 
 참고:
 - `totalAmount`, `companyAmount`, `memo`는 API에 포함되지만 목록 테이블 보조/편집용 필드다.
-- `pre_notice_no`, `pre_notice_date`는 스키마에 존재하나 현재 목록 컬럼에는 미노출이다.
+- `pre_notice_no`, `pre_notice_date`는 삭제 반영 대상이다.
 
 ### project_assignments
 
@@ -247,8 +275,8 @@
 | `project_id` | FK | `projects.id` |
 | `personnel_id` | FK | `personnel.id` |
 | `assignment_type` | enum | 수행/제안/지원/미투입 |
-| `assignment_role` | string | PM, Sub-PM, TA 등 |
-| `assignment_status` | string | 투입/철수/예정 등 |
+| `assignment_role` | enum | `proposal_pm`, `presentation_pm`, `delivery_pm`, `proposal_team`, `delivery_team`, `support_team` |
+| `assignment_status` | enum | `planned`, `assigned`, `ended` |
 | `win_loss` | string | WIN/LOSS/제안 등 원본 구분 |
 | `onsite_type` | string | 상주/비상주/현장 등 |
 | `is_primary` | boolean | 대표 투입 여부 |
@@ -296,6 +324,9 @@
 | `author_name` | string | 작성자 |
 | `updated_by_name` | string nullable | 최종 변경자 |
 | `content` | text | 본문 |
+
+운영 정책:
+- 등록/수정 시 작성자/변경자는 로그인 사용자 기준으로 자동 입력한다.
 
 더미 데이터 기준:
 

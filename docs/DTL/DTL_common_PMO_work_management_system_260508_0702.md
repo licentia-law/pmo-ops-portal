@@ -243,11 +243,13 @@
 ### 8.2 응답 기본 구조
 ```json
 {
-  "items": [],
-  "page": 1,
-  "page_size": 10,
-  "total": 216,
-  "summary": {}
+  "data": [],
+  "meta": {
+    "page": 1,
+    "page_size": 10,
+    "total": 216
+  },
+  "error": null
 }
 ```
 
@@ -261,19 +263,19 @@
 ## 9. 공통 DB/엔티티 초안
 핵심 엔티티는 아래를 중심으로 분리한다.
 - users
-- roles / permissions
-- organizations (본부/팀)
-- employees
-- employee_employment_history
+- personnel
 - projects
 - project_codes
-- project_memberships
-- project_progress_logs
-- holiday_calendar
+- project_assignments
+- project_logs
+- holidays
 - monthly_snapshots
 - report_jobs
 
-세부 엔티티는 페이지별 DTL에서 다시 정의한다.
+추가 메모 (2026-05-19 P1 구현 반영):
+- `organizations/teams`는 문자열 컬럼 기반으로 우선 구현되었고, 별도 마스터 테이블은 P3에서 확정한다.
+- 인력 모델 명칭은 `employees`가 아니라 `personnel`로 통일했다.
+- 세부 엔티티는 페이지별 DTL에서 다시 정의한다.
 
 ---
 

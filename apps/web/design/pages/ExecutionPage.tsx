@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from
 import { useRouter } from "next/navigation";
 import { getP1Screen } from "../../app/lib/api";
 import { PmoShell } from "../components/PmoShell";
+import ProjectMasterEditModal from "../components/ProjectMasterEditModal";
 
 type IconName =
   | "home"
@@ -83,7 +84,6 @@ function formatAmountPair(amountText: string) {
 }
 
 type ExecutionFilterState = {
-  headquarters: string;
   team: string;
   businessType: string;
   status: string;
@@ -190,6 +190,11 @@ export default function ExecutionPage() {
   const [data, setData] = useState<any | null>(null);
   const [activeSummary, setActiveSummary] = useState<string | null>(null);
   const [selectedCode, setSelectedCode] = useState("");
+  const [editingProject, setEditingProject] = useState<any | null>(null);
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [codeRows, setCodeRows] = useState<any[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
   const [filterForm, setFilterForm] = useState<ExecutionFilterState | null>(null);
   const [appliedFilter, setAppliedFilter] = useState<ExecutionFilterState | null>(null);
   const periodBaseDate = useMemo(() => new Date(), []);
@@ -199,7 +204,6 @@ export default function ExecutionPage() {
       if (alive) {
         const payload = result.data as any;
         const initialFilter: ExecutionFilterState = {
-          headquarters: "전체",
           team: "전체",
           businessType: "전체",
           status: "전체",
@@ -220,6 +224,9 @@ export default function ExecutionPage() {
       alive = false;
     };
   }, []);
+  useEffect(() => {
+    getP1Screen("code").then((result) => setCodeRows((result.data as any)?.rows ?? []));
+  }, []);
   const statusFilterBySummary: Record<string, string[]> = {
     all: [],
     proposal: ["proposing", "presented"],
@@ -230,60 +237,102 @@ export default function ExecutionPage() {
     if (!data) return [];
     const byForm = (data.rows ?? []).filter((row: any) => {
       if (!appliedFilter) return true;
-      if (appliedFilter.headquarters !== "전체" && row.leadDept !== appliedFilter.headquarters) return false;
       if (appliedFilter.team !== "전체" && row.execDept !== appliedFilter.team) return false;
       if (appliedFilter.businessType !== "전체" && row.businessType !== appliedFilter.businessType) return false;
       if (appliedFilter.status !== "전체" && row.status !== toStatusCode(appliedFilter.status)) return false;
-      if (appliedFilter.proposalPm !== "전체" && row.proposalPm !== appliedFilter.proposalPm) return false;
+      if (appliedFilter.proposalPm !== "전체") {
+        const selectedPm = appliedFilter.proposalPm;
+        const matchedPm = [row.proposalPm, row.presentPm, row.deliveryPm].some((pm) => (pm ?? "-") === selectedPm);
+        if (!matchedPm) return false;
+      }
       if (appliedFilter.salesOwner !== "전체" && row.salesOwner !== appliedFilter.salesOwner) return false;
       const submitDate = String(row.submission?.datetime ?? "").slice(0, 10);
       if (appliedFilter.from && submitDate && submitDate < appliedFilter.from) return false;
       if (appliedFilter.to && submitDate && submitDate > appliedFilter.to) return false;
       if (appliedFilter.query.trim()) {
         const q = appliedFilter.query.trim().toLowerCase();
-        const target = `${row.code ?? ""} ${row.name ?? ""} ${row.proposalPm ?? ""} ${row.salesOwner ?? ""} ${row.remark ?? ""}`.toLowerCase();
+        const target = `${row.code ?? ""} ${row.name ?? ""} ${row.proposalPm ?? ""} ${row.presentPm ?? ""} ${row.deliveryPm ?? ""} ${row.salesOwner ?? ""} ${row.remark ?? ""}`.toLowerCase();
         if (!target.includes(q)) return false;
       }
       return true;
     });
-    if (!activeSummary) return byForm;
-    const allowed = statusFilterBySummary[activeSummary] ?? [];
-    if (allowed.length === 0) return byForm;
-    return byForm.filter((row: any) => allowed.includes(row.status));
+    const bySummary = (() => {
+      if (!activeSummary) return byForm;
+      const allowed = statusFilterBySummary[activeSummary] ?? [];
+      if (allowed.length === 0) return byForm;
+      return byForm.filter((row: any) => allowed.includes(row.status));
+    })();
+
+    return [...bySummary].sort((a: any, b: any) => {
+      const aDate = String(a.endDate ?? "").trim();
+      const bDate = String(b.endDate ?? "").trim();
+      const aValid = /^\d{4}-\d{2}-\d{2}$/.test(aDate);
+      const bValid = /^\d{4}-\d{2}-\d{2}$/.test(bDate);
+      if (aValid && bValid) {
+        const byEndDate = bDate.localeCompare(aDate);
+        if (byEndDate !== 0) return byEndDate;
+        const aCode = String(a.code ?? "");
+        const bCode = String(b.code ?? "");
+        return bCode.localeCompare(aCode);
+      }
+      if (aValid) return -1;
+      if (bValid) return 1;
+      const aCode = String(a.code ?? "");
+      const bCode = String(b.code ?? "");
+      return bCode.localeCompare(aCode);
+    });
   }, [activeSummary, appliedFilter, data]);
   const selectedRow = useMemo(() => filteredRows.find((row: any) => row.code === selectedCode) ?? data?.rows?.find((row: any) => row.code === selectedCode) ?? null, [filteredRows, selectedCode, data]);
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(filteredRows.length / pageSize)), [filteredRows.length, pageSize]);
+  const pagedRows = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredRows.slice(start, start + pageSize);
+  }, [filteredRows, currentPage, pageSize]);
+  const visiblePageNumbers = useMemo(() => {
+    const maxVisible = 5;
+    const half = Math.floor(maxVisible / 2);
+    let start = Math.max(1, currentPage - half);
+    let end = Math.min(totalPages, start + maxVisible - 1);
+    start = Math.max(1, end - maxVisible + 1);
+    return Array.from({ length: end - start + 1 }, (_, idx) => start + idx);
+  }, [currentPage, totalPages]);
+
   useEffect(() => {
     if (!filteredRows.some((row: any) => row.code === selectedCode) && filteredRows[0]) {
       setSelectedCode(filteredRows[0].code);
     }
   }, [filteredRows, selectedCode]);
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
   if (!data || !filterForm) return null;
   const summaryFilterLabel = activeSummary ? (data.summary.find((s: any) => s.id === activeSummary)?.label ?? null) : null;
 
   return (
     <PmoShell user={data.meta.user} notifications={data.meta.notifications} currentId="project-operations" pageTitle="업무수행현황">
       <section className="pmo-panel" style={{ padding: 16, marginBottom: 16 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 12 }}>
-          {["본부", "팀", "사업유형", "상태", "제안PM", "영업대표"].map((label, idx) => (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 12 }}>
+          {["팀", "사업유형", "상태", "영업대표", "PM"].map((label, idx) => (
             <label key={label} className="pmo-field">
               <span style={{ fontSize: 14 }}>{label}</span>
               <select
-                value={idx === 0 ? filterForm.headquarters : idx === 1 ? filterForm.team : idx === 2 ? filterForm.businessType : idx === 3 ? filterForm.status : idx === 4 ? filterForm.proposalPm : filterForm.salesOwner}
+                value={idx === 0 ? filterForm.team : idx === 1 ? filterForm.businessType : idx === 2 ? filterForm.status : idx === 3 ? filterForm.salesOwner : filterForm.proposalPm}
                 onChange={(e) => {
                   const value = e.target.value;
                   setFilterForm((prev) => {
                     if (!prev) return prev;
-                    if (idx === 0) return { ...prev, headquarters: value };
-                    if (idx === 1) return { ...prev, team: value };
-                    if (idx === 2) return { ...prev, businessType: value };
-                    if (idx === 3) return { ...prev, status: value };
-                    if (idx === 4) return { ...prev, proposalPm: value };
-                    return { ...prev, salesOwner: value };
+                    if (idx === 0) return { ...prev, team: value };
+                    if (idx === 1) return { ...prev, businessType: value };
+                    if (idx === 2) return { ...prev, status: value };
+                    if (idx === 3) return { ...prev, salesOwner: value };
+                    return { ...prev, proposalPm: value };
                   });
                 }}
                 style={{ fontSize: 14 }}
               >
-                {(idx === 0 ? data.filters.headquarters : idx === 1 ? data.filters.teams : idx === 2 ? data.filters.businessTypes : idx === 3 ? data.filters.statuses : idx === 4 ? (data.filters.proposalPms ?? data.filters.leadPms ?? []) : data.filters.salesOwners).map((opt: string) => <option value={opt} key={opt}>{opt}</option>)}
+                {(idx === 0 ? data.filters.teams : idx === 1 ? data.filters.businessTypes : idx === 2 ? data.filters.statuses : idx === 3 ? data.filters.salesOwners : (data.filters.proposalPms ?? data.filters.leadPms ?? [])).map((opt: string) => <option value={opt} key={opt}>{opt}</option>)}
               </select>
             </label>
           ))}
@@ -303,13 +352,28 @@ export default function ExecutionPage() {
           </label>
           <label className="pmo-field">
             <span style={{ fontSize: 14 }}>검색어</span>
-            <input value={filterForm.query} onChange={(e) => setFilterForm((prev) => prev ? { ...prev, query: e.target.value } : prev)} placeholder="프로젝트명, 코드, PM, 메모 검색" style={{ fontSize: 14 }} />
+            <input
+              value={filterForm.query}
+              onChange={(e) => setFilterForm((prev) => prev ? { ...prev, query: e.target.value } : prev)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  setAppliedFilter(filterForm);
+                  setCurrentPage(1);
+                }
+              }}
+              placeholder="사업명, 영업대표, PM 검색"
+              style={{ fontSize: 14 }}
+            />
           </label>
           <div style={{ display: "flex", gap: 8, alignItems: "center", whiteSpace: "nowrap" }}>
             <button
               className="pmo-btn pmo-btn-primary"
               style={{ background: "var(--brand)", color: "#fff", borderColor: "var(--brand)" }}
-              onClick={() => setAppliedFilter(filterForm)}
+              onClick={() => {
+                setAppliedFilter(filterForm);
+                setCurrentPage(1);
+              }}
             >
               <Icon name="search" size={14} stroke={2} style={{ marginRight: 4 }} />
               조회
@@ -318,7 +382,6 @@ export default function ExecutionPage() {
               className="pmo-btn"
               onClick={() => {
                 const reset: ExecutionFilterState = {
-                  headquarters: "전체",
                   team: "전체",
                   businessType: "전체",
                   status: "전체",
@@ -332,6 +395,7 @@ export default function ExecutionPage() {
                 setFilterForm(reset);
                 setAppliedFilter(reset);
                 setActiveSummary(null);
+                setCurrentPage(1);
               }}
             >
               초기화
@@ -339,7 +403,7 @@ export default function ExecutionPage() {
             <button
               className="pmo-btn pmo-btn-primary"
               style={{ background: "var(--brand)", color: "#fff", borderColor: "var(--brand)" }}
-              onClick={() => router.push("/projects/codes?create=1")}
+              onClick={() => setCreatingProject(true)}
             >
               <Icon name="plus" size={14} stroke={2} style={{ marginRight: 4 }} />
               신규 프로젝트 등록
@@ -349,12 +413,15 @@ export default function ExecutionPage() {
       </section>
 
       <section style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, marginBottom: 16 }}>
-        {data.summary.map((item: any) => (
+                {data.summary.map((item: any) => (
           <SummaryCard
             key={item.id}
             item={item}
             active={activeSummary === item.id}
-            onClick={() => setActiveSummary(activeSummary === item.id ? null : item.id)}
+            onClick={() => {
+              setActiveSummary(activeSummary === item.id ? null : item.id);
+              setCurrentPage(1);
+            }}
           />
         ))}
       </section>
@@ -372,11 +439,11 @@ export default function ExecutionPage() {
             <table className="pmo-table pmo-table--recent">
               <thead>
                 <tr>
-                  <th style={{ width: 56, textAlign: "center" }}></th><th>상태</th><th>사업명</th><th>고객사</th><th>영업대표</th><th>제안PM</th><th>수행PM</th><th>종료일</th><th style={{ textAlign: "center" }}>프로젝트 상세</th>
+                  <th style={{ width: 56, textAlign: "center" }}></th><th>상태</th><th>사업명</th><th>고객사</th><th>영업대표</th><th>제안PM</th><th>발표PM</th><th>수행PM</th><th>제안/수행팀</th><th>사업 종료일</th><th style={{ textAlign: "center" }}>프로젝트 상세</th>
                 </tr>
               </thead>
               <tbody>
-                {filteredRows.slice(0, 12).map((row: any) => (
+                {pagedRows.map((row: any) => (
                   <tr
                     key={row.code}
                     onClick={() => setSelectedCode(row.code)}
@@ -388,7 +455,7 @@ export default function ExecutionPage() {
                         style={{ width: 24, minWidth: 24, height: 24, padding: 0, justifyContent: "center", fontSize: 12 }}
                         onClick={(event) => {
                           event.stopPropagation();
-                          router.push(`/projects/codes?editCode=${encodeURIComponent(row.code)}`);
+                          setEditingProject(row);
                         }}
                         title="편집"
                         aria-label={`${row.code} 편집`}
@@ -401,7 +468,9 @@ export default function ExecutionPage() {
                     <td>{row.clientName ?? "-"}</td>
                     <td>{row.salesOwner}</td>
                     <td>{row.proposalPm}</td>
+                    <td>{row.presentPm ?? "-"}</td>
                     <td>{row.deliveryPm ?? "-"}</td>
+                    <td style={{ whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.4 }}>{row.proposalDeliveryTeam ?? "-"}</td>
                     <td className="num">{row.endDate ?? "-"}</td>
                     <td style={{ textAlign: "center" }}>
                       <button
@@ -423,25 +492,62 @@ export default function ExecutionPage() {
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 12px", borderTop: "1px solid var(--line-2)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flex: 1 }}>
-            <button className="pmo-btn" style={{ height: 32, padding: "0 10px" }}>«</button>
-            <button className="pmo-btn" style={{ height: 32, padding: "0 10px" }}>‹</button>
-            {Array.from({ length: data.pagination.totalPages }).map((_, i) => (
-              <button key={i + 1} className="pmo-btn" style={{ height: 32, minWidth: 34, padding: "0 8px", justifyContent: "center", textAlign: "center", background: i + 1 === data.pagination.currentPage ? "var(--brand)" : "#fff", color: i + 1 === data.pagination.currentPage ? "#fff" : "var(--tx-2)", borderColor: i + 1 === data.pagination.currentPage ? "var(--brand)" : "var(--line-2)" }}>
-                {i + 1}
+            <button className="pmo-btn" style={{ height: 32, padding: "0 10px" }} onClick={() => setCurrentPage(1)} disabled={currentPage === 1}>«</button>
+            <button className="pmo-btn" style={{ height: 32, padding: "0 10px" }} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1}>‹</button>
+            {visiblePageNumbers[0] > 1 ? <span style={{ color: "var(--tx-4)", padding: "0 2px" }}>…</span> : null}
+            {visiblePageNumbers.map((pageNo) => (
+              <button key={pageNo} className="pmo-btn" onClick={() => setCurrentPage(pageNo)} style={{ height: 32, minWidth: 34, padding: "0 8px", justifyContent: "center", textAlign: "center", background: pageNo === currentPage ? "var(--brand)" : "#fff", color: pageNo === currentPage ? "#fff" : "var(--tx-2)", borderColor: pageNo === currentPage ? "var(--brand)" : "var(--line-2)" }}>
+                {pageNo}
               </button>
             ))}
-            <button className="pmo-btn" style={{ height: 32, padding: "0 10px" }}>›</button>
-            <button className="pmo-btn" style={{ height: 32, padding: "0 10px" }}>»</button>
+            {visiblePageNumbers[visiblePageNumbers.length - 1] < totalPages ? <span style={{ color: "var(--tx-4)", padding: "0 2px" }}>…</span> : null}
+            <button className="pmo-btn" style={{ height: 32, padding: "0 10px" }} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>›</button>
+            <button className="pmo-btn" style={{ height: 32, padding: "0 10px" }} onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages}>»</button>
             </div>
-            <select className="pmo-btn" style={{ height: 32, marginLeft: "auto" }}>
-              <option>20개씩 보기</option>
-              <option>50개씩 보기</option>
-              <option>100개씩 보기</option>
+            <select
+              className="pmo-btn"
+              style={{ height: 32, marginLeft: "auto" }}
+              value={String(pageSize)}
+              onChange={(event) => {
+                setPageSize(Number(event.target.value));
+                setCurrentPage(1);
+              }}
+            >
+              <option value="10">10개씩 보기</option>
+              <option value="20">20개씩 보기</option>
+              <option value="50">50개씩 보기</option>
+              <option value="100">100개씩 보기</option>
             </select>
           </div>
         </div>
 
       </section>
+      <ProjectMasterEditModal
+        mode="edit"
+        open={!!editingProject}
+        row={editingProject}
+        rows={codeRows}
+        onClose={() => setEditingProject(null)}
+        onSaved={async () => {
+          const refreshed = await getP1Screen("execution");
+          setData(refreshed.data);
+          const refreshedCode = await getP1Screen("code");
+          setCodeRows((refreshedCode.data as any)?.rows ?? []);
+        }}
+      />
+      <ProjectMasterEditModal
+        mode="create"
+        open={creatingProject}
+        row={null}
+        rows={codeRows}
+        onClose={() => setCreatingProject(false)}
+        onSaved={async () => {
+          const refreshed = await getP1Screen("execution");
+          setData(refreshed.data);
+          const refreshedCode = await getP1Screen("code");
+          setCodeRows((refreshedCode.data as any)?.rows ?? []);
+        }}
+      />
     </PmoShell>
   );
 }

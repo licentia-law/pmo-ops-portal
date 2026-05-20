@@ -353,11 +353,19 @@ export default function HomePage() {
     };
   }, [data, trendFilter]);
 
+  const todayAsOf = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = `${now.getMonth() + 1}`.padStart(2, "0");
+    const d = `${now.getDate()}`.padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }, []);
+
   if (!mounted || !data || !filteredTrend) return <div ref={rootRef} />;
 
   return (
     <PmoShell user={data.meta.user} notifications={data.meta.notifications} currentId="home" pageTitle="홈">
-      <KPIRow asOf={data.meta.asOf} kpis={mergedKpis} />
+      <KPIRow asOf={todayAsOf} kpis={mergedKpis} />
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, marginBottom: 16 }}>
         <section className="pmo-panel" style={{ padding: "20px 22px" }}>
           <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>

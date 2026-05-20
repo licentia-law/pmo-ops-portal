@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { createProject, createProjectCode, getP1Screen, updateProject, updateProjectCode } from "../../app/lib/api";
 import { PmoShell } from "../components/PmoShell";
+import ProjectMasterEditModal from "../components/ProjectMasterEditModal";
 
 type IconName =
   | "home"
@@ -476,6 +477,8 @@ function CodePageImpl() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [editingRow, setEditingRow] = useState<any | null>(null);
+  const [editingSharedRow, setEditingSharedRow] = useState<any | null>(null);
+  const [creatingShared, setCreatingShared] = useState(false);
   const [modalMode, setModalMode] = useState<ModalMode>("edit");
   const [editForm, setEditForm] = useState<EditForm | null>(null);
   const [saving, setSaving] = useState(false);
@@ -575,55 +578,7 @@ function CodePageImpl() {
     if (!data) return;
     if (openedByQueryRef.current) return;
     if (searchParams.get("create") !== "1") return;
-
-    const rows = data.rows ?? [];
-    const year = new Date().getFullYear();
-    const currentYearPrefix = `P${year}`;
-    const sequenceByYear = rows
-      .map((row: any) => String(row.code ?? "").trim())
-      .filter((code: string) => code.startsWith(currentYearPrefix))
-      .map((code: string) => Number(code.slice(currentYearPrefix.length)))
-      .filter((seq: number) => Number.isFinite(seq));
-    const next = (sequenceByYear.length ? Math.max(...sequenceByYear) : 0) + 1;
-    const nextCode = `${currentYearPrefix}${String(next).padStart(3, "0")}`;
-
-    setModalMode("create");
-    setEditingRow(null);
-    setEditForm({
-      code: nextCode,
-      name: "",
-      clientName: "",
-      salesDept: "",
-      projectType: "주사업",
-      status: "proposing",
-      certainty: "",
-      totalAmount: "10",
-      companyAmount: "5",
-      salesOwner: "",
-      proposalPm: "",
-      presentPm: "",
-      deliveryPm: "",
-      fromDate: "",
-      toDate: "",
-      bidNoticeNo: "",
-      bidNoticeDate: "",
-      proposalSubmissionDate: "",
-      proposalSubmissionTime: "",
-      useProposalSubmissionTime: false,
-      submissionFormat: "",
-      submissionNote: "",
-      proposalPresentationDate: "",
-      proposalPresentationTime: "",
-      useProposalPresentationTime: false,
-      presentationFormat: "",
-      presentationNote: "",
-      memo: "",
-      useStatus: "사용",
-    });
-    setSaveError(null);
-    setMemoLengthError(null);
-    setValidationError(null);
-    setFieldErrors({});
+    setCreatingShared(true);
     openedByQueryRef.current = true;
     router.replace(pathname, { scroll: false });
   }, [data, pathname, router, searchParams]);
@@ -797,7 +752,7 @@ function CodePageImpl() {
     if (!editCode) return;
     const found = (data.rows ?? []).find((row: any) => String(row.code ?? "") === editCode);
     if (!found) return;
-    openEdit(found);
+    setEditingSharedRow(found);
     openedEditByQueryRef.current = true;
     router.replace(pathname, { scroll: false });
   }, [data, pathname, router, searchParams]);
@@ -870,10 +825,6 @@ function CodePageImpl() {
         project_type: mappedProjectType,
         status: editForm.status as any,
         certainty: editForm.certainty.trim() || null,
-        sales_department: editForm.salesDept.trim() || null,
-        sales_owner: editForm.salesOwner.trim() || null,
-        start_date: editForm.fromDate || null,
-        end_date: editForm.toDate || null,
         is_active: editForm.useStatus !== "미사용",
       };
       const totalAmountValue = toNumberOrNull(editForm.totalAmount);
@@ -961,12 +912,12 @@ function CodePageImpl() {
                   totalAmount: totalAmountValue,
                   companyAmount: companyAmountValue,
                   salesDept: editForm.salesDept || "-",
-                  salesOwner: updatedData.sales_owner ?? "-",
+                  salesOwner: editForm.salesOwner || "-",
                   proposalPm: editForm.proposalPm || row.proposalPm || "-",
                   presentPm: editForm.presentPm || "-",
                   deliveryPm: editForm.deliveryPm || "-",
-                  fromDate: updatedData.start_date ?? "-",
-                  toDate: updatedData.end_date ?? "-",
+                  fromDate: editForm.fromDate || "-",
+                  toDate: editForm.toDate || "-",
                   bidNoticeNo: editForm.bidNoticeNo || "-",
                   bidNoticeDate: editForm.bidNoticeDate || "-",
                   proposalSubmissionAt: submissionAtValue || "-",
@@ -1032,7 +983,7 @@ function CodePageImpl() {
               <input value={query} onChange={(e) => { setQuery(e.target.value); setPage(1); }} placeholder="사업명, 고객사, 영업대표, PM 검색" style={{ border: 0, outline: "none", background: "transparent", flex: 1, fontSize: 14, color: "var(--tx-1)" }} />
             </div>
           </label>
-          <button className="pmo-btn pmo-btn-primary" style={{ height: 38, minWidth: 170, padding: "0 14px", whiteSpace: "nowrap", justifyContent: "center", alignSelf: "end", background: "var(--brand)", borderColor: "var(--brand)", color: "#fff" }} onClick={openCreate}>
+          <button className="pmo-btn pmo-btn-primary" style={{ height: 38, minWidth: 170, padding: "0 14px", whiteSpace: "nowrap", justifyContent: "center", alignSelf: "end", background: "var(--brand)", borderColor: "var(--brand)", color: "#fff" }} onClick={() => setCreatingShared(true)}>
             <Icon name="plus" size={14} stroke={2} style={{ marginRight: 4 }} />
             신규 프로젝트 등록
           </button>
@@ -1102,7 +1053,7 @@ function CodePageImpl() {
                       <button
                         className="pmo-btn"
                         style={{ width: 24, minWidth: 24, height: 24, padding: 0, justifyContent: "center", fontSize: 12 }}
-                        onClick={() => openEdit(r)}
+                        onClick={() => setEditingSharedRow(r)}
                         title="편집"
                         aria-label={`${r.code} 편집`}
                       >
@@ -1164,7 +1115,7 @@ function CodePageImpl() {
         </select>
       </footer>
 
-      {editForm ? (
+      {editForm && modalMode === "create" ? (
         <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.4)", zIndex: 40, display: "flex", justifyContent: "center", alignItems: "center", padding: 20 }}>
           <aside className="pmo-panel" style={{ width: "min(1200px, 92vw)", height: "88vh", borderRadius: 12, display: "flex", flexDirection: "column", overflow: "hidden" }}>
             <div
@@ -1180,7 +1131,7 @@ function CodePageImpl() {
                 boxShadow: "0 2px 10px rgba(15,23,42,.06)"
               }}
             >
-              <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{modalMode === "create" ? "신규 프로젝트 등록" : "프로젝트 관리 편집"}</h3>
+              <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{modalMode === "create" ? "신규 프로젝트 등록" : "프로젝트 편집"}</h3>
               <button onClick={closeEdit} style={{ border: 0, background: "transparent", fontSize: 24, color: "var(--tx-4)", cursor: "pointer" }}>×</button>
             </div>
 
@@ -1448,6 +1399,28 @@ function CodePageImpl() {
           </aside>
         </div>
       ) : null}
+      <ProjectMasterEditModal
+        mode="edit"
+        open={!!editingSharedRow}
+        row={editingSharedRow}
+        rows={data.rows ?? []}
+        onClose={() => setEditingSharedRow(null)}
+        onSaved={async () => {
+          const refreshed = await getP1Screen("code");
+          setData(refreshed.data);
+        }}
+      />
+      <ProjectMasterEditModal
+        mode="create"
+        open={creatingShared}
+        row={null}
+        rows={data.rows ?? []}
+        onClose={() => setCreatingShared(false)}
+        onSaved={async () => {
+          const refreshed = await getP1Screen("code");
+          setData(refreshed.data);
+        }}
+      />
     </PmoShell>
   );
 }

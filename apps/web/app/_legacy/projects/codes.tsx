@@ -11,7 +11,7 @@ type CodeForm = {
   name: string;
   project_type: ProjectTypeCode;
   status: ProjectStatusCode;
-  owner_name: string;
+  sales_owner: string;
 };
 
 const emptyForm: CodeForm = {
@@ -19,7 +19,7 @@ const emptyForm: CodeForm = {
   name: "",
   project_type: "main",
   status: "proposing",
-  owner_name: ""
+  sales_owner: ""
 };
 
 export default function ProjectCodesPage() {
@@ -59,7 +59,7 @@ export default function ProjectCodesPage() {
       name: form.name,
       project_type: form.project_type,
       status: form.status,
-      owner_name: form.owner_name || null
+      sales_owner: form.sales_owner || null
     };
     if (form.id) {
       await updateProjectCode(form.id, payload);
@@ -75,7 +75,7 @@ export default function ProjectCodesPage() {
       { key: "code", header: "코드", render: (row) => row.code },
       { key: "name", header: "프로젝트명", render: (row) => row.name },
       { key: "type", header: "사업유형", render: (row) => labelFor(PROJECT_TYPES, row.project_type) },
-      { key: "owner", header: "담당", render: (row) => row.owner_name ?? "-" },
+      { key: "owner", header: "담당", render: (row) => row.sales_owner ?? "-" },
       { key: "status", header: "상태", render: (row) => <StatusBadge code={row.status} /> },
       {
         key: "edit",
@@ -89,7 +89,7 @@ export default function ProjectCodesPage() {
               name: row.name,
               project_type: row.project_type,
               status: row.status,
-              owner_name: row.owner_name ?? ""
+              sales_owner: row.sales_owner ?? ""
             })}
           >
             수정
@@ -111,7 +111,7 @@ export default function ProjectCodesPage() {
           <div className="pmo-filter-fields">
             <label className="pmo-field"><span>코드</span><input value={form.code} onChange={(event) => setForm({ ...form, code: event.target.value })} placeholder="자동 부여" /></label>
             <label className="pmo-field"><span>프로젝트명</span><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label>
-            <label className="pmo-field"><span>담당</span><input value={form.owner_name} onChange={(event) => setForm({ ...form, owner_name: event.target.value })} /></label>
+            <label className="pmo-field"><span>담당</span><input value={form.sales_owner} onChange={(event) => setForm({ ...form, sales_owner: event.target.value })} /></label>
             <label className="pmo-field"><span>사업유형</span><select value={form.project_type} onChange={(event) => setForm({ ...form, project_type: event.target.value as ProjectTypeCode })}>{PROJECT_TYPES.map((option) => <option value={option.code} key={option.code}>{option.label}</option>)}</select></label>
             <label className="pmo-field"><span>상태</span><select value={form.status} onChange={(event) => setForm({ ...form, status: event.target.value as ProjectStatusCode })}>{PROJECT_STATUSES.map((option) => <option value={option.code} key={option.code}>{option.label}</option>)}</select></label>
           </div>

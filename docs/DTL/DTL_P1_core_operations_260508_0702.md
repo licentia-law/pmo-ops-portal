@@ -170,8 +170,12 @@
 ### 3.7 API 초안
 - `GET /api/projects/{id}`
 - `PATCH /api/projects/{id}`
-- `GET /api/projects/{id}/members`
-- `GET /api/projects/{id}/logs`
+- `GET /api/project-logs?project_id={id}`
+- `GET /api/project-logs/{log_id}`
+
+구현 반영 메모 (2026-05-19):
+- 참여인력은 현재 프로젝트 상세 전용 집계 API가 아니라 `project_assignments` 기반 화면 집계로 노출 중이다.
+- `GET /api/projects/{id}/members` 전용 endpoint는 P2에서 확정 후 분리한다.
 
 ### 3.8 DoD
 - 프로젝트 요약/일정/인력/진행이력 조회 가능
@@ -217,6 +221,7 @@
 - `GET /api/project-logs`
 - `POST /api/project-logs`
 - `GET /api/project-logs/{id}`
+- `PATCH /api/project-logs/{id}`
 
 ### 4.7 DoD
 - 프로젝트별 이력 조회 가능
@@ -231,3 +236,29 @@
 3. 프로젝트코드 마스터 페이지 구현
 4. 프로젝트상세 페이지와 진행이력 페이지 연결
 5. 공통 상태 badge와 상태 전환 util 작성
+
+---
+
+## 6. P1 구현 반영 메모 (2026-05-19)
+
+### 6.1 상태 전환
+- 서버/프론트 공통으로 아래 상태 전환을 강제한다.
+  - 제안중 → 발표완료 / DROP
+  - 발표완료 → WIN / LOSS
+  - WIN → 수행중
+  - 수행중 → 완료
+  - 업무지원 → 완료
+
+### 6.2 권한
+- 조회 전용 사용자는 등록/수정 불가.
+- 프로젝트 담당 수정 가능 사용자는 `발표완료` 이후 상태 프로젝트만 수정 가능.
+- 담당자 판정은 현재 PM 이름 매칭 기반이며, 제안팀 확대 기준은 TODO로 유지한다.
+
+### 6.3 코드 자동 생성
+- 프로젝트 코드: `PMO-0001` 형식 자동 생성.
+- 프로젝트코드 마스터: `PC-0001` 형식 자동 생성.
+- 기존 엑셀 코드(`P2026...`)와의 매핑/이관 규칙은 P2 데이터 이관 정책에서 확정한다.
+
+### 6.4 진행이력 상태
+- 진행이력 상태는 `memo / in_progress / done` 3단계 코드값으로 구현.
+- `done` 직접 등록 제한, 완료 이력 수정 제한 정책이 적용되어 있다.

@@ -6,11 +6,13 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.enums import (
+    AssignmentStatus,
     AssignmentType,
     DataScope,
     EmploymentStatus,
     HolidayType,
     OrganizationRole,
+    ProjectAssignmentRole,
     ProjectStatus,
     ProjectLogStatus,
     ProjectType,
@@ -79,14 +81,8 @@ class ProjectCode(Base, TimestampMixin):
     project_type: Mapped[ProjectType] = mapped_column(Enum(ProjectType, **ENUM_VALUE_KWARGS), nullable=False)
     status: Mapped[ProjectStatus] = mapped_column(Enum(ProjectStatus, **ENUM_VALUE_KWARGS), nullable=False)
     certainty: Mapped[str | None] = mapped_column(String(50))
-    sales_department: Mapped[str | None] = mapped_column(String(100))
-    sales_owner: Mapped[str | None] = mapped_column(String(100))
-    owner_name: Mapped[str | None] = mapped_column(String(100))
-    start_date: Mapped[date | None] = mapped_column(Date)
-    end_date: Mapped[date | None] = mapped_column(Date)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     source_sheet: Mapped[str | None] = mapped_column(String(100))
-    note: Mapped[str | None] = mapped_column(Text)
 
     projects: Mapped[list["Project"]] = relationship(back_populates="project_code")
 
@@ -99,8 +95,6 @@ class Project(Base, TimestampMixin):
     code: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     client_name: Mapped[str | None] = mapped_column(String(255))
-    owner_department: Mapped[str | None] = mapped_column(String(100))
-    lead_department: Mapped[str | None] = mapped_column(String(100))
     sales_department: Mapped[str | None] = mapped_column(String(100))
     sales_owner: Mapped[str | None] = mapped_column(String(100))
     project_type: Mapped[ProjectType] = mapped_column(Enum(ProjectType, **ENUM_VALUE_KWARGS), nullable=False)
@@ -116,8 +110,6 @@ class Project(Base, TimestampMixin):
     end_date: Mapped[date | None] = mapped_column(Date)
     bid_notice_no: Mapped[str | None] = mapped_column(String(100))
     bid_notice_date: Mapped[date | None] = mapped_column(Date)
-    pre_notice_no: Mapped[str | None] = mapped_column(String(100))
-    pre_notice_date: Mapped[date | None] = mapped_column(Date)
     submission_at: Mapped[datetime | None] = mapped_column(DateTime)
     submission_format: Mapped[str | None] = mapped_column(String(100))
     submission_note: Mapped[str | None] = mapped_column(Text)
@@ -126,8 +118,6 @@ class Project(Base, TimestampMixin):
     presentation_note: Mapped[str | None] = mapped_column(Text)
     recent_activity_at: Mapped[datetime | None] = mapped_column(DateTime)
     memo: Mapped[str | None] = mapped_column(Text)
-    source_sheet: Mapped[str | None] = mapped_column(String(100))
-    raw_payload: Mapped[dict | None] = mapped_column(JSON)
 
     project_code: Mapped[ProjectCode | None] = relationship(back_populates="projects")
     assignments: Mapped[list["ProjectAssignment"]] = relationship(back_populates="project")
@@ -141,8 +131,8 @@ class ProjectAssignment(Base, TimestampMixin):
     project_id: Mapped[str | None] = mapped_column(ForeignKey("projects.id"))
     personnel_id: Mapped[str | None] = mapped_column(ForeignKey("personnel.id"))
     assignment_type: Mapped[AssignmentType] = mapped_column(Enum(AssignmentType, **ENUM_VALUE_KWARGS), nullable=False)
-    assignment_role: Mapped[str | None] = mapped_column(String(100))
-    assignment_status: Mapped[str | None] = mapped_column(String(50))
+    assignment_role: Mapped[ProjectAssignmentRole | None] = mapped_column(Enum(ProjectAssignmentRole, **ENUM_VALUE_KWARGS))
+    assignment_status: Mapped[AssignmentStatus | None] = mapped_column(Enum(AssignmentStatus, **ENUM_VALUE_KWARGS))
     win_loss: Mapped[str | None] = mapped_column(String(50))
     onsite_type: Mapped[str | None] = mapped_column(String(50))
     is_primary: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

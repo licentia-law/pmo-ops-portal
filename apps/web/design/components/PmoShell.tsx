@@ -143,6 +143,7 @@ export function PmoShell({
     team: user?.team ?? "PMO본부",
     role: user?.role ?? "관리자"
   };
+  const avatarLabel = currentUser.name.trim().slice(0, 2) || "유저";
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg-0)" }}>
@@ -198,7 +199,7 @@ export function PmoShell({
             {notifications && notifications > 0 ? <span style={{ position: "absolute", top: 6, right: 6, minWidth: 16, height: 16, padding: "0 4px", borderRadius: 8, background: "var(--crit)", color: "#fff", fontSize: 10, fontWeight: 700, display: "inline-flex", alignItems: "center", justifyContent: "center", border: "2px solid var(--bg-1)", boxSizing: "content-box" }}>{notifications}</span> : null}
           </button>
           <button style={{ display: "flex", alignItems: "center", gap: 10, height: 38, padding: "0 10px 0 6px", border: 0, borderRadius: 10, background: "transparent" }}>
-            <span style={{ width: 30, height: 30, borderRadius: "50%", background: "linear-gradient(135deg, #c7d0fb, #a5b4fc)", color: "#3730a3", fontWeight: 700, fontSize: 12, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>김P</span>
+            <span style={{ width: 30, height: 30, borderRadius: "50%", background: "linear-gradient(135deg, #c7d0fb, #a5b4fc)", color: "#3730a3", fontWeight: 700, fontSize: 12, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>{avatarLabel}</span>
             <span style={{ display: "flex", flexDirection: "column", lineHeight: 1.2, textAlign: "left" }}>
               <span style={{ fontSize: 15, fontWeight: 600, color: "var(--tx-1)" }}>{currentUser.name}</span>
               <span style={{ fontSize: 13, color: "var(--tx-4)" }}>{currentUser.team} · {currentUser.role}</span>

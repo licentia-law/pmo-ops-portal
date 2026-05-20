@@ -10,7 +10,7 @@ from sqlalchemy import desc, func, select
 
 from app.api.common import envelope
 from app.api.deps import DbSession
-from app.enums import ProjectStatus, ProjectType
+from app.enums import AssignmentStatus, ProjectAssignmentRole, ProjectStatus, ProjectType
 from app.models.core import (
     CurrentAssignmentSnapshot,
     MonthlyKpiSummary,
@@ -70,7 +70,7 @@ def home_screen(session: DbSession) -> dict[str, object]:
         "trend": _kpi_trend(session),
         "teamHeadcount": _team_headcount(session, as_of),
         "teamUtilization": _team_utilization(session, as_of),
-        "recentProjects": {"rows": [_project_row(project) for project in _recent_projects(session, 8)]},
+        "recentProjects": {"rows": [_project_row(session, project) for project in _recent_projects(session, 8)]},
         "monthSummary": _month_summary(session, kpi, prev_kpi),
     })
 
@@ -78,7 +78,8 @@ def home_screen(session: DbSession) -> dict[str, object]:
 @router.get("/execution")
 def execution_screen(session: DbSession) -> dict[str, object]:
     projects = session.scalars(select(Project).order_by(desc(Project.recent_activity_at), Project.code)).all()
-    rows = [_execution_row(session, project) for project in projects]
+    team_members_by_project_id = _code_team_members(session, [project.id for project in projects])
+    rows = [_execution_row(session, project, team_members_by_project_id.get(project.id, [])) for project in projects]
     counts = Counter(project.status for project in projects)
 
     return envelope({
@@ -94,7 +95,7 @@ def execution_screen(session: DbSession) -> dict[str, object]:
                 {"code": "done", "label": "완료", "value": counts[ProjectStatus.DONE]},
             ]},
         ],
-        "filters": _execution_filters(projects),
+        "filters": _execution_filters(session, projects),
         "rows": rows,
         "selectedRow": _execution_detail(session, _representative_project(session) or projects[0]),
         "pagination": {"totalCount": len(rows), "pageSize": 20, "currentPage": 1, "totalPages": max(1, (len(rows) + 19) // 20)},
@@ -117,7 +118,7 @@ def code_screen(session: DbSession) -> dict[str, object]:
             if project.project_code_id and project.project_code_id not in projects_by_code_id:
                 projects_by_code_id[project.project_code_id] = project
         team_members_by_project_id = _code_team_members(session, [project.id for project in linked_projects])
-    counts = Counter(code.status for code in codes)
+    counts = Counter(project.status for project in projects_by_code_id.values())
     status_order = [
         ProjectStatus.PROPOSING,
         ProjectStatus.PRESENTED,
@@ -129,6 +130,10 @@ def code_screen(session: DbSession) -> dict[str, object]:
         ProjectStatus.DONE,
     ]
 
+    missing_links = [code.code for code in codes if code.id not in projects_by_code_id]
+    if missing_links:
+        raise RuntimeError(f"Project link missing for project_code(s): {', '.join(missing_links)}")
+
     return envelope({
         "meta": _meta(session, _latest_snapshot_date(session)),
         "summary": [
@@ -137,9 +142,10 @@ def code_screen(session: DbSession) -> dict[str, object]:
         ],
         "rows": [
             _code_row(
+                session,
                 code,
-                projects_by_code_id.get(code.id),
-                team_members_by_project_id.get(projects_by_code_id[code.id].id, []) if code.id in projects_by_code_id else [],
+                projects_by_code_id[code.id],
+                team_members_by_project_id.get(projects_by_code_id[code.id].id, []),
             )
             for code in codes
         ],
@@ -148,21 +154,24 @@ def code_screen(session: DbSession) -> dict[str, object]:
 
 @router.get("/project-detail")
 def project_detail_screen(session: DbSession, project_id: str | None = None, code: str | None = None) -> dict[str, object]:
+    as_of = _latest_snapshot_date(session) or date.today()
     project = _find_project(session, project_id, code)
-    assignments = session.scalars(
+    assignments_raw = session.scalars(
         select(ProjectAssignment).where(ProjectAssignment.project_id == project.id).order_by(ProjectAssignment.sequence_no)
     ).all()
+    participant_rows = _project_participant_rows(session, project, assignments_raw, as_of)
     logs = session.scalars(
-        select(ProjectLog).where(ProjectLog.project_id == project.id).order_by(desc(ProjectLog.logged_at)).limit(6)
+        select(ProjectLog).where(ProjectLog.project_id == project.id).order_by(desc(ProjectLog.logged_at))
     ).all()
 
     return envelope({
         "meta": _meta(session, _latest_snapshot_date(session)),
-        "project": _project_detail_header(project),
+        "project": _project_detail_header(session, project),
+        "projectMaster": _project_detail_master_row(session, project),
         "schedule": {"items": _schedule_items(project)},
-        "kpi": _project_kpi(project, assignments),
-        "assignments": [_assignment_row(assignment) for assignment in assignments],
-        "logs": [_project_recent_log(log) for log in logs],
+        "kpi": _project_kpi(project, participant_rows),
+        "assignments": participant_rows,
+        "logs": [_project_recent_log(session, log) for log in logs],
     })
 
 
@@ -185,7 +194,7 @@ def history_screen(session: DbSession) -> dict[str, object]:
             {"id": "stChg", "label": "최근 7일 상태 변경", "icon": "exchange", "tone": "purple", "value": status_change_count, "unit": "건", "footer": "최근 7일 변경 건수"},
             {"id": "activePrj", "label": "활성 프로젝트", "icon": "briefcase", "tone": "amber", "value": _active_project_count(session), "unit": "건", "footer": "이력 발생 프로젝트"},
         ],
-        "logs": [_history_log(log, idx + 1) for idx, log in enumerate(logs)],
+        "logs": [_history_log(session, log, idx + 1) for idx, log in enumerate(logs)],
         "byProject": _history_by_project(session),
         "recentStatusChanges": _recent_status_changes(session),
         "pagination": {"totalCount": total, "pageSize": 10, "currentPage": 1, "totalPages": max(1, (total + 9) // 10)},
@@ -193,7 +202,11 @@ def history_screen(session: DbSession) -> dict[str, object]:
 
 
 def _meta(session: DbSession, as_of: date | None) -> dict[str, Any]:
-    user = session.scalar(select(User).where(User.permission == "admin").order_by(User.name)) or session.scalar(select(User).order_by(User.name))
+    user = (
+        session.scalar(select(User).where(User.permission == "admin", User.name == "조승현").limit(1))
+        or session.scalar(select(User).where(User.permission == "admin").order_by(User.name))
+        or session.scalar(select(User).order_by(User.name))
+    )
     return {
         "asOf": _date(as_of),
         "user": {"name": user.name if user else "김PMO 책임", "team": user.team_name if user else "PMO본부", "role": "관리자"},
@@ -292,14 +305,14 @@ def _recent_projects(session: DbSession, limit: int) -> list[Project]:
     return session.scalars(select(Project).order_by(desc(Project.recent_activity_at), Project.code).limit(limit)).all()
 
 
-def _project_row(project: Project) -> dict[str, Any]:
+def _project_row(session: DbSession, project: Project) -> dict[str, Any]:
     return {
         "code": project.code,
         "name": project.name,
         "businessType": PROJECT_TYPE_LABELS[project.project_type],
         "status": project.status.value,
         "updatedAt": _datetime(project.recent_activity_at or project.updated_at),
-        "updatedBy": project.proposal_pm_name or project.presentation_pm_name or project.delivery_pm_name or "관리자",
+        "updatedBy": _person_name_with_title(session, project.proposal_pm_name or project.presentation_pm_name or project.delivery_pm_name or "관리자"),
     }
 
 
@@ -367,20 +380,38 @@ def _month_summary(session: DbSession, kpi: MonthlyKpiSummary | None, prev: Mont
     }
 
 
-def _execution_filters(projects: list[Project]) -> dict[str, Any]:
+def _execution_filters(session: DbSession, projects: list[Project]) -> dict[str, Any]:
     return {
-        "headquarters": ["전체", *sorted({p.lead_department for p in projects if p.lead_department})],
+        "headquarters": ["전체", *sorted({p.sales_department for p in projects if p.sales_department})],
         "teams": ["전체", "PMO1팀", "PMO2팀", "기술지원팀"],
         "businessTypes": ["전체", *[PROJECT_TYPE_LABELS[t] for t in ProjectType]],
         "statuses": ["전체", *[STATUS_LABELS[s] for s in ProjectStatus]],
-        "proposalPms": ["전체", *sorted({p.proposal_pm_name for p in projects if p.proposal_pm_name})],
-        "salesOwners": ["전체", *sorted({p.sales_owner for p in projects if p.sales_owner})],
+        "proposalPms": ["전체", *sorted({
+            _person_name_with_title(session, pm_name)
+            for p in projects
+            for pm_name in (p.proposal_pm_name, p.presentation_pm_name, p.delivery_pm_name)
+            if pm_name
+        })],
+        "salesOwners": ["전체", *sorted({_person_name_with_title(session, p.sales_owner) for p in projects if p.sales_owner})],
         "from": "2025-01-01",
         "to": "2026-12-31",
     }
 
 
-def _execution_row(session: DbSession, project: Project) -> dict[str, Any]:
+def _execution_row(session: DbSession, project: Project, team_members: list[str] | None = None) -> dict[str, Any]:
+    pm_exclusions = {
+        (project.proposal_pm_name or "").strip(),
+        (project.presentation_pm_name or "").strip(),
+        (project.delivery_pm_name or "").strip(),
+    }
+    filtered_members = []
+    for member in team_members or []:
+        member_name = member.split(" ", 1)[0].strip()
+        if member_name and member_name in pm_exclusions:
+            continue
+        filtered_members.append(member)
+    team_text = " / ".join(filtered_members) if filtered_members else "-"
+
     return {
         "projectId": project.id,
         "code": project.code,
@@ -389,16 +420,18 @@ def _execution_row(session: DbSession, project: Project) -> dict[str, Any]:
         "businessType": PROJECT_TYPE_LABELS[project.project_type],
         "status": project.status.value,
         "amountText": project.amount_text or _amount_text(project),
-        "proposalPm": project.proposal_pm_name or "-",
-        "deliveryPm": project.delivery_pm_name or "-",
-        "salesOwner": project.sales_owner or "-",
-        "leadDept": project.lead_department or "-",
+        "proposalPm": _person_name_with_title(session, project.proposal_pm_name),
+        "presentPm": _person_name_with_title(session, project.presentation_pm_name),
+        "deliveryPm": _person_name_with_title(session, project.delivery_pm_name),
+        "proposalDeliveryTeam": team_text,
+        "salesOwner": _person_name_with_title(session, project.sales_owner),
+        "leadDept": project.sales_department or "-",
         "startDate": _date(project.start_date),
         "endDate": _date(project.end_date) or "-",
-        "remark": project.memo or project.source_sheet or "-",
-        "execDept": project.owner_department or "PMO본부",
+        "remark": project.memo or "-",
+        "execDept": project.sales_department or "PMO본부",
         "modifiedAt": _datetime(project.recent_activity_at or project.updated_at),
-        "modifier": project.proposal_pm_name or project.presentation_pm_name or project.delivery_pm_name or "관리자",
+        "modifier": _person_name_with_title(session, project.proposal_pm_name or project.presentation_pm_name or project.delivery_pm_name or "관리자"),
         "team": _execution_team_text(session, project),
         "submission": {"datetime": _datetime(project.submission_at), "format": project.submission_format or "-", "note": project.submission_note or "-"},
         "presentation": {"datetime": _datetime(project.presentation_at), "format": project.presentation_format or "-", "note": project.presentation_note or "-"},
@@ -415,8 +448,8 @@ def _execution_detail(session: DbSession, project: Project) -> dict[str, Any]:
     ]
     return {
         **_execution_row(session, project),
-        "presentPm": project.presentation_pm_name or "-",
-        "deliveryPm": project.delivery_pm_name or "-",
+        "presentPm": _person_name_with_title(session, project.presentation_pm_name),
+        "deliveryPm": _person_name_with_title(session, project.delivery_pm_name),
         "team": _execution_team_text(session, project),
         "period": f"{_date(project.start_date)} ~ {_date(project.end_date)}",
         "recentActivity": {"datetime": _datetime(project.recent_activity_at), "lines": logs or [project.memo or "-"]},
@@ -474,17 +507,14 @@ def _code_team_members(session: DbSession, project_ids: list[str]) -> dict[str, 
     return grouped
 
 
-def _code_row(code: ProjectCode, project: Project | None = None, team_members: list[str] | None = None) -> dict[str, Any]:
-    sales_dept = (
-        (project.sales_department if project and project.sales_department else None)
-        or code.sales_department
-        or "-"
-    )
+def _code_row(session: DbSession, code: ProjectCode, project: Project | None = None, team_members: list[str] | None = None) -> dict[str, Any]:
+    if project is None:
+        raise RuntimeError(f"Project not found for project_code {code.code}")
     pm_exclusions = {
         (project.proposal_pm_name or "").strip(),
         (project.presentation_pm_name or "").strip(),
         (project.delivery_pm_name or "").strip(),
-    } if project else set()
+    }
     filtered_members = []
     for member in team_members or []:
         member_name = member.split(" ", 1)[0].strip()
@@ -495,36 +525,35 @@ def _code_row(code: ProjectCode, project: Project | None = None, team_members: l
 
     return {
         "id": code.id,
-        "projectId": project.id if project else None,
+        "projectId": project.id,
         "code": code.code,
-        "name": code.name,
-        "clientName": (project.client_name if project else None) or "-",
-        "status": code.status.value,
-        "projectType": PROJECT_TYPE_LABELS[code.project_type],
-        "amountText": (project.amount_text if project and project.amount_text else (_amount_text(project) if project else "-")),
-        "totalAmount": _num(project.total_amount) if project and project.total_amount is not None else None,
-        "companyAmount": _num(project.company_amount) if project and project.company_amount is not None else None,
-        "certainty": code.certainty or "-",
-        "salesDept": sales_dept,
-        "salesOwner": code.sales_owner or "-",
-        "proposalPm": (project.proposal_pm_name if project else None) or "-",
-        "presentPm": (project.presentation_pm_name if project else None) or "-",
-        "deliveryPm": (project.delivery_pm_name if project else None) or "-",
+        "name": project.name,
+        "clientName": project.client_name or "-",
+        "status": project.status.value,
+        "projectType": PROJECT_TYPE_LABELS[project.project_type],
+        "amountText": project.amount_text or _amount_text(project),
+        "totalAmount": _num(project.total_amount) if project.total_amount is not None else None,
+        "companyAmount": _num(project.company_amount) if project.company_amount is not None else None,
+        "certainty": project.certainty or "-",
+        "salesDept": project.sales_department or "-",
+        "salesOwner": _person_name_with_title(session, project.sales_owner),
+        "proposalPm": _person_name_with_title(session, project.proposal_pm_name),
+        "presentPm": _person_name_with_title(session, project.presentation_pm_name),
+        "deliveryPm": _person_name_with_title(session, project.delivery_pm_name),
         "proposalDeliveryTeam": team_text,
-        "fromDate": _date(code.start_date) or "-",
-        "toDate": _date(code.end_date) or "-",
-        "bidNoticeNo": (project.bid_notice_no if project else None) or "-",
-        "bidNoticeDate": (_date(project.bid_notice_date) if project else None) or "-",
-        "proposalSubmissionAt": (_datetime(project.submission_at) if project else None) or "-",
-        "submissionFormat": (project.submission_format if project else None) or "-",
-        "submissionNote": (project.submission_note if project else None) or "-",
-        "proposalPresentationAt": (_datetime(project.presentation_at) if project else None) or "-",
-        "presentationFormat": (project.presentation_format if project else None) or "-",
-        "presentationNote": (project.presentation_note if project else None) or "-",
-        "recentActivityAt": (_datetime(project.recent_activity_at) if project else None) or "-",
-        "memo": (project.memo if project else None) or "-",
+        "fromDate": _date(project.start_date) or "-",
+        "toDate": _date(project.end_date) or "-",
+        "bidNoticeNo": project.bid_notice_no or "-",
+        "bidNoticeDate": _date(project.bid_notice_date) or "-",
+        "proposalSubmissionAt": _datetime(project.submission_at) or "-",
+        "submissionFormat": project.submission_format or "-",
+        "submissionNote": project.submission_note or "-",
+        "proposalPresentationAt": _datetime(project.presentation_at) or "-",
+        "presentationFormat": project.presentation_format or "-",
+        "presentationNote": project.presentation_note or "-",
+        "recentActivityAt": _datetime(project.recent_activity_at) or "-",
+        "memo": project.memo or "-",
         "useStatus": "사용" if code.is_active else "미사용",
-        "note": code.note or "",
     }
 
 
@@ -548,42 +577,340 @@ def _representative_project(session: DbSession) -> Project | None:
     return session.scalar(select(Project).where(Project.code == "P2026001"))
 
 
-def _project_detail_header(project: Project) -> dict[str, Any]:
+def _project_detail_header(session: DbSession, project: Project) -> dict[str, Any]:
     return {
         "id": project.id,
         "code": project.code,
         "name": project.name,
+        "clientName": project.client_name or "-",
         "status": project.status.value,
         "businessType": PROJECT_TYPE_LABELS[project.project_type],
         "amountTotal": project.amount_text or _amount_text(project),
-        "ownerDept": project.owner_department or "-",
-        "salesOwner": project.sales_owner or "-",
-        "proposalPm": project.proposal_pm_name or "-",
-        "presentPm": project.presentation_pm_name or "-",
-        "deliveryPm": project.delivery_pm_name or "-",
+        "salesDept": project.sales_department or "-",
+        "salesOwner": _person_name_with_title(session, project.sales_owner),
+        "proposalPm": _person_name_with_title(session, project.proposal_pm_name),
+        "presentPm": _person_name_with_title(session, project.presentation_pm_name),
+        "deliveryPm": _person_name_with_title(session, project.delivery_pm_name),
+        "startDate": _date(project.start_date) or "-",
+        "endDate": _date(project.end_date) or "-",
         "bidNoticeNo": project.bid_notice_no or "-",
+        "bidNoticeDate": _date(project.bid_notice_date) or "-",
+        "recentActivityAt": _datetime(project.recent_activity_at) or "-",
         "memo": project.memo or "-",
+    }
+
+
+def _project_detail_master_row(session: DbSession, project: Project) -> dict[str, Any]:
+    team_members = _code_team_members(session, [project.id]).get(project.id, [])
+    code = session.scalar(select(ProjectCode).where(ProjectCode.id == project.project_code_id)) if project.project_code_id else None
+    if code:
+        return _code_row(session, code, project, team_members)
+    return {
+        "id": "",
+        "projectId": project.id,
+        "code": project.code,
+        "name": project.name,
+        "clientName": project.client_name or "-",
+        "status": project.status.value,
+        "projectType": PROJECT_TYPE_LABELS[project.project_type],
+        "amountText": project.amount_text or _amount_text(project),
+        "totalAmount": _num(project.total_amount) if project.total_amount is not None else None,
+        "companyAmount": _num(project.company_amount) if project.company_amount is not None else None,
+        "certainty": "-",
+        "salesDept": project.sales_department or "-",
+        "salesOwner": _person_name_with_title(session, project.sales_owner),
+        "proposalPm": _person_name_with_title(session, project.proposal_pm_name),
+        "presentPm": _person_name_with_title(session, project.presentation_pm_name),
+        "deliveryPm": _person_name_with_title(session, project.delivery_pm_name),
+        "proposalDeliveryTeam": " / ".join(team_members) if team_members else "-",
+        "fromDate": _date(project.start_date) or "-",
+        "toDate": _date(project.end_date) or "-",
+        "bidNoticeNo": project.bid_notice_no or "-",
+        "bidNoticeDate": _date(project.bid_notice_date) or "-",
+        "proposalSubmissionAt": _datetime(project.submission_at) or "-",
+        "submissionFormat": project.submission_format or "-",
+        "submissionNote": project.submission_note or "-",
+        "proposalPresentationAt": _datetime(project.presentation_at) or "-",
+        "presentationFormat": project.presentation_format or "-",
+        "presentationNote": project.presentation_note or "-",
+        "recentActivityAt": _datetime(project.recent_activity_at) or "-",
+        "memo": project.memo or "-",
+        "useStatus": "사용",
     }
 
 
 def _schedule_items(project: Project) -> list[dict[str, Any]]:
     return [
-        {"label": "프로젝트 시작", "date": _date(project.start_date) or "-", "extras": [{"k": "형식", "v": "착수"}]},
-        {"label": "제출", "date": _datetime(project.submission_at) or "-", "extras": [{"k": "형식", "v": project.submission_format or "-"}]},
-        {"label": "발표", "date": _datetime(project.presentation_at) or "-", "extras": [{"k": "형식", "v": project.presentation_format or "-"}]},
-        {"label": "프로젝트 종료", "date": _date(project.end_date) or "-", "extras": [{"k": "상태", "v": STATUS_LABELS[project.status]}]},
+        {"label": "프로젝트 시작", "date": _date(project.start_date) or "-", "extras": [{"v": "착수"}]},
+        {
+            "label": "제출",
+            "date": _datetime(project.submission_at) or "-",
+            "extras": [{"v": project.submission_format or "-"}, {"v": project.submission_note or "-"}],
+        },
+        {
+            "label": "발표",
+            "date": _datetime(project.presentation_at) or "-",
+            "extras": [{"v": project.presentation_format or "-"}, {"v": project.presentation_note or "-"}],
+        },
+        {"label": "프로젝트 종료", "date": _date(project.end_date) or "-", "extras": [{"v": STATUS_LABELS[project.status]}]},
     ]
 
 
-def _project_kpi(project: Project, assignments: list[ProjectAssignment]) -> dict[str, Any]:
+def _is_active_assignment(assignment: ProjectAssignment, as_of: date) -> bool:
+    if assignment.assignment_type.value == "unassigned":
+        return False
+    status = assignment.assignment_status.value if assignment.assignment_status else ""
+    if status in {AssignmentStatus.PLANNED.value, AssignmentStatus.ENDED.value}:
+        return False
+    if assignment.start_date and assignment.start_date > as_of:
+        return False
+    if assignment.end_date and assignment.end_date < as_of:
+        return False
+    return True
+
+
+def _normalize_person_name(value: str | None) -> str:
+    return (value or "").strip()
+
+
+def _person_name_with_title(session: DbSession | None, raw_name: str | None) -> str:
+    name = _normalize_person_name(raw_name)
+    if not name or name == "-":
+        return "-"
+    # If title already exists in source string, keep it as-is.
+    if " " in name:
+        return name
+    if session is None:
+        return name
+    person = session.scalar(select(Personnel).where(Personnel.name == name).order_by(Personnel.updated_at.desc()))
+    if not person:
+        return name
+    title = _normalize_person_name(person.position_name)
+    return f"{name} {title}".strip() if title else name
+
+
+def _assignment_person_name(assignment: ProjectAssignment) -> str:
+    if assignment.personnel and assignment.personnel.name:
+        base = assignment.personnel.name.strip()
+        title = _normalize_person_name(assignment.personnel.position_name)
+        return f"{base} {title}".strip() if title else base
+    return ""
+
+
+def _pm_name_set(project: Project) -> set[str]:
+    return {
+        name
+        for name in (
+            _normalize_person_name(project.proposal_pm_name),
+            _normalize_person_name(project.presentation_pm_name),
+            _normalize_person_name(project.delivery_pm_name),
+        )
+        if name and name != "-"
+    }
+
+
+def _assignment_window(assignment: ProjectAssignment, project: Project, as_of: date) -> tuple[date, date] | None:
+    start = assignment.start_date or project.start_date
+    end = assignment.end_date or project.end_date or as_of
+    if start is None or end is None:
+        return None
+    if end > as_of:
+        end = as_of
+    if project.start_date and start < project.start_date:
+        start = project.start_date
+    if project.end_date and end > project.end_date:
+        end = project.end_date
+    if start > end:
+        return None
+    return start, end
+
+
+def _merge_ranges(ranges: list[tuple[date, date]]) -> list[tuple[date, date]]:
+    if not ranges:
+        return []
+    ordered = sorted(ranges, key=lambda item: (item[0], item[1]))
+    merged: list[tuple[date, date]] = [ordered[0]]
+    for start, end in ordered[1:]:
+        last_start, last_end = merged[-1]
+        if start <= last_end + timedelta(days=1):
+            merged[-1] = (last_start, end if end > last_end else last_end)
+            continue
+        merged.append((start, end))
+    return merged
+
+
+def _range_days(window: tuple[date, date]) -> int:
+    return (window[1] - window[0]).days + 1
+
+
+def _assignment_mm_value(assignment: ProjectAssignment) -> float:
+    return _num(
+        assignment.current_mm
+        if assignment.current_mm is not None
+        else (assignment.total_mm if assignment.total_mm is not None else (assignment.mm or 0))
+    )
+
+
+def _assignment_person_key(assignment: ProjectAssignment) -> str | None:
+    if assignment.personnel_id:
+        return f"id:{assignment.personnel_id}"
+    if assignment.personnel and assignment.personnel.name:
+        name = assignment.personnel.name.strip()
+        if name:
+            return f"name:{name}"
+    return None
+
+
+def _dedupe_assignments_by_person(assignments: list[ProjectAssignment]) -> list[ProjectAssignment]:
+    # Keep one row per person for UI-level participant views.
+    order: list[str] = []
+    deduped: dict[str, ProjectAssignment] = {}
+    passthrough: list[ProjectAssignment] = []
+    for assignment in assignments:
+        key = _assignment_person_key(assignment)
+        if key is None:
+            passthrough.append(assignment)
+            continue
+        if key not in deduped:
+            order.append(key)
+        deduped[key] = assignment
+    return [deduped[key] for key in order] + passthrough
+
+
+def _position_rank(position_name: str | None) -> int:
+    rank_map = {
+        "부사장": 1,
+        "전무": 2,
+        "상무": 3,
+        "이사": 4,
+        "수석": 5,
+        "책임": 6,
+        "선임": 7,
+        "대리": 8,
+        "사원": 9,
+    }
+    return rank_map.get((position_name or "").strip(), 99)
+
+
+def _project_pm_specs(project: Project) -> list[tuple[str, str]]:
+    return [
+        ("제안PM", _normalize_person_name(project.proposal_pm_name)),
+        ("발표PM", _normalize_person_name(project.presentation_pm_name)),
+        ("수행PM", _normalize_person_name(project.delivery_pm_name)),
+    ]
+
+
+ROLE_LABEL_MAP = {
+    ProjectAssignmentRole.PROPOSAL_PM.value: "제안PM",
+    ProjectAssignmentRole.PRESENTATION_PM.value: "발표PM",
+    ProjectAssignmentRole.DELIVERY_PM.value: "수행PM",
+    ProjectAssignmentRole.PROPOSAL_TEAM.value: "제안팀",
+    ProjectAssignmentRole.DELIVERY_TEAM.value: "수행팀",
+    ProjectAssignmentRole.SUPPORT_TEAM.value: "지원팀",
+}
+
+ROLE_TONE_MAP = {
+    ProjectAssignmentRole.PROPOSAL_PM.value: "violet",
+    ProjectAssignmentRole.PRESENTATION_PM.value: "blue",
+    ProjectAssignmentRole.DELIVERY_PM.value: "indigo",
+    ProjectAssignmentRole.PROPOSAL_TEAM.value: "sky",
+    ProjectAssignmentRole.DELIVERY_TEAM.value: "amber",
+    ProjectAssignmentRole.SUPPORT_TEAM.value: "green",
+}
+
+ROLE_ORDER = {
+    ProjectAssignmentRole.PROPOSAL_PM.value: 0,
+    ProjectAssignmentRole.PRESENTATION_PM.value: 1,
+    ProjectAssignmentRole.DELIVERY_PM.value: 2,
+    ProjectAssignmentRole.PROPOSAL_TEAM.value: 3,
+    ProjectAssignmentRole.DELIVERY_TEAM.value: 4,
+    ProjectAssignmentRole.SUPPORT_TEAM.value: 5,
+}
+
+
+def _infer_assignment_role(project: Project, assignment: ProjectAssignment, display_name: str) -> str | None:
+    person_base_name = display_name.split(" ", 1)[0].strip()
+    proposal_base = _normalize_person_name(project.proposal_pm_name).split(" ", 1)[0].strip()
+    presentation_base = _normalize_person_name(project.presentation_pm_name).split(" ", 1)[0].strip()
+    delivery_base = _normalize_person_name(project.delivery_pm_name).split(" ", 1)[0].strip()
+    if person_base_name and person_base_name == proposal_base:
+        return ProjectAssignmentRole.PROPOSAL_PM.value
+    if person_base_name and person_base_name == presentation_base:
+        return ProjectAssignmentRole.PRESENTATION_PM.value
+    if person_base_name and person_base_name == delivery_base:
+        return ProjectAssignmentRole.DELIVERY_PM.value
+    return None
+
+
+def _project_participant_rows(
+    session: DbSession,
+    project: Project,
+    assignments_raw: list[ProjectAssignment],
+    as_of: date,
+) -> list[dict[str, Any]]:
+    dedup_assignments = _dedupe_assignments_by_person(assignments_raw)
+    deploy_label = {"delivery": "수행", "proposal": "제안", "support": "지원", "unassigned": "-"}
+    status_label = {
+        AssignmentStatus.ASSIGNED.value: "투입",
+        AssignmentStatus.PLANNED.value: "예정",
+        AssignmentStatus.ENDED.value: "종료",
+    }
+    onsite_label = {"onsite": "상주", "remote": "비상주", "hybrid": "혼합"}
+
+    rows: list[dict[str, Any]] = []
+    for assignment in dedup_assignments:
+        display_name = _assignment_person_name(assignment) or "-"
+        pm_role_code = _infer_assignment_role(project, assignment, display_name)
+        if pm_role_code:
+            role_code = pm_role_code
+        elif assignment.assignment_role:
+            role_code = assignment.assignment_role.value
+        elif assignment.assignment_type.value == "proposal":
+            role_code = ProjectAssignmentRole.PROPOSAL_TEAM.value
+        elif assignment.assignment_type.value == "delivery":
+            role_code = ProjectAssignmentRole.DELIVERY_TEAM.value
+        else:
+            role_code = ProjectAssignmentRole.SUPPORT_TEAM.value
+        person = assignment.personnel
+        rows.append({
+            "initials": _initials(display_name),
+            "name": display_name,
+            "role": ROLE_LABEL_MAP.get(role_code, "수행팀"),
+            "roleTone": ROLE_TONE_MAP.get(role_code, "indigo"),
+            "team": person.team_name if person else "-",
+            "deployType": deploy_label.get(assignment.assignment_type.value, assignment.assignment_type.value),
+            "status": status_label.get(assignment.assignment_status.value, assignment.assignment_status.value) if assignment.assignment_status else "-",
+            "onsite": onsite_label.get((assignment.onsite_type or "").strip(), assignment.onsite_type) if assignment.onsite_type else "-",
+            "from": _date(assignment.start_date) or "-",
+            "to": _date(assignment.end_date) or "-",
+            "note": assignment.note or "-",
+            "isCurrent": _is_active_assignment(assignment, as_of),
+            "personKey": _assignment_person_key(assignment) or f"name:{display_name}",
+            "_roleOrder": ROLE_ORDER.get(role_code, 99),
+            "_positionRank": _position_rank(person.position_name if person else None),
+        })
+
+    rows.sort(key=lambda row: (row["_roleOrder"], row["_positionRank"], row["name"]))
+    for row in rows:
+        row.pop("_roleOrder", None)
+        row.pop("_positionRank", None)
+    return rows
+
+
+def _project_kpi(project: Project, participant_rows: list[dict[str, Any]]) -> dict[str, Any]:
     d_day = ""
+    today = date.today()
     if project.end_date:
-        d_day = f"D+{(date(2026, 5, 7) - project.end_date).days}" if project.end_date < date(2026, 5, 7) else f"D-{(project.end_date - date(2026, 5, 7)).days}"
-    total_mm = sum(_num(assignment.total_mm or assignment.mm or 0) for assignment in assignments)
+        d_day = f"D+{(today - project.end_date).days}" if project.end_date < today else f"D-{(project.end_date - today).days}"
+    total_people = {str(row.get("personKey", "")) for row in participant_rows if str(row.get("personKey", "")).strip()}
+    current_people = {str(row.get("personKey", "")) for row in participant_rows if row.get("isCurrent")}
     return {
         "dDay": d_day or "-",
-        "accumMm": f"{total_mm:.1f} MM",
-        "headcount": f"{len(assignments)}명",
+        "accumMm": "-",
+        "accumMmNote": "(인력 관리 구현 후 산정)",
+        "headcountTotal": f"{len(total_people)}명",
+        "headcountCurrent": f"{len(current_people)}명",
+        "headcount": f"{len(current_people)}명",
         "reportStatus": "정상",
         "lastReport": "최근 진행사항 등록",
     }
@@ -592,14 +919,15 @@ def _project_kpi(project: Project, assignments: list[ProjectAssignment]) -> dict
 def _assignment_row(assignment: ProjectAssignment) -> dict[str, Any]:
     person = assignment.personnel
     name = person.name if person else "-"
+    role_code = assignment.assignment_role.value if assignment.assignment_role else ""
     return {
         "initials": _initials(name),
         "name": name,
-        "role": assignment.assignment_role or "-",
-        "roleTone": "indigo",
+        "role": ROLE_LABEL_MAP.get(role_code, "-"),
+        "roleTone": ROLE_TONE_MAP.get(role_code, "indigo"),
         "team": person.team_name if person else "-",
         "deployType": {"delivery": "수행", "proposal": "제안", "support": "지원", "unassigned": "대기"}.get(assignment.assignment_type.value, assignment.assignment_type.value),
-        "status": assignment.assignment_status or "투입",
+        "status": assignment.assignment_status.value if assignment.assignment_status else "assigned",
         "onsite": assignment.onsite_type or "-",
         "from": _date(assignment.start_date) or "-",
         "to": _date(assignment.end_date) or "-",
@@ -607,33 +935,37 @@ def _assignment_row(assignment: ProjectAssignment) -> dict[str, Any]:
     }
 
 
-def _project_recent_log(log: ProjectLog) -> dict[str, Any]:
+def _project_recent_log(session: DbSession, log: ProjectLog) -> dict[str, Any]:
     return {
         "id": log.id,
         "datetime": _datetime(log.logged_at),
         "summary": log.content,
-        "author": log.author_name or "-",
+        "content": log.content,
+        "author": _person_name_with_title(session, log.author_name),
         "authorRole": "",
+        "logStatus": log.log_status.value,
         "stateLabel": "완료" if log.log_status.value == "done" else ("진행" if log.log_status.value == "in_progress" else "메모"),
     }
 
 
 def _history_filters(session: DbSession) -> dict[str, Any]:
     projects = session.scalars(select(Project).order_by(Project.code).limit(20)).all()
-    authors = sorted({name for name in session.scalars(select(ProjectLog.author_name)).all() if name})
+    authors = sorted({_person_name_with_title(session, name) for name in session.scalars(select(ProjectLog.author_name)).all() if name})
     categories = ["메모", "진행", "완료"]
+    today = date.today()
+    from_date = today - timedelta(days=90)
     return {
         "projects": [{"value": "all", "label": "전체"}, *[{"value": p.code, "label": f"{p.code} · {p.name}"} for p in projects]],
         "categories": ["전체", *categories],
         "authors": ["전체", *authors],
         "periodPresets": ["이번 달", "지난 달", "특정 월", "올해", "최근 3개월"],
         "defaultPreset": "최근 3개월",
-        "from": "2026-02-07",
-        "to": "2026-05-07",
+        "from": _date(from_date),
+        "to": _date(today),
     }
 
 
-def _history_log(log: ProjectLog, idx: int) -> dict[str, Any]:
+def _history_log(session: DbSession, log: ProjectLog, idx: int) -> dict[str, Any]:
     project = log.project
     return {
         "id": idx,
@@ -642,8 +974,8 @@ def _history_log(log: ProjectLog, idx: int) -> dict[str, Any]:
         "category": "완료" if log.log_status.value == "done" else ("진행" if log.log_status.value == "in_progress" else "메모"),
         "projectCode": project.code if project else "-",
         "projectName": project.name if project else "-",
-        "author": log.author_name or "-",
-        "authorInitials": _initials(log.author_name or "-"),
+        "author": _person_name_with_title(session, log.author_name),
+        "authorInitials": _initials(_person_name_with_title(session, log.author_name)),
         "authorTeam": "-",
         "summary": log.content,
         "detail": {},

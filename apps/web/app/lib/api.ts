@@ -40,7 +40,7 @@ export type ProjectCodeRecord = {
   name: string;
   project_type: ProjectTypeCode;
   status: ProjectStatusCode;
-  owner_name: string | null;
+  sales_owner: string | null;
   created_at: string;
   updated_at: string;
 };

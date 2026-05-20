@@ -11,14 +11,8 @@ class ProjectCodeBase(BaseModel):
     project_type: ProjectType = ProjectType.MAIN
     status: ProjectStatus = ProjectStatus.PROPOSING
     certainty: str | None = None
-    sales_department: str | None = None
-    sales_owner: str | None = None
-    owner_name: str | None = None
-    start_date: date | None = None
-    end_date: date | None = None
     is_active: bool = True
     source_sheet: str | None = None
-    note: str | None = None
 
 
 class ProjectCodeCreate(ProjectCodeBase):
@@ -31,14 +25,8 @@ class ProjectCodeUpdate(BaseModel):
     project_type: ProjectType | None = None
     status: ProjectStatus | None = None
     certainty: str | None = None
-    sales_department: str | None = None
-    sales_owner: str | None = None
-    owner_name: str | None = None
-    start_date: date | None = None
-    end_date: date | None = None
     is_active: bool | None = None
     source_sheet: str | None = None
-    note: str | None = None
 
 
 class ProjectCodeRead(ProjectCodeBase):
@@ -54,8 +42,6 @@ class ProjectBase(BaseModel):
     code: str | None = None
     name: str = Field(min_length=1)
     client_name: str | None = None
-    owner_department: str | None = None
-    lead_department: str | None = None
     sales_department: str | None = None
     sales_owner: str | None = None
     project_type: ProjectType = ProjectType.MAIN
@@ -71,8 +57,6 @@ class ProjectBase(BaseModel):
     end_date: date | None = None
     bid_notice_no: str | None = None
     bid_notice_date: date | None = None
-    pre_notice_no: str | None = None
-    pre_notice_date: date | None = None
     submission_at: datetime | None = None
     submission_format: str | None = None
     submission_note: str | None = None
@@ -81,8 +65,6 @@ class ProjectBase(BaseModel):
     presentation_note: str | None = None
     recent_activity_at: datetime | None = None
     memo: str | None = None
-    source_sheet: str | None = None
-    raw_payload: dict | None = None
     project_code_id: str | None = None
 
 
@@ -94,8 +76,6 @@ class ProjectUpdate(BaseModel):
     code: str | None = None
     name: str | None = Field(default=None, min_length=1)
     client_name: str | None = None
-    owner_department: str | None = None
-    lead_department: str | None = None
     sales_department: str | None = None
     sales_owner: str | None = None
     project_type: ProjectType | None = None
@@ -111,8 +91,6 @@ class ProjectUpdate(BaseModel):
     end_date: date | None = None
     bid_notice_no: str | None = None
     bid_notice_date: date | None = None
-    pre_notice_no: str | None = None
-    pre_notice_date: date | None = None
     submission_at: datetime | None = None
     submission_format: str | None = None
     submission_note: str | None = None
@@ -121,8 +99,6 @@ class ProjectUpdate(BaseModel):
     presentation_note: str | None = None
     recent_activity_at: datetime | None = None
     memo: str | None = None
-    source_sheet: str | None = None
-    raw_payload: dict | None = None
     project_code_id: str | None = None
 
 

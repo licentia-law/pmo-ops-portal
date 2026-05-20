@@ -256,21 +256,30 @@ button { font: inherit; cursor: pointer; }
 .pmo-table .name { color: var(--tx-1); font-weight: var(--w-med); }
 
 /* Project master: keep code/name columns visible while horizontal scrolling */
-.pmo-table--code-master thead th:nth-child(1),
+.pmo-table--code-master {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.pmo-table--code-master thead tr:last-child th:nth-child(1),
 .pmo-table--code-master tbody td:nth-child(1) {
   position: sticky;
   left: 0;
-  z-index: 3;
+  z-index: 4;
 }
-.pmo-table--code-master thead th:nth-child(2),
+.pmo-table--code-master thead tr:first-child th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+}
+.pmo-table--code-master thead tr:last-child th:nth-child(2),
 .pmo-table--code-master tbody td:nth-child(2) {
   position: sticky;
-  left: 108px; /* first column width */
+  left: 132px; /* first column width */
   z-index: 3;
 }
-.pmo-table--code-master thead th:nth-child(1),
-.pmo-table--code-master thead th:nth-child(2) {
-  background: var(--bg-3);
+.pmo-table--code-master thead tr:last-child th:nth-child(1),
+.pmo-table--code-master thead tr:last-child th:nth-child(2) {
+  background: #e6eaf0;
 }
 .pmo-table--code-master tbody td:nth-child(1),
 .pmo-table--code-master tbody td:nth-child(2) {
@@ -279,6 +288,37 @@ button { font: inherit; cursor: pointer; }
 .pmo-table--code-master tbody tr:hover td:nth-child(1),
 .pmo-table--code-master tbody tr:hover td:nth-child(2) {
   background: var(--bg-2);
+}
+
+/* Code master grouped headers: align row-2 background with row-1 groups and use white dividers */
+.pmo-table--code-master thead tr:first-child th {
+  border-top: 0;
+  border-bottom: 2px solid #ffffff;
+  border-right: 2px solid #ffffff;
+}
+.pmo-table--code-master thead tr:last-child th {
+  border-top: 2px solid #ffffff;
+  border-bottom: 2px solid #ffffff;
+  border-right: 2px solid #ffffff;
+}
+.pmo-table--code-master thead tr:last-child th:nth-child(-n+2) {
+  background: #e6eaf0;
+}
+.pmo-table--code-master thead tr:last-child th:nth-child(n+3):nth-child(-n+9) {
+  background: #eef3fb;
+}
+.pmo-table--code-master thead tr:last-child th:nth-child(n+10):nth-child(-n+15) {
+  background: #edf6f3;
+}
+.pmo-table--code-master thead tr:last-child th:nth-child(n+16):nth-child(-n+23) {
+  background: #f7f2ea;
+}
+.pmo-table--code-master thead tr:last-child th:nth-child(n+24):nth-child(-n+25) {
+  background: #eef1f6;
+}
+.pmo-table--code-master thead tr:first-child th:last-child,
+.pmo-table--code-master thead tr:last-child th:last-child {
+  border-right: 0;
 }
 
 /* Focus ring (a11y) */

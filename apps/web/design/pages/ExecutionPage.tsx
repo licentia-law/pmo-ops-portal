@@ -492,14 +492,14 @@ export default function ExecutionPage() {
                       </button>
                     </td>
                     <td><StatusBadge code={row.status} /></td>
-                    <td style={{ fontWeight: 600 }}>{row.name}</td>
-                    <td>{row.clientName ?? "-"}</td>
-                    <td>{row.salesOwner}</td>
-                    <td>{row.proposalPm}</td>
-                    <td>{row.presentPm ?? "-"}</td>
-                    <td>{row.deliveryPm ?? "-"}</td>
-                    <td style={{ whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.4 }}>{row.proposalDeliveryTeam ?? "-"}</td>
-                    <td className="num">{row.endDate ?? "-"}</td>
+                    <td style={{ fontSize: 14, fontWeight: 700 }}>{row.name}</td>
+                    <td style={{ fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{row.clientName ?? "-"}</td>
+                    <td style={{ fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{row.salesOwner}</td>
+                    <td style={{ fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{row.proposalPm}</td>
+                    <td style={{ fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{row.presentPm ?? "-"}</td>
+                    <td style={{ fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{row.deliveryPm ?? "-"}</td>
+                    <td style={{ fontSize: 14, fontWeight: 600, color: "var(--tx-3)", whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.4 }}>{row.proposalDeliveryTeam ?? "-"}</td>
+                    <td className="num" style={{ fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{row.endDate ?? "-"}</td>
                     <td style={{ textAlign: "center" }}>
                       <button
                         aria-label="프로젝트 상세 보기"

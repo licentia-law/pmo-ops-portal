@@ -559,34 +559,46 @@ function CodePageImpl() {
     [data]
   );
   const filteredRows = useMemo(() => {
-    return (data?.rows ?? []).filter((r: any) => {
-      if (appliedFilter.status !== "all" && r.status !== appliedFilter.status) return false;
-      if (appliedFilter.customer !== "전체" && String(r.clientName ?? "-") !== appliedFilter.customer) return false;
-      if (appliedFilter.owner !== "전체" && r.salesOwner !== appliedFilter.owner) return false;
-      if (appliedFilter.leadPm !== "전체" && r.proposalPm !== appliedFilter.leadPm) return false;
-      if (appliedFilter.use !== "전체" && r.useStatus !== appliedFilter.use) return false;
-      if (appliedFilter.query.trim()) {
-        const q = appliedFilter.query.trim().toLowerCase();
-        const haystacks = [
-          String(r.code ?? ""),
-          String(r.name ?? ""),
-          String(r.clientName ?? ""),
-          String(r.salesOwner ?? ""),
-          String(r.proposalPm ?? ""),
-          String(r.presentPm ?? ""),
-          String(r.deliveryPm ?? ""),
-        ];
-        if (!haystacks.some((value) => value.toLowerCase().includes(q))) return false;
-      }
-      return true;
-    });
+    return (data?.rows ?? [])
+      .filter((r: any) => {
+        if (appliedFilter.status !== "all" && r.status !== appliedFilter.status) return false;
+        if (appliedFilter.customer !== "전체" && String(r.clientName ?? "-") !== appliedFilter.customer) return false;
+        if (appliedFilter.owner !== "전체" && r.salesOwner !== appliedFilter.owner) return false;
+        if (appliedFilter.leadPm !== "전체" && r.proposalPm !== appliedFilter.leadPm) return false;
+        if (appliedFilter.use !== "전체" && r.useStatus !== appliedFilter.use) return false;
+        if (appliedFilter.query.trim()) {
+          const q = appliedFilter.query.trim().toLowerCase();
+          const haystacks = [
+            String(r.code ?? ""),
+            String(r.name ?? ""),
+            String(r.clientName ?? ""),
+            String(r.salesOwner ?? ""),
+            String(r.proposalPm ?? ""),
+            String(r.presentPm ?? ""),
+            String(r.deliveryPm ?? ""),
+          ];
+          if (!haystacks.some((value) => value.toLowerCase().includes(q))) return false;
+        }
+        return true;
+      })
+      .sort((a: any, b: any) => String(b.code ?? "").localeCompare(String(a.code ?? ""), "ko-KR"));
   }, [data, appliedFilter]);
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const maxVisible = 5;
+  const half = Math.floor(maxVisible / 2);
+  let startPage = Math.max(1, safePage - half);
+  let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+  startPage = Math.max(1, endPage - maxVisible + 1);
+  const visiblePageNumbers = Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i);
   const visibleRows = useMemo(() => {
-    const safePage = Math.min(page, totalPages);
     const start = (safePage - 1) * pageSize;
     return filteredRows.slice(start, start + pageSize);
-  }, [filteredRows, page, pageSize, totalPages]);
+  }, [filteredRows, safePage, pageSize]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   useEffect(() => {
     if (!data) return;
@@ -1067,7 +1079,41 @@ function CodePageImpl() {
         </header>
         <div style={{ overflowX: "auto" }}>
           <table className="pmo-table pmo-table--recent pmo-table--code-master" style={{ tableLayout: "fixed" }}>
+            <colgroup>
+              <col style={{ width: 132 }} />
+              <col style={{ width: 200 }} />
+              <col style={{ width: 128 }} />
+              <col style={{ width: 90 }} />
+              <col style={{ width: 70 }} />
+              <col style={{ width: 120 }} />
+              <col style={{ width: 110 }} />
+              <col style={{ width: 110 }} />
+              <col style={{ width: 88 }} />
+              <col style={{ width: 120 }} />
+              <col style={{ width: 92 }} />
+              <col style={{ width: 100 }} />
+              <col style={{ width: 100 }} />
+              <col style={{ width: 100 }} />
+              <col style={{ width: 220 }} />
+              <col style={{ width: 108 }} />
+              <col style={{ width: 108 }} />
+              <col style={{ width: 124 }} />
+              <col style={{ width: 96 }} />
+              <col style={{ width: 132 }} />
+              <col style={{ width: 124 }} />
+              <col style={{ width: 96 }} />
+              <col style={{ width: 132 }} />
+              <col style={{ width: 124 }} />
+              <col style={{ width: 84 }} />
+            </colgroup>
             <thead>
+              <tr>
+                <th colSpan={2} style={{ textAlign: "center", fontWeight: 800, color: "var(--tx-2)", background: "#e6eaf0", borderRight: "2px solid #ffffff", letterSpacing: "0.01em" }}>프로젝트 코드/사업명</th>
+                <th colSpan={7} style={{ textAlign: "center", fontWeight: 800, color: "var(--tx-2)", background: "#eef3fb", borderRight: "2px solid #ffffff", letterSpacing: "0.01em" }}>프로젝트 기본정보</th>
+                <th colSpan={6} style={{ textAlign: "center", fontWeight: 800, color: "var(--tx-2)", background: "#edf6f3", borderRight: "2px solid #ffffff", letterSpacing: "0.01em" }}>인력 정보</th>
+                <th colSpan={8} style={{ textAlign: "center", fontWeight: 800, color: "var(--tx-2)", background: "#f7f2ea", borderRight: "2px solid #ffffff", letterSpacing: "0.01em" }}>프로젝트 일정</th>
+                <th colSpan={2} style={{ textAlign: "center", fontWeight: 800, color: "var(--tx-2)", background: "#eef1f6", letterSpacing: "0.01em" }}>기타</th>
+              </tr>
               <tr>
                 <th style={{ textAlign: "center", width: 132 }}>코드</th>
                 <th style={{ textAlign: "center", width: 200 }}>사업명</th>
@@ -1084,8 +1130,8 @@ function CodePageImpl() {
                 <th style={{ textAlign: "center", width: 100 }}>발표PM</th>
                 <th style={{ textAlign: "center", width: 100 }}>수행PM</th>
                 <th style={{ textAlign: "center", width: 220 }}>제안/수행팀</th>
-                <th style={{ textAlign: "center", width: 108 }}>시작일</th>
-                <th style={{ textAlign: "center", width: 108 }}>종료일</th>
+                <th style={{ textAlign: "center", width: 108 }}>사업 시작일</th>
+                <th style={{ textAlign: "center", width: 108 }}>사업 종료일</th>
                 <th style={{ textAlign: "center", width: 124 }}>제안 제출일</th>
                 <th style={{ textAlign: "center", width: 96 }}>제출 형식</th>
                 <th style={{ textAlign: "center", width: 132 }}>제출 유의사항</th>
@@ -1123,31 +1169,31 @@ function CodePageImpl() {
                       <span>{r.code}</span>
                     </div>
                   </td>
-                  <td className="name" style={{ textAlign: "center", whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.45, fontSize: 14 }}>{r.name}</td>
-                  <td style={{ textAlign: "center", fontSize: 14 }}>{r.clientName || "-"}</td>
+                  <td className="name" style={{ textAlign: "center", whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.45, fontSize: 14, fontWeight: 700 }}>{r.name}</td>
+                  <td style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{r.clientName || "-"}</td>
                   <td style={{ textAlign: "center", fontSize: 14 }}>
                     {resolveBusinessType(r) === "-" ? <span style={{ color: "var(--tx-5)" }}>-</span> : <BusinessTypeChip name={resolveBusinessType(r)} />}
                   </td>
                   <td style={{ textAlign: "center", fontSize: 14 }}><CertaintyChip value={r.certainty} /></td>
-                  <td className="num" style={{ textAlign: "center", fontSize: 14 }}>{r.amountText || "-"}</td>
-                  <td style={{ textAlign: "center", fontSize: 14 }}>{r.bidNoticeNo || "-"}</td>
-                  <td className="num" style={{ textAlign: "center", fontSize: 14 }}>{r.bidNoticeDate || "-"}</td>
+                  <td className="num" style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{r.amountText || "-"}</td>
+                  <td style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{r.bidNoticeNo || "-"}</td>
+                  <td className="num" style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{r.bidNoticeDate || "-"}</td>
                   <td style={{ textAlign: "center", fontSize: 14 }}><StatusBadge code={r.status} /></td>
-                  <td style={{ textAlign: "center", fontSize: 14 }}>{r.salesDept}</td>
-                  <td style={{ textAlign: "center", fontSize: 14 }}>{r.salesOwner}</td>
-                  <td style={{ textAlign: "center", fontSize: 14 }}>{r.proposalPm}</td>
-                  <td style={{ textAlign: "center", fontSize: 14 }}>{r.presentPm || "-"}</td>
-                  <td style={{ textAlign: "center", fontSize: 14 }}>{r.deliveryPm || "-"}</td>
-                  <td style={{ textAlign: "center", fontSize: 14, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.4 }}>{r.proposalDeliveryTeam || "-"}</td>
-                  <td className="num" style={{ textAlign: "center", fontSize: 14 }}>{r.fromDate && r.fromDate !== "-" ? r.fromDate : "-"}</td>
-                  <td className="num" style={{ textAlign: "center", fontSize: 14 }}>{r.toDate && r.toDate !== "-" ? r.toDate : "-"}</td>
-                  <td className="num" style={{ textAlign: "center", fontSize: 14 }}>{r.proposalSubmissionAt || "-"}</td>
-                  <td style={{ textAlign: "center", fontSize: 14 }}>{r.submissionFormat || "-"}</td>
-                  <td style={{ textAlign: "center", fontSize: 14, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.4 }}>{r.submissionNote || "-"}</td>
-                  <td className="num" style={{ textAlign: "center", fontSize: 14 }}>{r.proposalPresentationAt || "-"}</td>
-                  <td style={{ textAlign: "center", fontSize: 14 }}>{r.presentationFormat || "-"}</td>
-                  <td style={{ textAlign: "center", fontSize: 14, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.4 }}>{r.presentationNote || "-"}</td>
-                  <td className="num" style={{ textAlign: "center", fontSize: 14 }}>{r.recentActivityAt || "-"}</td>
+                  <td style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{r.salesDept}</td>
+                  <td style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{r.salesOwner}</td>
+                  <td style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{r.proposalPm}</td>
+                  <td style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{r.presentPm || "-"}</td>
+                  <td style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{r.deliveryPm || "-"}</td>
+                  <td style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)", whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.4 }}>{r.proposalDeliveryTeam || "-"}</td>
+                  <td className="num" style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{r.fromDate && r.fromDate !== "-" ? r.fromDate : "-"}</td>
+                  <td className="num" style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{r.toDate && r.toDate !== "-" ? r.toDate : "-"}</td>
+                  <td className="num" style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{r.proposalSubmissionAt || "-"}</td>
+                  <td style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{r.submissionFormat || "-"}</td>
+                  <td style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)", whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.4 }}>{r.submissionNote || "-"}</td>
+                  <td className="num" style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{r.proposalPresentationAt || "-"}</td>
+                  <td style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{r.presentationFormat || "-"}</td>
+                  <td style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)", whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.4 }}>{r.presentationNote || "-"}</td>
+                  <td className="num" style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{r.recentActivityAt || "-"}</td>
                   <td style={{ textAlign: "center", fontSize: 14 }}><UseChip value={r.useStatus} /></td>
                 </tr>
               ))}
@@ -1158,15 +1204,17 @@ function CodePageImpl() {
 
       <footer style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 12px", marginTop: 4, borderTop: "1px solid var(--line-2)" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flex: 1 }}>
-          <button className="pmo-btn" style={{ height: 32, padding: "0 10px" }} onClick={() => setPage(1)} disabled={page === 1}>«</button>
-          <button className="pmo-btn" style={{ height: 32, padding: "0 10px" }} onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>‹</button>
-          {[1, 2, 3, 4, 5].map((p) => (
-            <button key={p} className="pmo-btn" style={{ height: 32, minWidth: 34, padding: "0 8px", justifyContent: "center", textAlign: "center", background: p === page ? "var(--brand)" : "#fff", color: p === page ? "#fff" : "var(--tx-2)", borderColor: p === page ? "var(--brand)" : "var(--line-2)" }} onClick={() => setPage(p)}>
+          <button className="pmo-btn" style={{ height: 32, padding: "0 10px" }} onClick={() => setPage(1)} disabled={safePage === 1}>«</button>
+          <button className="pmo-btn" style={{ height: 32, padding: "0 10px" }} onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={safePage === 1}>‹</button>
+          {visiblePageNumbers[0] > 1 ? <span style={{ color: "var(--tx-4)", padding: "0 2px" }}>…</span> : null}
+          {visiblePageNumbers.map((p) => (
+            <button key={p} className="pmo-btn" style={{ height: 32, minWidth: 34, padding: "0 8px", justifyContent: "center", textAlign: "center", background: p === safePage ? "var(--brand)" : "#fff", color: p === safePage ? "#fff" : "var(--tx-2)", borderColor: p === safePage ? "var(--brand)" : "var(--line-2)" }} onClick={() => setPage(p)}>
               {p}
             </button>
           ))}
-          <button className="pmo-btn" style={{ height: 32, padding: "0 10px" }} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages}>›</button>
-          <button className="pmo-btn" style={{ height: 32, padding: "0 10px" }} onClick={() => setPage(totalPages)} disabled={page === totalPages}>»</button>
+          {visiblePageNumbers[visiblePageNumbers.length - 1] < totalPages ? <span style={{ color: "var(--tx-4)", padding: "0 2px" }}>…</span> : null}
+          <button className="pmo-btn" style={{ height: 32, padding: "0 10px" }} onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={safePage === totalPages}>›</button>
+          <button className="pmo-btn" style={{ height: 32, padding: "0 10px" }} onClick={() => setPage(totalPages)} disabled={safePage === totalPages}>»</button>
         </div>
         <select className="pmo-btn" style={{ height: 32, marginLeft: "auto", width: 130 }} value={String(pageSize)} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
           <option value="10">10개씩 보기</option>

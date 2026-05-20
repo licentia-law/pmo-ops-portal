@@ -311,6 +311,10 @@ export default function HomePage() {
 
   const mergedKpis = useMemo(() => {
     if (!data) return [];
+    const normalizeCountValue = (raw: unknown) => {
+      if (typeof raw !== "string") return raw;
+      return raw.replace(/\s*(건|명)\s*$/, "");
+    };
     const monthlyRows = (data.monthSummary?.rows ?? []) as any[];
     const baseKpis = (data.kpis ?? []) as any[];
     const rateKpis = baseKpis.filter((kpi) => kpi.id === "utilization" || kpi.id === "contract");
@@ -321,16 +325,16 @@ export default function HomePage() {
     const movement = monthlyRows.find((row) => row.id === "headcountDelta");
     const extras = [
       newProject
-        ? { id: "new-project", label: "신규 프로젝트", value: newProject.value, unit: "건", icon: "calendar", tone: "blue", delta: newProject.delta }
+        ? { id: "new-project", label: "신규 프로젝트", value: normalizeCountValue(newProject.value), unit: "건", icon: "calendar", tone: "blue", delta: newProject.delta }
         : null,
       completion
-        ? { id: "completion", label: "완료 예정 프로젝트", value: completion.value, unit: "건", icon: "check", tone: "green", delta: completion.delta }
+        ? { id: "completion", label: "완료 예정 프로젝트", value: normalizeCountValue(completion.value), unit: "건", icon: "check", tone: "green", delta: completion.delta }
         : null,
       completed
-        ? { id: "completed-project", label: "완료 프로젝트", value: completed.value, unit: "건", icon: "check", tone: "slate", delta: completed.delta }
+        ? { id: "completed-project", label: "완료 프로젝트", value: normalizeCountValue(completed.value), unit: "건", icon: "check", tone: "slate", delta: completed.delta }
         : null,
       movement
-        ? { id: "movement", label: "인력 변동", value: movement.value, unit: "명", icon: "users", tone: "purple", delta: movement.delta }
+        ? { id: "movement", label: "인력 변동", value: normalizeCountValue(movement.value), unit: "명", icon: "users", tone: "purple", delta: movement.delta }
         : null
     ].filter(Boolean);
     return [...peopleKpis, ...extras, ...rateKpis];
@@ -501,13 +505,13 @@ function TrendChart({ trend }: { trend: any }) {
         {yTicks.map((t) => (
           <g key={t}>
             <line x1={padL} x2={W - padR} y1={y(t)} y2={y(t)} stroke="var(--line-2)" strokeDasharray={t === yMin ? "0" : "3 4"} />
-            <text x={padL - 10} y={y(t) + 4} fontSize="13" fill="var(--tx-1)" textAnchor="end">
+            <text x={padL - 10} y={y(t) + 4} fontSize="13" fontWeight="600" fill="var(--tx-3)" textAnchor="end">
               {t}%
             </text>
           </g>
         ))}
         {months.map((m: string, i: number) => (
-          <text key={m} x={x(i)} y={H - 12} fontSize="14" fill="var(--tx-1)" textAnchor="middle">
+          <text key={m} x={x(i)} y={H - 12} fontSize="13" fontWeight="600" fill="var(--tx-3)" textAnchor="middle">
             {m.replace("-", ".")}
           </text>
         ))}

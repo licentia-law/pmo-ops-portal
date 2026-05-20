@@ -115,7 +115,7 @@ export default function ProjectEditModal({
               <div />
               <label className="pmo-field" style={{ gridColumn: "2 / 5" }}>
                 <span>메모</span>
-                <input value={form.memo} onChange={(e) => setForm({ ...form, memo: e.target.value })} placeholder="사업 관련 특이사항 기입" style={{ height: 36, minWidth: 0, width: "100%", fontSize: 13.5, fontWeight: 500, color: "var(--tx-1)", fontFamily: "inherit" }} />
+                <input value={form.memo} onChange={(e) => setForm({ ...form, memo: e.target.value })} placeholder="프로젝트 관련 특이사항 기입" style={{ height: 36, minWidth: 0, width: "100%", fontSize: 13.5, fontWeight: 500, color: "var(--tx-1)", fontFamily: "inherit" }} />
               </label>
             </div>
           </section>

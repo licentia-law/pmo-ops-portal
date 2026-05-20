@@ -340,6 +340,24 @@ type EditForm = {
 type ModalMode = "edit" | "create";
 type FieldErrorMap = Partial<Record<keyof EditForm, string>>;
 
+type CodeFilterState = {
+  status: string;
+  customer: string;
+  owner: string;
+  leadPm: string;
+  use: string;
+  query: string;
+};
+
+const DEFAULT_CODE_FILTER: CodeFilterState = {
+  status: "all",
+  customer: "전체",
+  owner: "전체",
+  leadPm: "전체",
+  use: "전체",
+  query: "",
+};
+
 function parseAmountText(amountText: string): { totalAmount: string; companyAmount: string } {
   const raw = String(amountText ?? "").trim();
   if (!raw || raw === "-") return { totalAmount: "", companyAmount: "" };
@@ -468,12 +486,8 @@ function CodePageImpl() {
   const openedByQueryRef = useRef(false);
   const openedEditByQueryRef = useRef(false);
   const [data, setData] = useState<any | null>(null);
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [customerFilter, setCustomerFilter] = useState("전체");
-  const [ownerFilter, setOwnerFilter] = useState("전체");
-  const [leadPmFilter, setLeadPmFilter] = useState("전체");
-  const [useFilter, setUseFilter] = useState("전체");
-  const [query, setQuery] = useState("");
+  const [filterForm, setFilterForm] = useState<CodeFilterState>(DEFAULT_CODE_FILTER);
+  const [appliedFilter, setAppliedFilter] = useState<CodeFilterState>(DEFAULT_CODE_FILTER);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [editingRow, setEditingRow] = useState<any | null>(null);
@@ -546,13 +560,13 @@ function CodePageImpl() {
   );
   const filteredRows = useMemo(() => {
     return (data?.rows ?? []).filter((r: any) => {
-      if (statusFilter !== "all" && r.status !== statusFilter) return false;
-      if (customerFilter !== "전체" && String(r.clientName ?? "-") !== customerFilter) return false;
-      if (ownerFilter !== "전체" && r.salesOwner !== ownerFilter) return false;
-      if (leadPmFilter !== "전체" && r.proposalPm !== leadPmFilter) return false;
-      if (useFilter !== "전체" && r.useStatus !== useFilter) return false;
-      if (query.trim()) {
-        const q = query.trim().toLowerCase();
+      if (appliedFilter.status !== "all" && r.status !== appliedFilter.status) return false;
+      if (appliedFilter.customer !== "전체" && String(r.clientName ?? "-") !== appliedFilter.customer) return false;
+      if (appliedFilter.owner !== "전체" && r.salesOwner !== appliedFilter.owner) return false;
+      if (appliedFilter.leadPm !== "전체" && r.proposalPm !== appliedFilter.leadPm) return false;
+      if (appliedFilter.use !== "전체" && r.useStatus !== appliedFilter.use) return false;
+      if (appliedFilter.query.trim()) {
+        const q = appliedFilter.query.trim().toLowerCase();
         const haystacks = [
           String(r.code ?? ""),
           String(r.name ?? ""),
@@ -566,7 +580,7 @@ function CodePageImpl() {
       }
       return true;
     });
-  }, [data, statusFilter, customerFilter, ownerFilter, leadPmFilter, useFilter, query]);
+  }, [data, appliedFilter]);
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
   const visibleRows = useMemo(() => {
     const safePage = Math.min(page, totalPages);
@@ -944,46 +958,82 @@ function CodePageImpl() {
     }
   };
 
+  const applyFilters = () => {
+    setAppliedFilter(filterForm);
+    setPage(1);
+  };
+
+  const resetFilters = () => {
+    setFilterForm(DEFAULT_CODE_FILTER);
+    setAppliedFilter(DEFAULT_CODE_FILTER);
+    setPage(1);
+  };
+
+  const summaryFilterLabel = useMemo(() => {
+    const labels: string[] = [];
+    if (appliedFilter.status !== "all") {
+      const statusLabel = data?.summary?.find((s: any) => s.code === appliedFilter.status)?.label ?? appliedFilter.status;
+      labels.push(statusLabel);
+    }
+    if (appliedFilter.customer !== "전체") labels.push(`고객사: ${appliedFilter.customer}`);
+    if (appliedFilter.owner !== "전체") labels.push(`영업대표: ${appliedFilter.owner}`);
+    if (appliedFilter.leadPm !== "전체") labels.push(`제안PM: ${appliedFilter.leadPm}`);
+    if (appliedFilter.use !== "전체") labels.push(`사용여부: ${appliedFilter.use}`);
+    if (appliedFilter.query.trim()) labels.push(`검색어: ${appliedFilter.query.trim()}`);
+    return labels.length ? labels.join(" · ") : null;
+  }, [appliedFilter, data?.summary]);
   if (!data) return null;
 
   return (
     <PmoShell user={data.meta.user} notifications={data.meta.notifications} currentId="project-codes" pageTitle="프로젝트 관리">
       <section className="pmo-panel" style={{ padding: 18, marginBottom: 16 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, alignItems: "flex-end" }}>
-          <label className="pmo-field" style={{ minWidth: 0, flex: 1 }}>
-            <span style={{ fontSize: 14 }}>고객사</span>
-            <select style={SELECT_STYLE} value={customerFilter} onChange={(e) => { setCustomerFilter(e.target.value); setPage(1); }}>
-              {customers.map((customer) => (
-                <option key={customer} value={customer}>{customer}</option>
-              ))}
-            </select>
-          </label>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end" }}>
           <label className="pmo-field" style={{ minWidth: 0, flex: 1 }}>
             <span style={{ fontSize: 14 }}>영업대표</span>
-            <select style={SELECT_STYLE} value={ownerFilter} onChange={(e) => { setOwnerFilter(e.target.value); setPage(1); }}>
+            <select style={SELECT_STYLE} value={filterForm.owner} onChange={(e) => setFilterForm((prev) => ({ ...prev, owner: e.target.value }))}>
               {owners.map((owner: string) => <option key={owner} value={owner}>{owner}</option>)}
             </select>
           </label>
           <label className="pmo-field" style={{ minWidth: 0, flex: 1 }}>
             <span style={{ fontSize: 14 }}>제안PM</span>
-            <select style={SELECT_STYLE} value={leadPmFilter} onChange={(e) => { setLeadPmFilter(e.target.value); setPage(1); }}>
+            <select style={SELECT_STYLE} value={filterForm.leadPm} onChange={(e) => setFilterForm((prev) => ({ ...prev, leadPm: e.target.value }))}>
               {leadPms.map((pm: string) => <option key={pm} value={pm}>{pm}</option>)}
             </select>
           </label>
           <label className="pmo-field" style={{ minWidth: 0, flex: 1 }}>
             <span style={{ fontSize: 14 }}>사용여부</span>
-            <select style={SELECT_STYLE} value={useFilter} onChange={(e) => { setUseFilter(e.target.value); setPage(1); }}>
+            <select style={SELECT_STYLE} value={filterForm.use} onChange={(e) => setFilterForm((prev) => ({ ...prev, use: e.target.value }))}>
               {["전체", "사용", "미사용"].map((v) => <option key={v} value={v}>{v}</option>)}
             </select>
           </label>
-          <label className="pmo-field" style={{ minWidth: 0, gridColumn: "span 2" }}>
+          <label className="pmo-field" style={{ minWidth: 0, width: 320, flex: "0 0 320px" }}>
             <span style={{ fontSize: 14 }}>검색어</span>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, height: 38, padding: "0 12px", border: "1px solid var(--line-2)", borderRadius: 8, background: "#fff" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, height: 40, padding: "0 12px", border: "1px solid var(--line-2)", borderRadius: 8, background: "#fff" }}>
               <Icon name="search" size={15} stroke={1.8} style={{ color: "var(--tx-5)" }} />
-              <input value={query} onChange={(e) => { setQuery(e.target.value); setPage(1); }} placeholder="사업명, 고객사, 영업대표, PM 검색" style={{ border: 0, outline: "none", background: "transparent", flex: 1, fontSize: 14, color: "var(--tx-1)" }} />
+              <input
+                value={filterForm.query}
+                onChange={(e) => setFilterForm((prev) => ({ ...prev, query: e.target.value }))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    applyFilters();
+                  }
+                }}
+                placeholder="고객사, 사업명, 영업대표, 투입인력 검색"
+                style={{ border: 0, outline: "none", background: "transparent", flex: 1, fontSize: 14, color: "var(--tx-1)" }}
+              />
             </div>
           </label>
-          <button className="pmo-btn pmo-btn-primary" style={{ height: 38, minWidth: 170, padding: "0 14px", whiteSpace: "nowrap", justifyContent: "center", alignSelf: "end", background: "var(--brand)", borderColor: "var(--brand)", color: "#fff" }} onClick={() => setCreatingShared(true)}>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", alignSelf: "end" }}>
+            <button className="pmo-btn pmo-btn-primary" style={{ height: 40, minWidth: 86, padding: "0 18px", fontSize: 14, fontWeight: 700, background: "var(--brand)", borderColor: "var(--brand)", color: "#fff", display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", justifyContent: "center" }} onClick={applyFilters}>
+              <Icon name="search" size={14} stroke={2} />
+              조회
+            </button>
+            <button className="pmo-btn" style={{ height: 40, minWidth: 72, padding: "0 18px", fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", justifyContent: "center" }} onClick={resetFilters}>
+              초기화
+            </button>
+          </div>
+          <button className="pmo-btn pmo-btn-primary" style={{ height: 40, minWidth: 170, padding: "0 14px", whiteSpace: "nowrap", justifyContent: "center", alignSelf: "end", background: "var(--brand)", borderColor: "var(--brand)", color: "#fff" }} onClick={() => setCreatingShared(true)}>
             <Icon name="plus" size={14} stroke={2} style={{ marginRight: 4 }} />
             신규 프로젝트 등록
           </button>
@@ -992,7 +1042,18 @@ function CodePageImpl() {
 
       <section style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12, marginBottom: 16 }}>
         {data.summary.map((s: any) => (
-          <StatusCard key={s.id} s={s} active={statusFilter === s.code} onClick={() => { setStatusFilter(statusFilter === s.code ? "all" : s.code); setPage(1); }} />
+          <StatusCard
+            key={s.id}
+            s={s}
+            active={filterForm.status === s.code}
+            onClick={() => {
+              const nextStatus = filterForm.status === s.code ? "all" : s.code;
+              const nextFilter = { ...filterForm, status: nextStatus };
+              setFilterForm(nextFilter);
+              setAppliedFilter(nextFilter);
+              setPage(1);
+            }}
+          />
         ))}
       </section>
 
@@ -1001,7 +1062,7 @@ function CodePageImpl() {
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--tx-1)" }}>프로젝트 목록</h2>
           <span style={{ fontSize: 12.5, color: "var(--tx-4)" }}>
             검색결과 <span style={{ color: "var(--tx-1)", fontWeight: 700 }}>{filteredRows.length}</span>건
-            {statusFilter !== "all" ? <span style={{ marginLeft: 10 }}><StatusBadge code={statusFilter} /></span> : null}
+            {summaryFilterLabel ? <span style={{ marginLeft: 10, color: "var(--brand)", fontWeight: 600 }}> · 필터: {summaryFilterLabel}</span> : null}
           </span>
         </header>
         <div style={{ overflowX: "auto" }}>

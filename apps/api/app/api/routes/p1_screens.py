@@ -936,12 +936,19 @@ def _assignment_row(assignment: ProjectAssignment) -> dict[str, Any]:
 
 
 def _project_recent_log(session: DbSession, log: ProjectLog) -> dict[str, Any]:
+    author_name = _person_name_with_title(session, log.author_name)
+    updated_by_name = _person_name_with_title(session, log.updated_by_name)
+    author_display = (
+        author_name if not updated_by_name or author_name == updated_by_name else f"{author_name}/{updated_by_name}"
+    )
     return {
         "id": log.id,
         "datetime": _datetime(log.logged_at),
         "summary": log.content,
         "content": log.content,
-        "author": _person_name_with_title(session, log.author_name),
+        "author": author_display,
+        "authorName": author_name,
+        "updatedByName": updated_by_name,
         "authorRole": "",
         "logStatus": log.log_status.value,
         "stateLabel": "완료" if log.log_status.value == "done" else ("진행" if log.log_status.value == "in_progress" else "메모"),

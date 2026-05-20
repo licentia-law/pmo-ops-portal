@@ -270,8 +270,8 @@ button, input, select { font: inherit; }
   font-size: 12px;
   font-weight: 800;
 }
-.pmo-status-proposing, .pmo-status-done { background: var(--neutral-bg); color: var(--neutral-fg); }
-.pmo-status-presented { background: var(--info-bg); color: var(--info-fg); }
+.pmo-status-proposing { background: var(--info-bg); color: var(--info-fg); }
+.pmo-status-presented, .pmo-status-done { background: var(--neutral-bg); color: var(--neutral-fg); }
 .pmo-status-win, .pmo-status-running { background: var(--ok-bg); color: var(--ok-fg); }
 .pmo-status-loss { background: var(--crit-bg); color: var(--crit-fg); }
 .pmo-status-drop { background: #ececf0; color: #52525b; }

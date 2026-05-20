@@ -294,7 +294,8 @@ export default function HomePage() {
   const [data, setData] = useState<any | null>(null);
   const [mounted, setMounted] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
-  const [trendFilter, setTrendFilter] = useState<"6m" | "12m" | "year" | "all">("6m");
+  const [trendFilter, setTrendFilter] = useState<"thisYear" | "lastYear" | "allPeriod">("thisYear");
+  const [selectedYear, setSelectedYear] = useState<string>("all");
 
   useEffect(() => {
     setMounted(true);
@@ -341,17 +342,28 @@ export default function HomePage() {
     const months = trend.months as string[];
     const util = trend.utilization as number[];
     const contract = trend.contractRate as number[];
-    const thisYear = new Date().getFullYear().toString();
+    const nowYear = new Date().getFullYear();
+    const thisYear = String(nowYear);
+    const lastYear = String(nowYear - 1);
     let indexes = months.map((_, idx) => idx);
-    if (trendFilter === "6m") indexes = indexes.slice(-6);
-    if (trendFilter === "12m") indexes = indexes.slice(-12);
-    if (trendFilter === "year") indexes = indexes.filter((idx) => months[idx].startsWith(thisYear));
+    if (trendFilter === "thisYear") indexes = indexes.filter((idx) => months[idx].startsWith(thisYear));
+    if (trendFilter === "lastYear") indexes = indexes.filter((idx) => months[idx].startsWith(lastYear));
+    if (trendFilter === "allPeriod" && selectedYear !== "all") {
+      indexes = indexes.filter((idx) => months[idx].startsWith(selectedYear));
+    }
     return {
       months: indexes.map((idx) => months[idx]),
       utilization: indexes.map((idx) => util[idx]),
       contractRate: indexes.map((idx) => contract[idx])
     };
-  }, [data, trendFilter]);
+  }, [data, trendFilter, selectedYear]);
+
+  const trendYearOptions = useMemo(() => {
+    const months = (data?.trend?.months ?? []) as string[];
+    const years = Array.from(new Set(months.map((month) => month.slice(0, 4)).filter((value) => /^\d{4}$/.test(value))));
+    years.sort((a, b) => Number(b) - Number(a));
+    return ["all", ...years];
+  }, [data]);
 
   const todayAsOf = useMemo(() => {
     const now = new Date();
@@ -369,8 +381,14 @@ export default function HomePage() {
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, marginBottom: 16 }}>
         <section className="pmo-panel" style={{ padding: "20px 22px" }}>
           <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--tx-1)" }}>최근 6개월 가동률 / 가득률 추이</h2>
-            <TrendFilter value={trendFilter} onChange={setTrendFilter} />
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--tx-1)" }}>기간별 가동률 / 가득률</h2>
+            <TrendFilter
+              value={trendFilter}
+              onChange={setTrendFilter}
+              selectedYear={selectedYear}
+              onYearChange={setSelectedYear}
+              yearOptions={trendYearOptions}
+            />
           </header>
           <TrendChart trend={filteredTrend} />
         </section>
@@ -381,8 +399,20 @@ export default function HomePage() {
   );
 }
 
-function TrendFilter({ value, onChange }: { value: "6m" | "12m" | "year" | "all"; onChange: (next: "6m" | "12m" | "year" | "all") => void }) {
-  const Btn = ({ id, label }: { id: "6m" | "12m" | "year" | "all"; label: string }) => (
+function TrendFilter({
+  value,
+  onChange,
+  selectedYear,
+  onYearChange,
+  yearOptions,
+}: {
+  value: "thisYear" | "lastYear" | "allPeriod";
+  onChange: (next: "thisYear" | "lastYear" | "allPeriod") => void;
+  selectedYear: string;
+  onYearChange: (next: string) => void;
+  yearOptions: string[];
+}) {
+  const Btn = ({ id, label }: { id: "thisYear" | "lastYear" | "allPeriod"; label: string }) => (
     <button
       onClick={() => onChange(id)}
       style={{
@@ -400,11 +430,31 @@ function TrendFilter({ value, onChange }: { value: "6m" | "12m" | "year" | "all"
     </button>
   );
   return (
-    <div style={{ display: "inline-flex", gap: 8 }}>
-      <Btn id="6m" label="최근 6개월" />
-      <Btn id="12m" label="최근 12개월" />
-      <Btn id="year" label="올해" />
-      <Btn id="all" label="전체기간" />
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+      <Btn id="thisYear" label="올해" />
+      <Btn id="lastYear" label="작년" />
+      <Btn id="allPeriod" label="전체기간" />
+      <select
+        value={selectedYear}
+        onChange={(event) => onYearChange(event.target.value)}
+        disabled={value !== "allPeriod"}
+        style={{
+          height: 32,
+          padding: "0 10px",
+          border: "1px solid var(--line-2)",
+          borderRadius: 8,
+          background: value === "allPeriod" ? "var(--bg-1)" : "var(--bg-subtle)",
+          color: value === "allPeriod" ? "var(--tx-2)" : "var(--tx-5)",
+          fontSize: 13,
+          fontWeight: 600,
+        }}
+      >
+        {yearOptions.map((year) => (
+          <option key={year} value={year}>
+            {year === "all" ? "년도 전체" : `${year}년`}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
@@ -421,6 +471,13 @@ function TrendChart({ trend }: { trend: any }) {
   const months = trend.months;
   const u = trend.utilization;
   const c = trend.contractRate;
+  if (!months.length || !u.length || !c.length) {
+    return (
+      <div style={{ height: 320, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--tx-4)", fontSize: 14, fontWeight: 600 }}>
+        선택한 기간의 데이터가 없습니다.
+      </div>
+    );
+  }
   const yMin = 30;
   const yMax = 100;
   const x = (i: number) => padL + (months.length === 1 ? innerW / 2 : (i * innerW) / (months.length - 1));
@@ -430,6 +487,16 @@ function TrendChart({ trend }: { trend: any }) {
 
   return (
     <div style={{ width: "100%", overflow: "hidden" }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 14, marginBottom: 8, fontSize: 13, color: "var(--tx-3)", fontWeight: 600 }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <i style={{ width: 16, height: 0, borderTop: "3px solid var(--brand)", borderRadius: 999 }} />
+          가동률
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <i style={{ width: 16, height: 0, borderTop: "3px solid var(--info)", borderRadius: 999 }} />
+          가득률
+        </span>
+      </div>
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block", maxHeight: 340 }} role="img" aria-label="가동률 가득률 추이">
         {yTicks.map((t) => (
           <g key={t}>
@@ -502,10 +569,10 @@ function TeamHeadcount({ rows }: { rows: any[] }) {
                 <span style={{ fontSize: 12, color: "var(--tx-4)", fontWeight: 500, marginLeft: 2 }}>명</span>
               </span>
             </div>
-            <div style={{ display: "flex", height: 8, borderRadius: 999, background: "var(--bg-subtle)", overflow: "hidden" }}>
-              {r.running > 0 && <i title={`수행 ${r.running}`} style={{ width: `${(r.running / r.total) * 100}%`, background: "var(--brand)" }} />}
-              {r.proposing > 0 && <i title={`제안 ${r.proposing}`} style={{ width: `${(r.proposing / r.total) * 100}%`, background: "var(--info)" }} />}
-              {r.idle > 0 && <i title={`대기 ${r.idle}`} style={{ width: `${(r.idle / r.total) * 100}%`, background: "var(--warn)" }} />}
+            <div style={{ display: "flex", gap: 2, height: 8, borderRadius: 999, background: "var(--bg-subtle)", overflow: "hidden", padding: "0 1px" }}>
+              {r.running > 0 && <i title={`수행 ${r.running}`} style={{ width: `${(r.running / r.total) * 100}%`, background: "var(--brand)", borderRadius: 999 }} />}
+              {r.proposing > 0 && <i title={`제안 ${r.proposing}`} style={{ width: `${(r.proposing / r.total) * 100}%`, background: "var(--info)", borderRadius: 999 }} />}
+              {r.idle > 0 && <i title={`대기 ${r.idle}`} style={{ width: `${(r.idle / r.total) * 100}%`, background: "var(--warn)", borderRadius: 999 }} />}
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "var(--tx-1)" }}>
               <span>
@@ -558,12 +625,11 @@ function DualBar({ utilization, contractRate }: { utilization: number; contractR
 }
 
 function TeamUtilization({ rows }: { rows: any[] }) {
-  const [sortDesc, setSortDesc] = useState(true);
   const sorted = useMemo(() => {
     const result = [...rows];
-    result.sort((a, b) => (sortDesc ? b.utilization - a.utilization : a.utilization - b.utilization));
+    result.sort((a, b) => String(a.team ?? "").localeCompare(String(b.team ?? ""), "ko-KR"));
     return result;
-  }, [rows, sortDesc]);
+  }, [rows]);
   return (
     <section className="pmo-panel" style={{ padding: "20px 22px" }}>
       <header style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 16 }}>
@@ -571,10 +637,6 @@ function TeamUtilization({ rows }: { rows: any[] }) {
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--tx-1)" }}>팀별 가동률 / 가득률</h2>
           <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--tx-4)" }}>현재 기준(스냅샷) · 본부 합계와 정합</p>
         </div>
-        <button className="pmo-btn" onClick={() => setSortDesc((s) => !s)} style={{ height: 32, padding: "0 12px", fontSize: 13 }}>
-          <Icon name={sortDesc ? "chevronDown" : "chevronUp"} size={12} stroke={2} />
-          가동률 {sortDesc ? "내림차순" : "오름차순"}
-        </button>
       </header>
       <table className="pmo-table pmo-table--recent" style={{ tableLayout: "fixed" }}>
         <colgroup>

@@ -84,7 +84,6 @@ function formatAmountPair(amountText: string) {
 }
 
 type ExecutionFilterState = {
-  team: string;
   businessType: string;
   status: string;
   proposalPm: string;
@@ -149,6 +148,17 @@ function SummaryCard({ item, active, onClick }: { item: any; active: boolean; on
   const iconMap: Record<string, IconName> = { all: "folder", proposal: "execution", running: "play", closed: "circle" };
   const toneMap: Record<string, string> = { all: "#3b6df0", proposal: "#ede5fd", running: "#dcf2e3", closed: "#f08c1f" };
   const fgMap: Record<string, string> = { all: "#fff", proposal: "#7c3aed", running: "#16a34a", closed: "#fff" };
+  const footerItems = item.breakdown
+    ? item.breakdown.map((b: any) => ({ label: b.label, value: b.value }))
+    : (item.hint ?? "")
+        .split("+")
+        .map((chunk: string) => chunk.trim())
+        .filter(Boolean)
+        .map((chunk: string) => {
+          const match = chunk.match(/^(.*?)(\d+)$/);
+          if (!match) return { label: chunk, value: "" };
+          return { label: match[1].trim(), value: match[2] };
+        });
   return (
     <button
       onClick={onClick}
@@ -180,7 +190,14 @@ function SummaryCard({ item, active, onClick }: { item: any; active: boolean; on
           <span style={{ fontSize: 30, lineHeight: 1, fontWeight: 700, color: "var(--tx-1)" }}>{item.value}<span style={{ fontSize: 15, color: "var(--tx-4)", marginLeft: 4 }}>{item.unit}</span></span>
         </div>
       </div>
-      <div style={{ fontSize: 14, color: "var(--tx-4)", lineHeight: 1.4 }}>{item.hint ?? (item.breakdown ? item.breakdown.map((b: any) => `${b.label} ${b.value}`).join(" · ") : "")}</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 2 }}>
+        {footerItems.map((entry: any, idx: number) => (
+          <span key={`${entry.label}-${idx}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 999, background: "var(--bg-3)", border: "1px solid var(--line-2)", fontSize: 13, color: "var(--tx-3)", fontWeight: 600 }}>
+            <span>{entry.label}</span>
+            {entry.value !== "" ? <strong style={{ color: "var(--tx-1)", fontWeight: 800 }}>{entry.value}</strong> : null}
+          </span>
+        ))}
+      </div>
     </button>
   );
 }
@@ -204,7 +221,6 @@ export default function ExecutionPage() {
       if (alive) {
         const payload = result.data as any;
         const initialFilter: ExecutionFilterState = {
-          team: "전체",
           businessType: "전체",
           status: "전체",
           proposalPm: "전체",
@@ -237,7 +253,6 @@ export default function ExecutionPage() {
     if (!data) return [];
     const byForm = (data.rows ?? []).filter((row: any) => {
       if (!appliedFilter) return true;
-      if (appliedFilter.team !== "전체" && row.execDept !== appliedFilter.team) return false;
       if (appliedFilter.businessType !== "전체" && row.businessType !== appliedFilter.businessType) return false;
       if (appliedFilter.status !== "전체" && row.status !== toStatusCode(appliedFilter.status)) return false;
       if (appliedFilter.proposalPm !== "전체") {
@@ -251,7 +266,7 @@ export default function ExecutionPage() {
       if (appliedFilter.to && submitDate && submitDate > appliedFilter.to) return false;
       if (appliedFilter.query.trim()) {
         const q = appliedFilter.query.trim().toLowerCase();
-        const target = `${row.code ?? ""} ${row.name ?? ""} ${row.proposalPm ?? ""} ${row.presentPm ?? ""} ${row.deliveryPm ?? ""} ${row.salesOwner ?? ""} ${row.remark ?? ""}`.toLowerCase();
+        const target = `${row.code ?? ""} ${row.name ?? ""} ${row.clientName ?? ""} ${row.proposalPm ?? ""} ${row.presentPm ?? ""} ${row.deliveryPm ?? ""} ${row.proposalDeliveryTeam ?? ""} ${row.salesOwner ?? ""} ${row.remark ?? ""}`.toLowerCase();
         if (!target.includes(q)) return false;
       }
       return true;
@@ -307,32 +322,46 @@ export default function ExecutionPage() {
       setCurrentPage(totalPages);
     }
   }, [currentPage, totalPages]);
+  const summaryFilterLabel = useMemo(() => {
+    const labels: string[] = [];
+    if (activeSummary) {
+      const kpiLabel = data?.summary?.find((s: any) => s.id === activeSummary)?.label;
+      if (kpiLabel) labels.push(kpiLabel);
+    }
+    if (appliedFilter) {
+      if (appliedFilter.businessType !== "전체") labels.push(`사업유형: ${appliedFilter.businessType}`);
+      if (appliedFilter.status !== "전체") labels.push(`상태: ${appliedFilter.status}`);
+      if (appliedFilter.salesOwner !== "전체") labels.push(`영업대표: ${appliedFilter.salesOwner}`);
+      if (appliedFilter.proposalPm !== "전체") labels.push(`PM: ${appliedFilter.proposalPm}`);
+      if (appliedFilter.periodPreset !== "all") labels.push(`기간: ${appliedFilter.from} ~ ${appliedFilter.to}`);
+      if (appliedFilter.query.trim()) labels.push(`검색어: ${appliedFilter.query.trim()}`);
+    }
+    return labels.length ? labels.join(" · ") : null;
+  }, [activeSummary, appliedFilter, data?.summary]);
   if (!data || !filterForm) return null;
-  const summaryFilterLabel = activeSummary ? (data.summary.find((s: any) => s.id === activeSummary)?.label ?? null) : null;
 
   return (
     <PmoShell user={data.meta.user} notifications={data.meta.notifications} currentId="project-operations" pageTitle="업무수행현황">
       <section className="pmo-panel" style={{ padding: 16, marginBottom: 16 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 12 }}>
-          {["팀", "사업유형", "상태", "영업대표", "PM"].map((label, idx) => (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 12 }}>
+          {["사업유형", "상태", "영업대표", "PM"].map((label, idx) => (
             <label key={label} className="pmo-field">
               <span style={{ fontSize: 14 }}>{label}</span>
               <select
-                value={idx === 0 ? filterForm.team : idx === 1 ? filterForm.businessType : idx === 2 ? filterForm.status : idx === 3 ? filterForm.salesOwner : filterForm.proposalPm}
+                value={idx === 0 ? filterForm.businessType : idx === 1 ? filterForm.status : idx === 2 ? filterForm.salesOwner : filterForm.proposalPm}
                 onChange={(e) => {
                   const value = e.target.value;
                   setFilterForm((prev) => {
                     if (!prev) return prev;
-                    if (idx === 0) return { ...prev, team: value };
-                    if (idx === 1) return { ...prev, businessType: value };
-                    if (idx === 2) return { ...prev, status: value };
-                    if (idx === 3) return { ...prev, salesOwner: value };
+                    if (idx === 0) return { ...prev, businessType: value };
+                    if (idx === 1) return { ...prev, status: value };
+                    if (idx === 2) return { ...prev, salesOwner: value };
                     return { ...prev, proposalPm: value };
                   });
                 }}
                 style={{ fontSize: 14 }}
               >
-                {(idx === 0 ? data.filters.teams : idx === 1 ? data.filters.businessTypes : idx === 2 ? data.filters.statuses : idx === 3 ? data.filters.salesOwners : (data.filters.proposalPms ?? data.filters.leadPms ?? [])).map((opt: string) => <option value={opt} key={opt}>{opt}</option>)}
+                {(idx === 0 ? data.filters.businessTypes : idx === 1 ? data.filters.statuses : idx === 2 ? data.filters.salesOwners : (data.filters.proposalPms ?? data.filters.leadPms ?? [])).map((opt: string) => <option value={opt} key={opt}>{opt}</option>)}
               </select>
             </label>
           ))}
@@ -362,7 +391,7 @@ export default function ExecutionPage() {
                   setCurrentPage(1);
                 }
               }}
-              placeholder="사업명, 영업대표, PM 검색"
+              placeholder="사업명, 고객사, 영업대표, PM, 제안/수행팀 검색"
               style={{ fontSize: 14 }}
             />
           </label>
@@ -382,7 +411,6 @@ export default function ExecutionPage() {
               className="pmo-btn"
               onClick={() => {
                 const reset: ExecutionFilterState = {
-                  team: "전체",
                   businessType: "전체",
                   status: "전체",
                   proposalPm: "전체",

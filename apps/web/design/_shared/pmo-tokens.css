@@ -61,8 +61,8 @@
   /* ----- Status SEMANTIC tokens — 8 표준 상태 코드 ----- */
   /* 제안중=slate, 발표완료=blue, WIN=emerald, LOSS=rose,
      DROP=zinc, 수행중=indigo, 업무지원=amber, 완료=gray */
-  --st-proposing-fg: var(--neutral);   --st-proposing-bg: var(--neutral-bg);
-  --st-presented-fg: #1d4ed8;          --st-presented-bg: var(--info-bg);
+  --st-proposing-fg: #1d4ed8;          --st-proposing-bg: var(--info-bg);
+  --st-presented-fg: var(--neutral);   --st-presented-bg: var(--neutral-bg);
   --st-win-fg:       #047857;          --st-win-bg:       var(--ok-bg);
   --st-loss-fg:      var(--crit);      --st-loss-bg:      var(--crit-bg);
   --st-drop-fg:      var(--zinc);      --st-drop-bg:      var(--zinc-bg);

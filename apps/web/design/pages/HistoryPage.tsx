@@ -122,7 +122,7 @@ function PeriodPicker({ value, from, to, onChange }: { value: PeriodPreset; from
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
-  return <div ref={ref} style={{ position: "relative" }}><button onClick={() => setOpen((o) => !o)} style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 40, width: "100%", padding: "0 14px", background: "var(--bg-1)", border: "1px solid var(--line-2)", borderRadius: "var(--r-md)", fontSize: 14, color: "var(--tx-1)", fontWeight: 600 }}><span style={{ flex: 1, textAlign: "left" }}>{currentLabel} ({from} ~ {to})</span><Icon name="calendar" size={15} stroke={1.8} style={{ color: "var(--tx-4)" }} /></button>{open ? <div style={{ position: "absolute", top: 44, right: 0, zIndex: 40, minWidth: 200, padding: 6, background: "var(--bg-1)", border: "1px solid var(--line-2)", borderRadius: 10, boxShadow: "var(--sh-pop)", display: "flex", flexDirection: "column", gap: 2 }}>{PRESETS.map((preset) => <button key={preset.value} onClick={() => { onChange(preset.value); setOpen(false); }} style={{ height: 34, padding: "0 12px", textAlign: "left", border: 0, borderRadius: 6, background: value === preset.value ? "var(--brand-bg)" : "transparent", color: value === preset.value ? "var(--brand-700)" : "var(--tx-2)", fontSize: 13, fontWeight: value === preset.value ? 700 : 500 }}>{preset.label}</button>)}</div> : null}</div>;
+  return <div ref={ref} style={{ position: "relative" }}><button onClick={() => setOpen((o) => !o)} style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 40, width: "100%", padding: "0 14px", background: "var(--bg-1)", border: "1px solid var(--line-2)", borderRadius: "var(--r-md)", fontSize: 14, color: "var(--tx-1)", fontWeight: 600 }}><span style={{ flex: 1, textAlign: "left" }}>{value === "all" ? currentLabel : `${currentLabel} (${from} ~ ${to})`}</span><Icon name="calendar" size={15} stroke={1.8} style={{ color: "var(--tx-4)" }} /></button>{open ? <div style={{ position: "absolute", top: 44, right: 0, zIndex: 40, minWidth: 200, padding: 6, background: "var(--bg-1)", border: "1px solid var(--line-2)", borderRadius: 10, boxShadow: "var(--sh-pop)", display: "flex", flexDirection: "column", gap: 2 }}>{PRESETS.map((preset) => <button key={preset.value} onClick={() => { onChange(preset.value); setOpen(false); }} style={{ height: 34, padding: "0 12px", textAlign: "left", border: 0, borderRadius: 6, background: value === preset.value ? "var(--brand-bg)" : "transparent", color: value === preset.value ? "var(--brand-700)" : "var(--tx-2)", fontSize: 13, fontWeight: value === preset.value ? 700 : 500 }}>{preset.label}</button>)}</div> : null}</div>;
 }
 
 function HistoryFilter({ filters, projectOptions, form, periodBaseDate, onChange, onSearch, onReset, onCreate }: { filters: any; projectOptions: Array<{ value: string; label: string }>; form: HistoryFilterState; periodBaseDate: Date; onChange: (next: Partial<HistoryFilterState>) => void; onSearch: () => void; onReset: () => void; onCreate: () => void }) {
@@ -131,9 +131,9 @@ function HistoryFilter({ filters, projectOptions, form, periodBaseDate, onChange
     <div style={{ display: "grid", gridTemplateColumns: "repeat(12, minmax(0, 1fr))", gap: 12, alignItems: "end" }}>
       <div style={{ gridColumn: "span 3", minWidth: 0 }}><FieldLabel>프로젝트</FieldLabel><Select value={form.project} onChange={(value) => onChange({ project: value })} w="100%">{projectOptions.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}</Select></div>
       <div style={{ gridColumn: "span 3", minWidth: 0 }}><FieldLabel>이력 유형</FieldLabel><Select value={form.category} onChange={(value) => onChange({ category: value })} w="100%">{filters.categories.map((c: string) => <option key={c} value={c}>{c}</option>)}</Select></div>
-      <div style={{ gridColumn: "span 3", minWidth: 0 }}><FieldLabel>작성자</FieldLabel><Select value={form.author} onChange={(value) => onChange({ author: value })} w="100%">{filters.authors.map((a: string) => <option key={a} value={a}>{a}</option>)}</Select></div>
+      <div style={{ gridColumn: "span 3", minWidth: 0 }}><FieldLabel>작성자/변경자</FieldLabel><Select value={form.author} onChange={(value) => onChange({ author: value })} w="100%">{filters.authors.map((a: string) => <option key={a} value={a}>{a}</option>)}</Select></div>
       <div style={{ gridColumn: "span 3", minWidth: 0 }}><FieldLabel>기간</FieldLabel><PeriodPicker value={form.periodPreset} from={form.from} to={form.to} onChange={(preset) => { const range = getPeriodRange(preset, periodBaseDate); onChange({ periodPreset: preset, from: range.from, to: range.to }); }} /></div>
-      <div style={{ gridColumn: "span 8", minWidth: 0 }}><FieldLabel>검색어</FieldLabel><div style={{ display: "flex", alignItems: "center", gap: 10, height: 40, padding: "0 12px", background: "var(--bg-1)", border: "1px solid var(--line-2)", borderRadius: "var(--r-md)", color: "var(--tx-5)" }}><Icon name="search" size={15} stroke={1.8} /><input value={form.query} onChange={(e) => onChange({ query: e.target.value })} placeholder="사업명, 작성자/변경자 검색" style={{ border: 0, outline: "none", background: "transparent", font: "inherit", width: "100%", color: "var(--tx-1)", fontSize: 14 }} /></div></div>
+      <div style={{ gridColumn: "span 8", minWidth: 0 }}><FieldLabel>검색어</FieldLabel><div style={{ display: "flex", alignItems: "center", gap: 10, height: 40, padding: "0 12px", background: "var(--bg-1)", border: "1px solid var(--line-2)", borderRadius: "var(--r-md)", color: "var(--tx-5)" }}><Icon name="search" size={15} stroke={1.8} /><input value={form.query} onChange={(e) => onChange({ query: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onSearch(); } }} placeholder="사업명, 작성자/변경자 검색" style={{ border: 0, outline: "none", background: "transparent", font: "inherit", width: "100%", color: "var(--tx-1)", fontSize: 14 }} /></div></div>
       <div style={{ gridColumn: "span 4", display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 8, alignItems: "center", paddingBottom: 1 }}><button onClick={onSearch} className="pmo-btn pmo-btn-primary" style={{ height: 40, minWidth: 86, padding: "0 18px", fontSize: 14, fontWeight: 700, background: "var(--brand)", borderColor: "var(--brand)", color: "#fff", display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="search" size={14} stroke={2} />조회</button><button onClick={onReset} className="pmo-btn" style={{ height: 40, minWidth: 72, padding: "0 18px", fontSize: 14, fontWeight: 600 }}>초기화</button><button onClick={onCreate} className="pmo-btn pmo-btn-primary" style={{ height: 40, minWidth: 138, padding: "0 14px", whiteSpace: "nowrap", background: "var(--brand)", borderColor: "var(--brand)", color: "#fff" }}><Icon name="plus" size={14} stroke={2} style={{ marginRight: 4 }} />진행 이력 등록</button></div>
     </div>
   </section>;
@@ -142,7 +142,7 @@ function HistoryFilter({ filters, projectOptions, form, periodBaseDate, onChange
 const TONE_BG: Record<string, { fg: string; bg: string }> = { blue: { fg: "#2563eb", bg: "#e3eefe" }, green: { fg: "#16a34a", bg: "#dcf2e3" }, purple: { fg: "#7c3aed", bg: "#ede5fd" }, amber: { fg: "#b45309", bg: "#fef4e1" } };
 function BigToneIcon({ tone, children }: { tone: string; children: ReactNode }) {
   const t = TONE_BG[tone] ?? TONE_BG.blue;
-  return <span style={{ width: 48, height: 48, borderRadius: 12, background: t.bg, color: t.fg, display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>{children}</span>;
+  return <span style={{ width: 56, height: 56, borderRadius: 14, background: t.bg, color: t.fg, display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>{children}</span>;
 }
 const exchangeSvg = <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M4 7h13l-3-3" /><path d="M20 17H7l3 3" /></svg>;
 const reportSvg = <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M5 4h14a1 1 0 0 1 1 1v15a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z" /><path d="M8 9h6M8 13h8M8 17h5" /></svg>;
@@ -151,24 +151,74 @@ const briefcaseSvg = <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
 const ICON_MAP: Record<string, ReactNode> = { report: reportSvg, calendar: calSvg, exchange: exchangeSvg, briefcase: briefcaseSvg };
 
 function HistoryKPICard({ kpi, active, onClick }: { kpi: any; active: boolean; onClick: () => void }) {
-  return <button onClick={onClick} className="pmo-panel" style={{ padding: "20px 22px", display: "flex", alignItems: "center", gap: 16, minHeight: 108, cursor: "pointer", textAlign: "left", border: active ? "1px solid var(--brand-line)" : "1px solid var(--line-2)", background: active ? "var(--brand-bg)" : "var(--bg-1)" }}><BigToneIcon tone={kpi.tone}>{ICON_MAP[kpi.icon]}</BigToneIcon><div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0, flex: 1 }}><span style={{ fontSize: 14, color: "var(--tx-4)", fontWeight: 500 }}>{kpi.label}</span><span style={{ fontSize: 28, lineHeight: 1.1, fontWeight: 800, color: "var(--tx-1)" }}>{kpi.value.toLocaleString()}<span style={{ fontSize: 14, fontWeight: 600, color: "var(--tx-3)", marginLeft: 6 }}>{kpi.unit}</span></span><span style={{ fontSize: 12.5, color: "var(--tx-5)", marginTop: 4 }}>{kpi.footer}</span></div></button>;
+  const footerItems = (kpi.footer ?? "")
+    .split("·")
+    .map((chunk: string) => chunk.trim())
+    .filter(Boolean)
+    .map((chunk: string) => {
+      const match = chunk.match(/^(.*?)(\d+)$/);
+      if (!match) return { label: chunk, value: "" };
+      return { label: match[1].trim(), value: match[2] };
+    });
+
+  return <button
+    onClick={onClick}
+    className="pmo-panel"
+    style={{
+      textAlign: "left",
+      padding: "20px 22px",
+      display: "flex",
+      flexDirection: "column",
+      gap: 12,
+      minHeight: 136,
+      cursor: "pointer",
+      border: active ? "1px solid var(--brand-line)" : "1px solid var(--line-2)",
+      background: active ? "var(--brand-bg)" : "var(--bg-1)",
+      boxShadow: active ? "var(--sh-card), 0 0 0 1px var(--brand-line)" : "var(--sh-card)"
+    }}
+  >
+    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+      <BigToneIcon tone={kpi.tone}>{ICON_MAP[kpi.icon]}</BigToneIcon>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
+        <span style={{ fontSize: 15, color: "var(--tx-3)", fontWeight: 600 }}>{kpi.label}</span>
+        <span style={{ fontSize: 42, lineHeight: 0.9, fontWeight: 700, color: "var(--tx-1)" }}>
+          {kpi.value.toLocaleString()}
+          <span style={{ fontSize: 18, color: "var(--tx-4)", marginLeft: 6 }}>{kpi.unit}</span>
+        </span>
+      </div>
+    </div>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 2 }}>
+      {footerItems.map((entry: any, idx: number) => (
+        <span key={`${entry.label}-${idx}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 999, background: "var(--bg-3)", border: "1px solid var(--line-2)", fontSize: 13, color: "var(--tx-3)", fontWeight: 600 }}>
+          <span>{entry.label}</span>
+          {entry.value !== "" ? <strong style={{ color: "var(--tx-1)", fontWeight: 800 }}>{entry.value}</strong> : null}
+        </span>
+      ))}
+    </div>
+  </button>;
 }
 function SummaryRow({ items, activeId, onToggle }: { items: any[]; activeId: string | null; onToggle: (id: string) => void }) {
   return <section style={{ marginBottom: 16 }}><div style={{ display: "grid", gridTemplateColumns: `repeat(${items.length}, 1fr)`, gap: 12 }}>{items.map((k) => <HistoryKPICard key={k.id} kpi={k} active={activeId === k.id} onClick={() => onToggle(k.id)} />)}</div></section>;
 }
 
 function Pagination({ totalCount, page, pageSize, totalPages, onPageChange, onPageSizeChange }: { totalCount: number; page: number; pageSize: number; totalPages: number; onPageChange: (page: number) => void; onPageSizeChange: (size: number) => void }) {
-  const blockStart = Math.floor((page - 1) / 5) * 5 + 1;
-  const shown = Array.from({ length: Math.min(5, totalPages - blockStart + 1) }, (_, i) => blockStart + i);
+  const maxVisible = 5;
+  const half = Math.floor(maxVisible / 2);
+  let start = Math.max(1, page - half);
+  let end = Math.min(totalPages, start + maxVisible - 1);
+  start = Math.max(1, end - maxVisible + 1);
+  const shown = Array.from({ length: end - start + 1 }, (_, i) => start + i);
   return <footer style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 12px", marginTop: 4, borderTop: "1px solid var(--line-2)" }}>
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flex: 1 }}>
       <button className="pmo-btn" style={{ height: 32, padding: "0 10px" }} onClick={() => onPageChange(1)} disabled={page === 1}>«</button>
       <button className="pmo-btn" style={{ height: 32, padding: "0 10px" }} onClick={() => onPageChange(Math.max(1, page - 1))} disabled={page === 1}>‹</button>
+      {shown[0] > 1 ? <span style={{ color: "var(--tx-4)", padding: "0 2px" }}>…</span> : null}
       {shown.map((p) => (
         <button key={p} className="pmo-btn" style={{ height: 32, minWidth: 34, padding: "0 8px", justifyContent: "center", textAlign: "center", background: p === page ? "var(--brand)" : "#fff", color: p === page ? "#fff" : "var(--tx-2)", borderColor: p === page ? "var(--brand)" : "var(--line-2)" }} onClick={() => onPageChange(p)}>
           {p}
         </button>
       ))}
+      {shown[shown.length - 1] < totalPages ? <span style={{ color: "var(--tx-4)", padding: "0 2px" }}>…</span> : null}
       <button className="pmo-btn" style={{ height: 32, padding: "0 10px" }} onClick={() => onPageChange(Math.min(totalPages, page + 1))} disabled={page === totalPages}>›</button>
       <button className="pmo-btn" style={{ height: 32, padding: "0 10px" }} onClick={() => onPageChange(totalPages)} disabled={page === totalPages}>»</button>
     </div>
@@ -201,7 +251,7 @@ function EditLogButton({ row, onEdit }: { row: any; onEdit: (row: any) => void }
 function LogsTable({ rows, totalCount, summaryFilterLabel, onEdit, page, pageSize, totalPages, onPageChange, onPageSizeChange }: { rows: any[]; totalCount: number; summaryFilterLabel: string | null; onEdit: (row: any) => void; page: number; pageSize: number; totalPages: number; onPageChange: (page: number) => void; onPageSizeChange: (size: number) => void }) {
   return <section className="pmo-panel" style={{ padding: "20px 22px 14px", display: "flex", flexDirection: "column" }}>
     <header style={{ display: "flex", alignItems: "baseline", gap: 14, marginBottom: 14 }}><h2 className="pmo-section-title" style={{ margin: 0, fontSize: 18 }}>진행이력 목록</h2><span style={{ fontSize: 14, color: "var(--tx-4)", fontWeight: 600 }}>총 {totalCount.toLocaleString()}건</span><span style={{ marginLeft: "auto", fontSize: 14, color: "var(--tx-4)", fontWeight: 600 }}>검색결과 {totalCount.toLocaleString()}건{summaryFilterLabel ? <span style={{ marginLeft: 8, color: "var(--brand)", fontWeight: 700 }}>{summaryFilterLabel}</span> : null}</span></header>
-    <div style={{ overflowX: "auto", marginLeft: -22, marginRight: -22 }}><table className="pmo-table pmo-table--recent"><colgroup><col style={{ width: 208 }} /><col style={{ width: 380 }} /><col style={{ width: 600 }} /><col style={{ width: 140 }} /><col style={{ width: 92 }} /><col style={{ width: 110 }} /></colgroup><thead><tr><th>일시</th><th>사업명</th><th>내용</th><th>작성자/변경자</th><th>상태</th><th style={{ textAlign: "center" }}>프로젝트 상세</th></tr></thead><tbody>{rows.map((r) => { const authorWithRole = r.authorTeam && r.authorTeam !== "-" ? `${r.author} ${r.authorTeam}` : r.author; return <tr key={r.id}><td className="num" style={{ color: "var(--tx-2)", fontWeight: 600, fontSize: 14, whiteSpace: "nowrap" }}><div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><EditLogButton row={r} onEdit={onEdit} /><span style={{ color: "var(--tx-2)", fontWeight: 600, fontSize: 14, lineHeight: 1.6 }}>{r.datetime}</span></div></td><td style={{ color: "var(--tx-2)", fontWeight: 600, fontSize: 14, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.6 }}>{r.projectName}</td><td style={{ color: "var(--tx-2)", whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.6, fontWeight: 600, fontSize: 14 }}>{r.summary}</td><td style={{ color: "var(--tx-2)", fontWeight: 600, fontSize: 14, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.6 }}>{authorWithRole}</td><td><CategoryChip name={r.category} /></td><td style={{ textAlign: "center" }}><ProjectDetailButton row={r} /></td></tr>; })}</tbody></table></div>
+    <div style={{ overflowX: "auto", marginLeft: -22, marginRight: -22 }}><table className="pmo-table pmo-table--recent"><colgroup><col style={{ width: 208 }} /><col style={{ width: 380 }} /><col style={{ width: 600 }} /><col style={{ width: 140 }} /><col style={{ width: 92 }} /><col style={{ width: 110 }} /></colgroup><thead><tr><th>일시</th><th>사업명</th><th>내용</th><th>작성자/변경자</th><th>상태</th><th style={{ textAlign: "center" }}>프로젝트 상세</th></tr></thead><tbody>{rows.map((r) => { const slashIdx = String(r.author ?? "").indexOf("/"); const isSplit = slashIdx > -1; const authorHead = isSplit ? String(r.author).slice(0, slashIdx) : String(r.author ?? ""); const authorTail = isSplit ? String(r.author).slice(slashIdx + 1) : ""; return <tr key={r.id}><td className="num" style={{ color: "var(--tx-2)", fontWeight: 600, fontSize: 14, whiteSpace: "nowrap" }}><div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><EditLogButton row={r} onEdit={onEdit} /><span style={{ color: "var(--tx-2)", fontWeight: 600, fontSize: 14, lineHeight: 1.6 }}>{r.datetime}</span></div></td><td style={{ color: "var(--tx-2)", fontWeight: 600, fontSize: 14, whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.6 }}>{r.projectName}</td><td style={{ color: "var(--tx-2)", whiteSpace: "pre-wrap", wordBreak: "break-word", lineHeight: 1.6, fontWeight: 600, fontSize: 14 }}>{r.summary}</td><td style={{ color: "var(--tx-2)", fontWeight: 600, fontSize: 14, whiteSpace: "normal", wordBreak: "keep-all", lineHeight: 1.6 }}>{isSplit ? <><span>{authorHead}/</span><br /><span>{authorTail}</span></> : <span>{authorHead}</span>}</td><td><CategoryChip name={r.category} /></td><td style={{ textAlign: "center" }}><ProjectDetailButton row={r} /></td></tr>; })}</tbody></table></div>
     <Pagination totalCount={totalCount} page={page} pageSize={pageSize} totalPages={totalPages} onPageChange={onPageChange} onPageSizeChange={onPageSizeChange} />
   </section>;
 }
@@ -293,19 +343,26 @@ export default function HistoryPage() {
       log_status: filter.category === "전체" ? undefined : (filter.category === "완료" ? "done" : filter.category === "진행" ? "in_progress" : "memo"),
       q: filter.query.trim() || undefined
     });
-    const mapped = (apiResult.data ?? []).map((row: any) => ({
-      id: row.id,
-      projectId: row.project_id,
-      projectCode: row.project_code ?? "-",
-      projectName: row.project_name ?? "-",
-      author: row.updated_by_name ?? row.author_name ?? "-",
-      authorInitials: "",
-      authorTeam: "",
-      summary: row.content ?? "",
-      category: mapLogStatusToCategory(row.log_status),
-      logStatus: row.log_status,
-      datetime: formatLogDatetime(row.logged_at)
-    }));
+    const mapped = (apiResult.data ?? []).map((row: any) => {
+      const authorName = String(row.author_name ?? "").trim();
+      const updatedByName = String(row.updated_by_name ?? "").trim();
+      const authorDisplay = authorName && updatedByName
+        ? (authorName === updatedByName ? authorName : `${authorName}/${updatedByName}`)
+        : (authorName || updatedByName || "-");
+      return {
+        id: row.id,
+        projectId: row.project_id,
+        projectCode: row.project_code ?? "-",
+        projectName: row.project_name ?? "-",
+        author: authorDisplay,
+        authorInitials: "",
+        authorTeam: "",
+        summary: row.content ?? "",
+        category: mapLogStatusToCategory(row.log_status),
+        logStatus: row.log_status,
+        datetime: formatLogDatetime(row.logged_at)
+      };
+    });
     const clientFiltered = mapped.filter((row: any) => {
       if (filter.author !== "전체" && row.author !== filter.author) return false;
       const day = String(row.datetime ?? "").slice(0, 10);
@@ -364,7 +421,26 @@ export default function HistoryPage() {
     const start = (safePage - 1) * pageSize;
     return filteredRows.slice(start, start + pageSize);
   }, [filteredRows, safePage, pageSize]);
-  const summaryFilterLabel = activeSummary ? (data.summary.find((item: any) => item.id === activeSummary)?.label ?? null) : null;
+  const summaryFilterLabel = useMemo(() => {
+    const labels: string[] = [];
+    if (activeSummary) {
+      const kpiLabel = data?.summary?.find((item: any) => item.id === activeSummary)?.label;
+      if (kpiLabel) labels.push(kpiLabel);
+    }
+    if (appliedFilter) {
+      if (appliedFilter.project !== "all") {
+        const projectLabel = projectFilterOptions.find((option) => option.value === appliedFilter.project)?.label ?? appliedFilter.project;
+        labels.push(`프로젝트: ${projectLabel}`);
+      }
+      if (appliedFilter.category !== "전체") labels.push(`이력유형: ${appliedFilter.category}`);
+      if (appliedFilter.author !== "전체") labels.push(`작성자: ${appliedFilter.author}`);
+      if (appliedFilter.periodPreset !== "all") {
+        labels.push(`기간: ${appliedFilter.from} ~ ${appliedFilter.to}`);
+      }
+      if (appliedFilter.query.trim()) labels.push(`검색어: ${appliedFilter.query.trim()}`);
+    }
+    return labels.length ? labels.join(" · ") : null;
+  }, [activeSummary, appliedFilter, data?.summary, projectFilterOptions]);
   const openEdit = (row: any) => {
     setEditingRow(row);
     setEditForm({ content: row.summary ?? "", logStatus: (row.logStatus ?? "memo") as "memo" | "in_progress" | "done" });

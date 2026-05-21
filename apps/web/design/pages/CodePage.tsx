@@ -1132,7 +1132,7 @@ function CodePageImpl() {
                 <th style={{ textAlign: "center", width: 220 }}>제안/수행팀</th>
                 <th style={{ textAlign: "center", width: 108 }}>사업 시작일</th>
                 <th style={{ textAlign: "center", width: 108 }}>사업 종료일</th>
-                <th style={{ textAlign: "center", width: 124 }}>제안 제출일</th>
+                <th style={{ textAlign: "center", width: 124 }}>제안서 제출일</th>
                 <th style={{ textAlign: "center", width: 96 }}>제출 형식</th>
                 <th style={{ textAlign: "center", width: 132 }}>제출 유의사항</th>
                 <th style={{ textAlign: "center", width: 124 }}>제안 발표일</th>

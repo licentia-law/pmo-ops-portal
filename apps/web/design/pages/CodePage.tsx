@@ -1,10 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { createProject, createProjectCode, getP1Screen, updateProject, updateProjectCode } from "../../app/lib/api";
 import { PmoShell } from "../components/PmoShell";
+import { CommonPeriodPicker } from "../components/CommonPeriodPicker";
+import { SUBMISSION_FORMAT_OPTIONS } from "../constants/projectFormOptions";
 import ProjectMasterEditModal from "../components/ProjectMasterEditModal";
+import LightweightLoading from "../components/LightweightLoading";
+import { downloadProjectWorkbook } from "./projectWorkbookExport";
 
 type IconName =
   | "home"
@@ -26,6 +30,7 @@ type IconName =
   | "arrowDown"
   | "play"
   | "checkCircle"
+  | "calendar"
   | "plus";
 
 const ICONS: Record<IconName, string> = {
@@ -48,6 +53,7 @@ const ICONS: Record<IconName, string> = {
   arrowDown: "M12 4v14M6 12l6 6 6-6",
   play: "M7 4l13 8-13 8z",
   checkCircle: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM8 12.5l2.5 2.5L16 9.5",
+  calendar: "M5 6h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zM4 10h16M8 4v3M16 4v3",
   plus: "M12 5v14M5 12h14"
 };
 
@@ -346,6 +352,9 @@ type CodeFilterState = {
   owner: string;
   leadPm: string;
   use: string;
+  periodPreset: "all" | "recent3m" | "thisMonth" | "lastMonth" | "thisYear" | "custom";
+  from: string;
+  to: string;
   query: string;
 };
 
@@ -355,8 +364,60 @@ const DEFAULT_CODE_FILTER: CodeFilterState = {
   owner: "전체",
   leadPm: "전체",
   use: "전체",
+  periodPreset: "all",
+  from: "",
+  to: "",
   query: "",
 };
+
+function fmtDate(date: Date) {
+  const y = date.getFullYear();
+  const m = `${date.getMonth() + 1}`.padStart(2, "0");
+  const d = `${date.getDate()}`.padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function getPeriodRange(preset: CodeFilterState["periodPreset"], baseDate?: Date) {
+  const today = baseDate ?? new Date();
+  if (preset === "all") return { from: "", to: "", label: "전체" };
+  if (preset === "custom") return { from: "", to: "", label: "직접 선택" };
+  if (preset === "thisMonth") return { from: fmtDate(new Date(today.getFullYear(), today.getMonth(), 1)), to: fmtDate(today), label: "이번달" };
+  if (preset === "lastMonth") {
+    const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+    const end = new Date(today.getFullYear(), today.getMonth(), 0);
+    return { from: fmtDate(start), to: fmtDate(end), label: "지난달" };
+  }
+  if (preset === "thisYear") return { from: `${today.getFullYear()}-01-01`, to: fmtDate(today), label: "올해" };
+  const from = new Date(today);
+  from.setMonth(from.getMonth() - 3);
+  return { from: fmtDate(from), to: fmtDate(today), label: "최근 3개월" };
+}
+
+function PeriodPicker({
+  value,
+  from,
+  to,
+  onChange,
+  onRangeChange,
+}: {
+  value: CodeFilterState["periodPreset"];
+  from: string;
+  to: string;
+  onChange: (value: CodeFilterState["periodPreset"]) => void;
+  onRangeChange: (next: { from?: string; to?: string }) => void;
+}) {
+  return (
+    <CommonPeriodPicker
+      value={value}
+      from={from}
+      to={to}
+      onChange={(next) => onChange(next as CodeFilterState["periodPreset"])}
+      onRangeChange={onRangeChange}
+      icon={<Icon name="calendar" size={14} stroke={1.8} />}
+      zIndex={40}
+    />
+  );
+}
 
 function parseAmountText(amountText: string): { totalAmount: string; companyAmount: string } {
   const raw = String(amountText ?? "").trim();
@@ -479,15 +540,20 @@ const GROUP_TITLE_STYLE: CSSProperties = {
 
 const MEMO_MAX_LENGTH = 50;
 
-function CodePageImpl() {
+type CodePageImplProps = {
+  initialCreate?: boolean;
+  initialEditCode?: string | null;
+};
+
+function CodePageImpl({ initialCreate = false, initialEditCode = null }: CodePageImplProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
   const openedByQueryRef = useRef(false);
   const openedEditByQueryRef = useRef(false);
   const [data, setData] = useState<any | null>(null);
   const [filterForm, setFilterForm] = useState<CodeFilterState>(DEFAULT_CODE_FILTER);
   const [appliedFilter, setAppliedFilter] = useState<CodeFilterState>(DEFAULT_CODE_FILTER);
+  const periodBaseDate = useMemo(() => new Date(), []);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [editingRow, setEditingRow] = useState<any | null>(null);
@@ -496,6 +562,7 @@ function CodePageImpl() {
   const [modalMode, setModalMode] = useState<ModalMode>("edit");
   const [editForm, setEditForm] = useState<EditForm | null>(null);
   const [saving, setSaving] = useState(false);
+  const [downloadHover, setDownloadHover] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [memoLengthError, setMemoLengthError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -566,6 +633,9 @@ function CodePageImpl() {
         if (appliedFilter.owner !== "전체" && r.salesOwner !== appliedFilter.owner) return false;
         if (appliedFilter.leadPm !== "전체" && r.proposalPm !== appliedFilter.leadPm) return false;
         if (appliedFilter.use !== "전체" && r.useStatus !== appliedFilter.use) return false;
+        const startDate = String(r.fromDate ?? "").trim();
+        if (appliedFilter.from && startDate && startDate !== "-" && startDate < appliedFilter.from) return false;
+        if (appliedFilter.to && startDate && startDate !== "-" && startDate > appliedFilter.to) return false;
         if (appliedFilter.query.trim()) {
           const q = appliedFilter.query.trim().toLowerCase();
           const haystacks = [
@@ -603,11 +673,11 @@ function CodePageImpl() {
   useEffect(() => {
     if (!data) return;
     if (openedByQueryRef.current) return;
-    if (searchParams.get("create") !== "1") return;
+    if (!initialCreate) return;
     setCreatingShared(true);
     openedByQueryRef.current = true;
     router.replace(pathname, { scroll: false });
-  }, [data, pathname, router, searchParams]);
+  }, [data, initialCreate, pathname, router]);
 
   const errorInputStyle = (key: keyof EditForm): CSSProperties => (
     fieldErrors[key]
@@ -774,14 +844,14 @@ function CodePageImpl() {
   useEffect(() => {
     if (!data) return;
     if (openedEditByQueryRef.current) return;
-    const editCode = searchParams.get("editCode");
+    const editCode = initialEditCode;
     if (!editCode) return;
     const found = (data.rows ?? []).find((row: any) => String(row.code ?? "") === editCode);
     if (!found) return;
     setEditingSharedRow(found);
     openedEditByQueryRef.current = true;
     router.replace(pathname, { scroll: false });
-  }, [data, pathname, router, searchParams]);
+  }, [data, initialEditCode, pathname, router]);
 
   const closeEdit = () => {
     if (saving) return;
@@ -981,6 +1051,37 @@ function CodePageImpl() {
     setPage(1);
   };
 
+  const downloadCodeWorkbook = async () => {
+    const normalizedRows = filteredRows.map((row: any) => ({
+      code: row.code ?? "-",
+      name: row.name ?? "-",
+      clientName: row.clientName ?? "-",
+      projectType: resolveBusinessType(row),
+      certainty: row.certainty ?? "-",
+      amountText: row.amountText ?? "-",
+      bidNoticeNo: row.bidNoticeNo ?? "-",
+      bidNoticeDate: row.bidNoticeDate ?? "-",
+      statusLabel: STATUS_LABEL[row.status] ?? row.status ?? "-",
+      salesDept: row.salesDept ?? "-",
+      salesOwner: row.salesOwner ?? "-",
+      proposalPm: row.proposalPm ?? "-",
+      presentPm: row.presentPm ?? "-",
+      deliveryPm: row.deliveryPm ?? "-",
+      proposalDeliveryTeam: row.proposalDeliveryTeam ?? "-",
+      fromDate: row.fromDate ?? "-",
+      toDate: row.toDate ?? "-",
+      proposalSubmissionAt: row.proposalSubmissionAt ?? "-",
+      submissionFormat: row.submissionFormat ?? "-",
+      submissionNote: row.submissionNote ?? "-",
+      proposalPresentationAt: row.proposalPresentationAt ?? "-",
+      presentationFormat: row.presentationFormat ?? "-",
+      presentationNote: row.presentationNote ?? "-",
+      recentActivityAt: row.recentActivityAt ?? "-",
+      useStatus: row.useStatus ?? "-",
+    }));
+    await downloadProjectWorkbook(normalizedRows, "프로젝트관리", "프로젝트관리");
+  };
+
   const summaryFilterLabel = useMemo(() => {
     const labels: string[] = [];
     if (appliedFilter.status !== "all") {
@@ -991,34 +1092,55 @@ function CodePageImpl() {
     if (appliedFilter.owner !== "전체") labels.push(`영업대표: ${appliedFilter.owner}`);
     if (appliedFilter.leadPm !== "전체") labels.push(`제안PM: ${appliedFilter.leadPm}`);
     if (appliedFilter.use !== "전체") labels.push(`사용여부: ${appliedFilter.use}`);
+    if (appliedFilter.periodPreset !== "all" && (appliedFilter.from || appliedFilter.to)) labels.push(`기간: ${appliedFilter.from} ~ ${appliedFilter.to}`);
     if (appliedFilter.query.trim()) labels.push(`검색어: ${appliedFilter.query.trim()}`);
     return labels.length ? labels.join(" · ") : null;
   }, [appliedFilter, data?.summary]);
-  if (!data) return null;
+  if (!data) return <LightweightLoading label="프로젝트 관리" />;
 
   return (
     <PmoShell user={data.meta.user} notifications={data.meta.notifications} currentId="project-codes" pageTitle="프로젝트 관리">
       <section className="pmo-panel" style={{ padding: 18, marginBottom: 16 }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "flex-end" }}>
-          <label className="pmo-field" style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12, alignItems: "end" }}>
+          <label className="pmo-field" style={{ minWidth: 0 }}>
             <span style={{ fontSize: 14 }}>영업대표</span>
             <select style={SELECT_STYLE} value={filterForm.owner} onChange={(e) => setFilterForm((prev) => ({ ...prev, owner: e.target.value }))}>
               {owners.map((owner: string) => <option key={owner} value={owner}>{owner}</option>)}
             </select>
           </label>
-          <label className="pmo-field" style={{ minWidth: 0, flex: 1 }}>
+          <label className="pmo-field" style={{ minWidth: 0 }}>
             <span style={{ fontSize: 14 }}>제안PM</span>
             <select style={SELECT_STYLE} value={filterForm.leadPm} onChange={(e) => setFilterForm((prev) => ({ ...prev, leadPm: e.target.value }))}>
               {leadPms.map((pm: string) => <option key={pm} value={pm}>{pm}</option>)}
             </select>
           </label>
-          <label className="pmo-field" style={{ minWidth: 0, flex: 1 }}>
+          <label className="pmo-field" style={{ minWidth: 0 }}>
             <span style={{ fontSize: 14 }}>사용여부</span>
             <select style={SELECT_STYLE} value={filterForm.use} onChange={(e) => setFilterForm((prev) => ({ ...prev, use: e.target.value }))}>
               {["전체", "사용", "미사용"].map((v) => <option key={v} value={v}>{v}</option>)}
             </select>
           </label>
-          <label className="pmo-field" style={{ minWidth: 0, width: 320, flex: "0 0 320px" }}>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(240px, 320px) minmax(320px, 1fr) auto", gap: 12, alignItems: "end", marginTop: 12 }}>
+          <label className="pmo-field">
+            <span style={{ fontSize: 14 }}>기간</span>
+            <PeriodPicker
+              value={filterForm.periodPreset}
+              from={filterForm.from}
+              to={filterForm.to}
+              onChange={(preset) => {
+                setFilterForm((prev) => {
+                  if (preset === "custom") return { ...prev, periodPreset: preset };
+                  const range = getPeriodRange(preset, periodBaseDate);
+                  return { ...prev, periodPreset: preset, from: range.from, to: range.to };
+                });
+              }}
+              onRangeChange={(next) => {
+                setFilterForm((prev) => ({ ...prev, from: next.from ?? prev.from, to: next.to ?? prev.to }));
+              }}
+            />
+          </label>
+          <label className="pmo-field">
             <span style={{ fontSize: 14 }}>검색어</span>
             <div style={{ display: "flex", alignItems: "center", gap: 8, height: 40, padding: "0 12px", border: "1px solid var(--line-2)", borderRadius: 8, background: "#fff" }}>
               <Icon name="search" size={15} stroke={1.8} style={{ color: "var(--tx-5)" }} />
@@ -1036,7 +1158,7 @@ function CodePageImpl() {
               />
             </div>
           </label>
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", alignSelf: "end" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", whiteSpace: "nowrap" }}>
             <button className="pmo-btn pmo-btn-primary" style={{ height: 40, minWidth: 86, padding: "0 18px", fontSize: 14, fontWeight: 700, background: "var(--brand)", borderColor: "var(--brand)", color: "#fff", display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", justifyContent: "center" }} onClick={applyFilters}>
               <Icon name="search" size={14} stroke={2} />
               조회
@@ -1044,11 +1166,11 @@ function CodePageImpl() {
             <button className="pmo-btn" style={{ height: 40, minWidth: 72, padding: "0 18px", fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", justifyContent: "center" }} onClick={resetFilters}>
               초기화
             </button>
+            <button className="pmo-btn pmo-btn-primary" style={{ height: 40, minWidth: 170, padding: "0 14px", whiteSpace: "nowrap", justifyContent: "center", alignSelf: "end", background: "var(--brand)", borderColor: "var(--brand)", color: "#fff" }} onClick={() => setCreatingShared(true)}>
+              <Icon name="plus" size={14} stroke={2} style={{ marginRight: 4 }} />
+              신규 프로젝트 등록
+            </button>
           </div>
-          <button className="pmo-btn pmo-btn-primary" style={{ height: 40, minWidth: 170, padding: "0 14px", whiteSpace: "nowrap", justifyContent: "center", alignSelf: "end", background: "var(--brand)", borderColor: "var(--brand)", color: "#fff" }} onClick={() => setCreatingShared(true)}>
-            <Icon name="plus" size={14} stroke={2} style={{ marginRight: 4 }} />
-            신규 프로젝트 등록
-          </button>
         </div>
       </section>
 
@@ -1072,10 +1194,29 @@ function CodePageImpl() {
       <section className="pmo-panel" style={{ padding: 0, overflow: "hidden" }}>
         <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid var(--line-2)" }}>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--tx-1)" }}>프로젝트 목록</h2>
-          <span style={{ fontSize: 12.5, color: "var(--tx-4)" }}>
-            검색결과 <span style={{ color: "var(--tx-1)", fontWeight: 700 }}>{filteredRows.length}</span>건
-            {summaryFilterLabel ? <span style={{ marginLeft: 10, color: "var(--brand)", fontWeight: 600 }}> · 필터: {summaryFilterLabel}</span> : null}
-          </span>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--tx-4)" }}>
+            <span>
+              검색결과 <span style={{ color: "var(--tx-1)", fontWeight: 700 }}>{filteredRows.length}</span>건
+              {summaryFilterLabel ? <span style={{ marginLeft: 10, color: "var(--brand)", fontWeight: 600 }}> · 필터: {summaryFilterLabel}</span> : null}
+            </span>
+            <button
+              className="pmo-btn"
+              style={{
+                height: 30,
+                padding: "0 10px",
+                fontSize: 13,
+                fontWeight: downloadHover ? 700 : 600,
+                background: downloadHover ? "var(--brand)" : "#fff",
+                color: downloadHover ? "#fff" : "var(--tx-2)",
+                borderColor: downloadHover ? "var(--brand)" : "var(--line-2)",
+              }}
+              onMouseEnter={() => setDownloadHover(true)}
+              onMouseLeave={() => setDownloadHover(false)}
+              onClick={downloadCodeWorkbook}
+            >
+              엑셀 다운로드
+            </button>
+          </div>
         </header>
         <div style={{ overflowX: "auto" }}>
           <table className="pmo-table pmo-table--recent pmo-table--code-master" style={{ tableLayout: "fixed" }}>
@@ -1399,9 +1540,7 @@ function CodePageImpl() {
                           value={editForm.submissionFormat}
                           onChange={(e) => { clearFieldError("submissionFormat"); setEditForm({ ...editForm, submissionFormat: e.target.value }); }}
                         >
-                          <option value="">선택 안함</option>
-                          <option value="온라인">온라인</option>
-                          <option value="오프라인">오프라인</option>
+                          {SUBMISSION_FORMAT_OPTIONS.map((option) => <option key={option || "none"} value={option}>{option || "선택 안함"}</option>)}
                         </select>
                       </label>
                       <label className="pmo-field" style={{ minWidth: 0 }}>

@@ -45,6 +45,7 @@ STATUS_LABELS = {
 PROPOSAL_STATUSES = {ProjectStatus.PROPOSING, ProjectStatus.PRESENTED}
 RUNNING_STATUSES = {ProjectStatus.RUNNING, ProjectStatus.SUPPORT}
 CLOSED_STATUSES = {ProjectStatus.WIN, ProjectStatus.LOSS, ProjectStatus.DROP, ProjectStatus.DONE}
+PERSON_TITLE_CACHE_KEY = "p1_person_title_cache"
 
 
 @router.get("/home")
@@ -53,6 +54,12 @@ def home_screen(session: DbSession) -> dict[str, object]:
     kpi = _latest_kpi(session)
     prev_kpi = _previous_kpi(session, kpi)
     snapshot_counts = _snapshot_counts(session, as_of)
+    current_year = date.today().year
+    year_closed = _year_closed_counts(session, current_year)
+    prev_year_closed = _year_closed_counts(session, current_year - 1)
+
+    recent_projects = _recent_projects(session, 8)
+    _prefetch_person_titles(session, _project_people_names(recent_projects))
 
     return envelope({
         "meta": _meta(session, as_of),
@@ -66,11 +73,11 @@ def home_screen(session: DbSession) -> dict[str, object]:
             {"id": "people", "icon": "users", "tone": "purple", "title": "인력재직현황", "desc": "재직 인력 및\n월별 MM 관리", "href": "/people/employment"},
             {"id": "kpi", "icon": "report", "tone": "amber", "title": "KPI 보고서", "desc": "주간·월별\n가동률·가득률 보고서", "href": "/reports/monthly"},
         ],
-        "kpis": _dashboard_kpis(snapshot_counts, kpi, prev_kpi),
+        "kpis": _dashboard_kpis(snapshot_counts, kpi, prev_kpi, year_closed, prev_year_closed),
         "trend": _kpi_trend(session),
         "teamHeadcount": _team_headcount(session, as_of),
         "teamUtilization": _team_utilization(session, as_of),
-        "recentProjects": {"rows": [_project_row(session, project) for project in _recent_projects(session, 8)]},
+        "recentProjects": {"rows": [_project_row(session, project) for project in recent_projects]},
         "monthSummary": _month_summary(session, kpi, prev_kpi),
     })
 
@@ -78,6 +85,7 @@ def home_screen(session: DbSession) -> dict[str, object]:
 @router.get("/execution")
 def execution_screen(session: DbSession) -> dict[str, object]:
     projects = session.scalars(select(Project).order_by(desc(Project.recent_activity_at), Project.code)).all()
+    _prefetch_person_titles(session, _project_people_names(projects))
     team_members_by_project_id = _code_team_members(session, [project.id for project in projects])
     rows = [_execution_row(session, project, team_members_by_project_id.get(project.id, [])) for project in projects]
     counts = Counter(project.status for project in projects)
@@ -117,6 +125,7 @@ def code_screen(session: DbSession) -> dict[str, object]:
         for project in linked_projects:
             if project.project_code_id and project.project_code_id not in projects_by_code_id:
                 projects_by_code_id[project.project_code_id] = project
+        _prefetch_person_titles(session, _project_people_names(linked_projects))
         team_members_by_project_id = _code_team_members(session, [project.id for project in linked_projects])
     counts = Counter(project.status for project in projects_by_code_id.values())
     status_order = [
@@ -163,6 +172,10 @@ def project_detail_screen(session: DbSession, project_id: str | None = None, cod
     logs = session.scalars(
         select(ProjectLog).where(ProjectLog.project_id == project.id).order_by(desc(ProjectLog.logged_at))
     ).all()
+    _prefetch_person_titles(
+        session,
+        _project_people_names([project]) + [log.author_name for log in logs] + [log.updated_by_name for log in logs],
+    )
 
     return envelope({
         "meta": _meta(session, _latest_snapshot_date(session)),
@@ -178,6 +191,7 @@ def project_detail_screen(session: DbSession, project_id: str | None = None, cod
 @router.get("/history")
 def history_screen(session: DbSession) -> dict[str, object]:
     logs = session.scalars(select(ProjectLog).join(Project, isouter=True).order_by(desc(ProjectLog.logged_at)).limit(10)).all()
+    _prefetch_person_titles(session, [log.author_name for log in logs] + [log.updated_by_name for log in logs])
     total = session.scalar(select(func.count()).select_from(ProjectLog)) or 0
     seven_days_ago = (_latest_log_at(session) or datetime.utcnow()) - timedelta(days=7)
     recent_count = session.scalar(select(func.count()).select_from(ProjectLog).where(ProjectLog.logged_at >= seven_days_ago)) or 0
@@ -246,7 +260,56 @@ def _snapshot_counts(session: DbSession, as_of: date | None) -> Counter[str]:
     return Counter(session.scalars(statement).all())
 
 
-def _dashboard_kpis(counts: Counter[str], kpi: MonthlyKpiSummary | None, prev: MonthlyKpiSummary | None) -> list[dict[str, Any]]:
+def _year_closed_counts(session: DbSession, year: int) -> dict[str, int]:
+    year_start = datetime(year, 1, 1)
+    next_year_start = datetime(year + 1, 1, 1)
+
+    log_counts = Counter(
+        session.scalars(
+            select(ProjectLog.next_status).where(
+                ProjectLog.next_status.in_([ProjectStatus.WIN, ProjectStatus.LOSS]),
+                ProjectLog.logged_at >= year_start,
+                ProjectLog.logged_at < next_year_start,
+            )
+        ).all()
+    )
+
+    projects_with_status_logs = set(
+        session.scalars(
+            select(ProjectLog.project_id).where(
+                ProjectLog.project_id.is_not(None),
+                ProjectLog.previous_status.is_not(None),
+                ProjectLog.next_status.is_not(None),
+            )
+        ).all()
+    )
+
+    fallback_projects = session.scalars(
+        select(Project).where(
+            Project.status.in_([ProjectStatus.WIN, ProjectStatus.LOSS]),
+            ~Project.id.in_(projects_with_status_logs),
+        )
+    ).all()
+
+    fallback_counts = Counter()
+    for project in fallback_projects:
+        activity_at = project.recent_activity_at or project.updated_at
+        if activity_at and year_start <= activity_at < next_year_start:
+            fallback_counts[project.status] += 1
+
+    return {
+        "win": int(log_counts[ProjectStatus.WIN] + fallback_counts[ProjectStatus.WIN]),
+        "loss": int(log_counts[ProjectStatus.LOSS] + fallback_counts[ProjectStatus.LOSS]),
+    }
+
+
+def _dashboard_kpis(
+    counts: Counter[str],
+    kpi: MonthlyKpiSummary | None,
+    prev: MonthlyKpiSummary | None,
+    year_closed: dict[str, int],
+    prev_year_closed: dict[str, int],
+) -> list[dict[str, Any]]:
     headcount = sum(counts.values())
     running = counts["running"]
     proposing = counts["proposing"]
@@ -260,6 +323,26 @@ def _dashboard_kpis(counts: Counter[str], kpi: MonthlyKpiSummary | None, prev: M
         {"id": "running", "label": "수행 인원", "icon": "users", "tone": "green", "value": running, "unit": "명", "delta": {"dir": "up", "abs": "1명"}},
         {"id": "proposing", "label": "제안 인원", "icon": "users", "tone": "purple", "value": proposing, "unit": "명", "delta": {"dir": "up", "abs": "1명"}},
         {"id": "idle", "label": "대기 인원", "icon": "clock", "tone": "amber", "value": idle, "unit": "명", "delta": {"dir": "down", "abs": "1명"}},
+        {
+            "id": "yearWin",
+            "label": "WIN",
+            "icon": "check",
+            "tone": "green",
+            "value": year_closed["win"],
+            "unit": "건",
+            "footer": "올해 누적",
+            "delta": _delta(float(year_closed["win"] - prev_year_closed["win"]), "건"),
+        },
+        {
+            "id": "yearLoss",
+            "label": "LOSS",
+            "icon": "report",
+            "tone": "rose",
+            "value": year_closed["loss"],
+            "unit": "건",
+            "footer": "올해 누적",
+            "delta": _delta(float(year_closed["loss"] - prev_year_closed["loss"]), "건"),
+        },
         {"id": "utilization", "label": "가동률", "donut": True, "color": "brand", "value": utilization, "unit": "%", "delta": _delta(utilization - prev_utilization, "%p")},
         {"id": "contract", "label": "가득률", "donut": True, "color": "info", "value": contract, "unit": "%", "delta": _delta(contract - prev_contract, "%p")},
     ]
@@ -682,11 +765,68 @@ def _person_name_with_title(session: DbSession | None, raw_name: str | None) -> 
         return name
     if session is None:
         return name
+    cache = _person_title_cache(session)
+    cached = cache.get(name)
+    if cached:
+        return cached
     person = session.scalar(select(Personnel).where(Personnel.name == name).order_by(Personnel.updated_at.desc()))
     if not person:
+        cache[name] = name
         return name
     title = _normalize_person_name(person.position_name)
-    return f"{name} {title}".strip() if title else name
+    resolved = f"{name} {title}".strip() if title else name
+    cache[name] = resolved
+    return resolved
+
+
+def _person_title_cache(session: DbSession) -> dict[str, str]:
+    cache = session.info.get(PERSON_TITLE_CACHE_KEY)
+    if isinstance(cache, dict):
+        return cache
+    created: dict[str, str] = {}
+    session.info[PERSON_TITLE_CACHE_KEY] = created
+    return created
+
+
+def _prefetch_person_titles(session: DbSession, raw_names: list[str | None]) -> None:
+    names = sorted({
+        _normalize_person_name(raw_name)
+        for raw_name in raw_names
+        if _normalize_person_name(raw_name) and _normalize_person_name(raw_name) != "-" and " " not in _normalize_person_name(raw_name)
+    })
+    if not names:
+        return
+    cache = _person_title_cache(session)
+    missing = [name for name in names if name not in cache]
+    if not missing:
+        return
+    for name in missing:
+        cache[name] = name
+    rows = session.scalars(
+        select(Personnel)
+        .where(Personnel.name.in_(missing))
+        .order_by(Personnel.name, desc(Personnel.updated_at))
+    ).all()
+    seen: set[str] = set()
+    for person in rows:
+        name = _normalize_person_name(person.name)
+        if not name or name not in cache or name in seen:
+            continue
+        seen.add(name)
+        title = _normalize_person_name(person.position_name)
+        cache[name] = f"{name} {title}".strip() if title else name
+
+
+def _project_people_names(projects: list[Project]) -> list[str]:
+    names: list[str] = []
+    for project in projects:
+        names.extend([
+            project.sales_owner,
+            project.proposal_pm_name,
+            project.presentation_pm_name,
+            project.delivery_pm_name,
+        ])
+    return names
 
 
 def _assignment_person_name(assignment: ProjectAssignment) -> str:
@@ -957,7 +1097,9 @@ def _project_recent_log(session: DbSession, log: ProjectLog) -> dict[str, Any]:
 
 def _history_filters(session: DbSession) -> dict[str, Any]:
     projects = session.scalars(select(Project).order_by(Project.code).limit(20)).all()
-    authors = sorted({_person_name_with_title(session, name) for name in session.scalars(select(ProjectLog.author_name)).all() if name})
+    author_names = session.scalars(select(ProjectLog.author_name)).all()
+    _prefetch_person_titles(session, list(author_names))
+    authors = sorted({_person_name_with_title(session, name) for name in author_names if name})
     categories = ["메모", "진행", "완료"]
     today = date.today()
     from_date = today - timedelta(days=90)

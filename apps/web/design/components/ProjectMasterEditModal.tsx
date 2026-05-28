@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { createProject, createProjectCode, updateProject, updateProjectCode } from "../../app/lib/api";
+import { SUBMISSION_FORMAT_OPTIONS } from "../constants/projectFormOptions";
 
 type EditForm = {
   code: string;
@@ -491,7 +492,7 @@ export default function ProjectMasterEditModal({
                   <div style={{ minWidth: 0 }}>{renderTimeControl(editForm.proposalSubmissionTime, editForm.useProposalSubmissionTime, (next) => { clearFieldError("proposalSubmissionTime"); setEditForm({ ...editForm, proposalSubmissionTime: next }); }, "제출시간", "proposalSubmissionTime")}</div>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "minmax(120px, 1fr) minmax(0, 3fr)", gap: 10, marginTop: 10 }}>
-                  <label className="pmo-field" data-field="submissionFormat" style={{ minWidth: 0 }}><span style={fieldLabelErrorStyle("submissionFormat")}>제출 형식</span><select style={{ minWidth: 0, width: "100%", ...errorInputStyle("submissionFormat") }} value={editForm.submissionFormat} onChange={(e) => { clearFieldError("submissionFormat"); setEditForm({ ...editForm, submissionFormat: e.target.value }); }}><option value="">선택 안함</option><option value="온라인">온라인</option><option value="오프라인">오프라인</option></select></label>
+                  <label className="pmo-field" data-field="submissionFormat" style={{ minWidth: 0 }}><span style={fieldLabelErrorStyle("submissionFormat")}>제출 형식</span><select style={{ minWidth: 0, width: "100%", ...errorInputStyle("submissionFormat") }} value={editForm.submissionFormat} onChange={(e) => { clearFieldError("submissionFormat"); setEditForm({ ...editForm, submissionFormat: e.target.value }); }}>{SUBMISSION_FORMAT_OPTIONS.map((option) => <option key={option || "none"} value={option}>{option || "선택 안함"}</option>)}</select></label>
                   <label className="pmo-field" style={{ minWidth: 0 }}><span>제출 유의사항</span><input value={editForm.submissionNote} onChange={(e) => setEditForm({ ...editForm, submissionNote: e.target.value })} placeholder="제본 여부 등 제출 유의사항 기입" style={{ minWidth: 0, width: "100%" }} /></label>
                 </div>
               </section>

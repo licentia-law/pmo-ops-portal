@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { getP1Screen } from "../../app/lib/api";
+import { CommonPeriodPicker } from "../components/CommonPeriodPicker";
 import { PmoShell } from "../components/PmoShell";
 import ProjectMasterEditModal from "../components/ProjectMasterEditModal";
+import LightweightLoading from "../components/LightweightLoading";
+import { downloadProjectWorkbook } from "./projectWorkbookExport";
 
 type IconName =
   | "home"
@@ -88,7 +91,7 @@ type ExecutionFilterState = {
   status: string;
   proposalPm: string;
   salesOwner: string;
-  periodPreset: "all" | "recent3m" | "thisMonth" | "lastMonth" | "thisYear";
+  periodPreset: "all" | "recent3m" | "thisMonth" | "lastMonth" | "thisYear" | "custom";
   from: string;
   to: string;
   query: string;
@@ -101,9 +104,46 @@ function fmtDate(date: Date) {
   return `${y}-${m}-${d}`;
 }
 
+async function downloadExecutionCsv(rows: any[], codeRows: any[]) {
+  const byCode = new Map((codeRows ?? []).map((row: any) => [String(row.code ?? ""), row]));
+  const normalizedRows = rows.map((row) => {
+    const code = String(row.code ?? "");
+    const detail = byCode.get(code) ?? {};
+    return {
+      code: detail.code ?? row.code ?? "-",
+      name: detail.name ?? row.name ?? "-",
+      clientName: detail.clientName ?? row.clientName ?? "-",
+      projectType: detail.projectType ?? row.businessType ?? "-",
+      certainty: detail.certainty ?? "-",
+      amountText: detail.amountText ?? "-",
+      bidNoticeNo: detail.bidNoticeNo ?? "-",
+      bidNoticeDate: detail.bidNoticeDate ?? "-",
+      statusLabel: STATUS_LABEL[detail.status ?? row.status] ?? detail.status ?? row.status ?? "-",
+      salesDept: detail.salesDept ?? "-",
+      salesOwner: detail.salesOwner ?? row.salesOwner ?? "-",
+      proposalPm: detail.proposalPm ?? row.proposalPm ?? "-",
+      presentPm: detail.presentPm ?? row.presentPm ?? "-",
+      deliveryPm: detail.deliveryPm ?? row.deliveryPm ?? "-",
+      proposalDeliveryTeam: detail.proposalDeliveryTeam ?? row.proposalDeliveryTeam ?? "-",
+      fromDate: detail.fromDate ?? "-",
+      toDate: detail.toDate ?? row.endDate ?? "-",
+      proposalSubmissionAt: detail.proposalSubmissionAt ?? row.submission?.datetime ?? "-",
+      submissionFormat: detail.submissionFormat ?? "-",
+      submissionNote: detail.submissionNote ?? "-",
+      proposalPresentationAt: detail.proposalPresentationAt ?? "-",
+      presentationFormat: detail.presentationFormat ?? "-",
+      presentationNote: detail.presentationNote ?? "-",
+      recentActivityAt: detail.recentActivityAt ?? row.recentActivity?.datetime ?? "-",
+      useStatus: detail.useStatus ?? "-",
+    };
+  });
+  await downloadProjectWorkbook(normalizedRows, "업무수행현황", "업무수행현황");
+}
+
 function getPeriodRange(preset: ExecutionFilterState["periodPreset"], baseDate?: Date) {
   const today = baseDate ?? new Date();
   if (preset === "all") return { from: "", to: "", label: "전체" };
+  if (preset === "custom") return { from: "", to: "", label: "직접 선택" };
   if (preset === "thisMonth") return { from: fmtDate(new Date(today.getFullYear(), today.getMonth(), 1)), to: fmtDate(today), label: "이번달" };
   if (preset === "lastMonth") {
     const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
@@ -116,25 +156,29 @@ function getPeriodRange(preset: ExecutionFilterState["periodPreset"], baseDate?:
   return { from: fmtDate(from), to: fmtDate(today), label: "최근 3개월" };
 }
 
-function PeriodPicker({ value, from, to, onChange }: { value: ExecutionFilterState["periodPreset"]; from: string; to: string; onChange: (value: ExecutionFilterState["periodPreset"]) => void }) {
-  const PRESETS: Array<{ value: ExecutionFilterState["periodPreset"]; label: string }> = [
-    { value: "all", label: "전체" },
-    { value: "recent3m", label: "최근 3개월" },
-    { value: "thisMonth", label: "이번달" },
-    { value: "lastMonth", label: "지난달" },
-    { value: "thisYear", label: "올해" }
-  ];
+function PeriodPicker({
+  value,
+  from,
+  to,
+  onChange,
+  onRangeChange,
+}: {
+  value: ExecutionFilterState["periodPreset"];
+  from: string;
+  to: string;
+  onChange: (value: ExecutionFilterState["periodPreset"]) => void;
+  onRangeChange: (next: { from?: string; to?: string }) => void;
+}) {
   return (
-    <div style={{ position: "relative" }}>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value as ExecutionFilterState["periodPreset"])}
-        style={{ appearance: "none", width: "100%", height: 36, padding: "0 40px 0 10px", background: "var(--bg-1)", border: "1px solid var(--line-2)", borderRadius: 6, color: "var(--tx-2)", fontSize: 14, fontFamily: "inherit", fontWeight: 700 }}
-      >
-        {PRESETS.map((preset) => <option key={preset.value} value={preset.value}>{preset.label}</option>)}
-      </select>
-      <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: "var(--tx-4)", pointerEvents: "none" }}><Icon name="calendar" size={14} stroke={1.8} /></span>
-    </div>
+    <CommonPeriodPicker
+      value={value}
+      from={from}
+      to={to}
+      onChange={(next) => onChange(next as ExecutionFilterState["periodPreset"])}
+      onRangeChange={onRangeChange}
+      icon={<Icon name="calendar" size={14} stroke={1.8} />}
+      zIndex={20}
+    />
   );
 }
 
@@ -210,11 +254,28 @@ export default function ExecutionPage() {
   const [editingProject, setEditingProject] = useState<any | null>(null);
   const [creatingProject, setCreatingProject] = useState(false);
   const [codeRows, setCodeRows] = useState<any[]>([]);
+  const [codeRowsLoaded, setCodeRowsLoaded] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [downloadHover, setDownloadHover] = useState(false);
   const [filterForm, setFilterForm] = useState<ExecutionFilterState | null>(null);
   const [appliedFilter, setAppliedFilter] = useState<ExecutionFilterState | null>(null);
+  const codeRowsLoadingRef = useRef<Promise<any[]> | null>(null);
   const periodBaseDate = useMemo(() => new Date(), []);
+  const ensureCodeRowsLoaded = async () => {
+    if (codeRowsLoaded) return codeRows;
+    if (codeRowsLoadingRef.current) return codeRowsLoadingRef.current;
+    const loading = getP1Screen("code").then((result) => {
+      const nextRows = ((result.data as any)?.rows ?? []) as any[];
+      setCodeRows(nextRows);
+      setCodeRowsLoaded(true);
+      return nextRows;
+    }).finally(() => {
+      codeRowsLoadingRef.current = null;
+    });
+    codeRowsLoadingRef.current = loading;
+    return loading;
+  };
   useEffect(() => {
     let alive = true;
     getP1Screen("execution").then((result) => {
@@ -239,9 +300,6 @@ export default function ExecutionPage() {
     return () => {
       alive = false;
     };
-  }, []);
-  useEffect(() => {
-    getP1Screen("code").then((result) => setCodeRows((result.data as any)?.rows ?? []));
   }, []);
   const statusFilterBySummary: Record<string, string[]> = {
     all: [],
@@ -333,12 +391,12 @@ export default function ExecutionPage() {
       if (appliedFilter.status !== "전체") labels.push(`상태: ${appliedFilter.status}`);
       if (appliedFilter.salesOwner !== "전체") labels.push(`영업대표: ${appliedFilter.salesOwner}`);
       if (appliedFilter.proposalPm !== "전체") labels.push(`PM: ${appliedFilter.proposalPm}`);
-      if (appliedFilter.periodPreset !== "all") labels.push(`기간: ${appliedFilter.from} ~ ${appliedFilter.to}`);
+      if (appliedFilter.periodPreset !== "all" && (appliedFilter.from || appliedFilter.to)) labels.push(`기간: ${appliedFilter.from} ~ ${appliedFilter.to}`);
       if (appliedFilter.query.trim()) labels.push(`검색어: ${appliedFilter.query.trim()}`);
     }
     return labels.length ? labels.join(" · ") : null;
   }, [activeSummary, appliedFilter, data?.summary]);
-  if (!data || !filterForm) return null;
+  if (!data || !filterForm) return <LightweightLoading label="업무수행현황" />;
 
   return (
     <PmoShell user={data.meta.user} notifications={data.meta.notifications} currentId="project-operations" pageTitle="업무수행현황">
@@ -374,8 +432,15 @@ export default function ExecutionPage() {
               from={filterForm.from}
               to={filterForm.to}
               onChange={(preset) => {
-                const range = getPeriodRange(preset, periodBaseDate);
-                setFilterForm((prev) => (prev ? { ...prev, periodPreset: preset, from: range.from, to: range.to } : prev));
+                setFilterForm((prev) => {
+                  if (!prev) return prev;
+                  if (preset === "custom") return { ...prev, periodPreset: preset, from: prev.from, to: prev.to };
+                  const range = getPeriodRange(preset, periodBaseDate);
+                  return { ...prev, periodPreset: preset, from: range.from, to: range.to };
+                });
+              }}
+              onRangeChange={(next) => {
+                setFilterForm((prev) => (prev ? { ...prev, from: next.from ?? prev.from, to: next.to ?? prev.to } : prev));
               }}
             />
           </label>
@@ -431,7 +496,10 @@ export default function ExecutionPage() {
             <button
               className="pmo-btn pmo-btn-primary"
               style={{ background: "var(--brand)", color: "#fff", borderColor: "var(--brand)" }}
-              onClick={() => setCreatingProject(true)}
+              onClick={async () => {
+                await ensureCodeRowsLoaded();
+                setCreatingProject(true);
+              }}
             >
               <Icon name="plus" size={14} stroke={2} style={{ marginRight: 4 }} />
               신규 프로젝트 등록
@@ -458,10 +526,32 @@ export default function ExecutionPage() {
         <div className="pmo-panel" style={{ padding: 0, overflow: "hidden" }}>
           <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--line-2)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <strong style={{ fontSize: 18 }}>사업 목록</strong>
-            <span style={{ fontSize: 14, color: "var(--tx-4)" }}>
-              총 {filteredRows.length}건
-              {summaryFilterLabel ? <span style={{ color: "var(--brand)", fontWeight: 600 }}> · 필터: {summaryFilterLabel}</span> : null}
-            </span>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14, color: "var(--tx-4)" }}>
+              <span>
+                총 {filteredRows.length}건
+                {summaryFilterLabel ? <span style={{ color: "var(--brand)", fontWeight: 600 }}> · 필터: {summaryFilterLabel}</span> : null}
+              </span>
+              <button
+                className="pmo-btn"
+                style={{
+                  height: 30,
+                  padding: "0 10px",
+                  fontSize: 13,
+                  fontWeight: downloadHover ? 700 : 600,
+                  background: downloadHover ? "var(--brand)" : "#fff",
+                  color: downloadHover ? "#fff" : "var(--tx-2)",
+                  borderColor: downloadHover ? "var(--brand)" : "var(--line-2)",
+                }}
+                onMouseEnter={() => setDownloadHover(true)}
+                onMouseLeave={() => setDownloadHover(false)}
+                onClick={async () => {
+                  const rowsForExport = await ensureCodeRowsLoaded();
+                  await downloadExecutionCsv(filteredRows, rowsForExport);
+                }}
+              >
+                엑셀 다운로드
+              </button>
+            </div>
           </div>
           <div style={{ overflowX: "auto" }}>
             <table className="pmo-table pmo-table--recent">
@@ -483,7 +573,10 @@ export default function ExecutionPage() {
                         style={{ width: 24, minWidth: 24, height: 24, padding: 0, justifyContent: "center", fontSize: 12 }}
                         onClick={(event) => {
                           event.stopPropagation();
-                          setEditingProject(row);
+                          void (async () => {
+                            await ensureCodeRowsLoaded();
+                            setEditingProject(row);
+                          })();
                         }}
                         title="편집"
                         aria-label={`${row.code} 편집`}
@@ -559,8 +652,10 @@ export default function ExecutionPage() {
         onSaved={async () => {
           const refreshed = await getP1Screen("execution");
           setData(refreshed.data);
-          const refreshedCode = await getP1Screen("code");
-          setCodeRows((refreshedCode.data as any)?.rows ?? []);
+          if (codeRowsLoaded) {
+            const refreshedCode = await getP1Screen("code");
+            setCodeRows((refreshedCode.data as any)?.rows ?? []);
+          }
         }}
       />
       <ProjectMasterEditModal
@@ -572,8 +667,10 @@ export default function ExecutionPage() {
         onSaved={async () => {
           const refreshed = await getP1Screen("execution");
           setData(refreshed.data);
-          const refreshedCode = await getP1Screen("code");
-          setCodeRows((refreshedCode.data as any)?.rows ?? []);
+          if (codeRowsLoaded) {
+            const refreshedCode = await getP1Screen("code");
+            setCodeRows((refreshedCode.data as any)?.rows ?? []);
+          }
         }}
       />
     </PmoShell>

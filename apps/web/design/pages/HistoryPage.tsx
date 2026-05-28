@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { createProjectLog, getP1Screen, listProjectLogs, listProjects, updateProjectLog } from "../../app/lib/api";
+import { CommonPeriodPicker } from "../components/CommonPeriodPicker";
 import { PmoShell } from "../components/PmoShell";
+import LightweightLoading from "../components/LightweightLoading";
 
 type IconName =
   | "home" | "briefcase" | "users" | "trending" | "settings"
@@ -67,7 +69,7 @@ function Select({ value, onChange, children, w = 180, height = 40 }: { value: st
   return <div style={{ position: "relative", width: w }}><select value={value} onChange={(e) => onChange(e.target.value)} style={{ appearance: "none", width: "100%", height, padding: "0 36px 0 14px", background: "var(--bg-1)", border: "1px solid var(--line-2)", borderRadius: "var(--r-md)", color: "var(--tx-1)", fontSize: 14, fontFamily: "inherit", fontWeight: 600, cursor: "pointer" }}>{children}</select><span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: "var(--tx-4)", pointerEvents: "none" }}><Icon name="chevronDown" size={14} stroke={2} /></span></div>;
 }
 
-type PeriodPreset = "all" | "recent3m" | "thisMonth" | "lastMonth" | "thisYear";
+type PeriodPreset = "all" | "recent3m" | "thisMonth" | "lastMonth" | "thisYear" | "custom";
 type HistoryFilterState = {
   project: string;
   category: string;
@@ -90,6 +92,9 @@ function getPeriodRange(preset: PeriodPreset, baseDate?: Date) {
   if (preset === "all") {
     return { from: "", to: "", label: "전체" };
   }
+  if (preset === "custom") {
+    return { from: "", to: "", label: "직접 선택" };
+  }
   if (preset === "thisMonth") {
     return { from: fmtDate(new Date(today.getFullYear(), today.getMonth(), 1)), to: fmtDate(today), label: "이번 달" };
   }
@@ -106,23 +111,30 @@ function getPeriodRange(preset: PeriodPreset, baseDate?: Date) {
   return { from: fmtDate(from), to: fmtDate(today), label: "최근 3개월" };
 }
 
-function PeriodPicker({ value, from, to, onChange }: { value: PeriodPreset; from: string; to: string; onChange: (value: PeriodPreset) => void }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
-  const PRESETS: Array<{ value: PeriodPreset; label: string }> = [
-    { value: "all", label: "전체" },
-    { value: "recent3m", label: "최근 3개월" },
-    { value: "thisMonth", label: "이번달" },
-    { value: "lastMonth", label: "지난달" },
-    { value: "thisYear", label: "올해" }
-  ];
-  const currentLabel = PRESETS.find((item) => item.value === value)?.label ?? "전체";
-  useEffect(() => {
-    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, []);
-  return <div ref={ref} style={{ position: "relative" }}><button onClick={() => setOpen((o) => !o)} style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 40, width: "100%", padding: "0 14px", background: "var(--bg-1)", border: "1px solid var(--line-2)", borderRadius: "var(--r-md)", fontSize: 14, color: "var(--tx-1)", fontWeight: 600 }}><span style={{ flex: 1, textAlign: "left" }}>{value === "all" ? currentLabel : `${currentLabel} (${from} ~ ${to})`}</span><Icon name="calendar" size={15} stroke={1.8} style={{ color: "var(--tx-4)" }} /></button>{open ? <div style={{ position: "absolute", top: 44, right: 0, zIndex: 40, minWidth: 200, padding: 6, background: "var(--bg-1)", border: "1px solid var(--line-2)", borderRadius: 10, boxShadow: "var(--sh-pop)", display: "flex", flexDirection: "column", gap: 2 }}>{PRESETS.map((preset) => <button key={preset.value} onClick={() => { onChange(preset.value); setOpen(false); }} style={{ height: 34, padding: "0 12px", textAlign: "left", border: 0, borderRadius: 6, background: value === preset.value ? "var(--brand-bg)" : "transparent", color: value === preset.value ? "var(--brand-700)" : "var(--tx-2)", fontSize: 13, fontWeight: value === preset.value ? 700 : 500 }}>{preset.label}</button>)}</div> : null}</div>;
+function PeriodPicker({
+  value,
+  from,
+  to,
+  onChange,
+  onRangeChange,
+}: {
+  value: PeriodPreset;
+  from: string;
+  to: string;
+  onChange: (value: PeriodPreset) => void;
+  onRangeChange: (next: { from?: string; to?: string }) => void;
+}) {
+  return (
+    <CommonPeriodPicker
+      value={value}
+      from={from}
+      to={to}
+      onChange={onChange}
+      onRangeChange={onRangeChange}
+      icon={<Icon name="calendar" size={15} stroke={1.8} />}
+      zIndex={40}
+    />
+  );
 }
 
 function HistoryFilter({ filters, projectOptions, form, periodBaseDate, onChange, onSearch, onReset, onCreate }: { filters: any; projectOptions: Array<{ value: string; label: string }>; form: HistoryFilterState; periodBaseDate: Date; onChange: (next: Partial<HistoryFilterState>) => void; onSearch: () => void; onReset: () => void; onCreate: () => void }) {
@@ -132,7 +144,7 @@ function HistoryFilter({ filters, projectOptions, form, periodBaseDate, onChange
       <div style={{ gridColumn: "span 3", minWidth: 0 }}><FieldLabel>프로젝트</FieldLabel><Select value={form.project} onChange={(value) => onChange({ project: value })} w="100%">{projectOptions.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}</Select></div>
       <div style={{ gridColumn: "span 3", minWidth: 0 }}><FieldLabel>이력 유형</FieldLabel><Select value={form.category} onChange={(value) => onChange({ category: value })} w="100%">{filters.categories.map((c: string) => <option key={c} value={c}>{c}</option>)}</Select></div>
       <div style={{ gridColumn: "span 3", minWidth: 0 }}><FieldLabel>작성자/변경자</FieldLabel><Select value={form.author} onChange={(value) => onChange({ author: value })} w="100%">{filters.authors.map((a: string) => <option key={a} value={a}>{a}</option>)}</Select></div>
-      <div style={{ gridColumn: "span 3", minWidth: 0 }}><FieldLabel>기간</FieldLabel><PeriodPicker value={form.periodPreset} from={form.from} to={form.to} onChange={(preset) => { const range = getPeriodRange(preset, periodBaseDate); onChange({ periodPreset: preset, from: range.from, to: range.to }); }} /></div>
+      <div style={{ gridColumn: "span 3", minWidth: 0 }}><FieldLabel>기간</FieldLabel><PeriodPicker value={form.periodPreset} from={form.from} to={form.to} onChange={(preset) => { if (preset === "custom") { onChange({ periodPreset: preset }); return; } const range = getPeriodRange(preset, periodBaseDate); onChange({ periodPreset: preset, from: range.from, to: range.to }); }} onRangeChange={(next) => onChange({ from: next.from, to: next.to })} /></div>
       <div style={{ gridColumn: "span 8", minWidth: 0 }}><FieldLabel>검색어</FieldLabel><div style={{ display: "flex", alignItems: "center", gap: 10, height: 40, padding: "0 12px", background: "var(--bg-1)", border: "1px solid var(--line-2)", borderRadius: "var(--r-md)", color: "var(--tx-5)" }}><Icon name="search" size={15} stroke={1.8} /><input value={form.query} onChange={(e) => onChange({ query: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onSearch(); } }} placeholder="사업명, 작성자/변경자 검색" style={{ border: 0, outline: "none", background: "transparent", font: "inherit", width: "100%", color: "var(--tx-1)", fontSize: 14 }} /></div></div>
       <div style={{ gridColumn: "span 4", display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 8, alignItems: "center", paddingBottom: 1 }}><button onClick={onSearch} className="pmo-btn pmo-btn-primary" style={{ height: 40, minWidth: 86, padding: "0 18px", fontSize: 14, fontWeight: 700, background: "var(--brand)", borderColor: "var(--brand)", color: "#fff", display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="search" size={14} stroke={2} />조회</button><button onClick={onReset} className="pmo-btn" style={{ height: 40, minWidth: 72, padding: "0 18px", fontSize: 14, fontWeight: 600 }}>초기화</button><button onClick={onCreate} className="pmo-btn pmo-btn-primary" style={{ height: 40, minWidth: 138, padding: "0 14px", whiteSpace: "nowrap", background: "var(--brand)", borderColor: "var(--brand)", color: "#fff" }}><Icon name="plus" size={14} stroke={2} style={{ marginRight: 4 }} />진행 이력 등록</button></div>
     </div>
@@ -434,7 +446,7 @@ export default function HistoryPage() {
       }
       if (appliedFilter.category !== "전체") labels.push(`이력유형: ${appliedFilter.category}`);
       if (appliedFilter.author !== "전체") labels.push(`작성자: ${appliedFilter.author}`);
-      if (appliedFilter.periodPreset !== "all") {
+      if (appliedFilter.periodPreset !== "all" && (appliedFilter.from || appliedFilter.to)) {
         labels.push(`기간: ${appliedFilter.from} ~ ${appliedFilter.to}`);
       }
       if (appliedFilter.query.trim()) labels.push(`검색어: ${appliedFilter.query.trim()}`);
@@ -515,7 +527,7 @@ export default function HistoryPage() {
       setCreateSaving(false);
     }
   };
-  if (!data || !filterForm) return null;
+  if (!data || !filterForm) return <LightweightLoading label="진행이력" />;
   return <PmoShell user={data.meta.user} notifications={data.meta.notifications} currentId="project-logs" pageTitle="진행이력">
     <HistoryFilter
       filters={data.filters}

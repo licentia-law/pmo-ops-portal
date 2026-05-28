@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { getP1Screen } from "../../app/lib/api";
 import { PmoShell } from "../components/PmoShell";
+import LightweightLoading from "../components/LightweightLoading";
 
 type IconName =
   | "home"
@@ -88,6 +89,19 @@ const TONE_BG: Record<Tone, { fg: string; bg: string }> = {
   slate: { fg: "#475569", bg: "#eef2f7" }
 };
 
+const RATE_COLOR = {
+  utilization: "var(--brand)",
+  contract: "#0f766e",
+} as const;
+
+function getRateColor(kind: "utilization" | "contract") {
+  return RATE_COLOR[kind];
+}
+
+function round1(value: number) {
+  return Math.round(value * 10) / 10;
+}
+
 function ToneIcon({ tone = "blue", icon, size = 44, iconSize }: {
   tone?: Tone;
   icon: IconName;
@@ -141,10 +155,11 @@ function StatusBadge({ code }: { code: string }) {
 
 function KPICard({ kpi }: { kpi: any }) {
   const { label, donut, value, unit, icon, tone, delta, footer } = kpi;
+  const donutColor = kpi.color === "info" ? getRateColor("contract") : getRateColor("utilization");
   return (
     <div className="pmo-panel" style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 12, minHeight: 132 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        {donut ? <Donut value={value} color={kpi.color === "info" ? "var(--info)" : "var(--brand)"} size={48} stroke={6} /> : <ToneIcon tone={tone} icon={icon} size={40} iconSize={20} />}
+        {donut ? <Donut value={value} color={donutColor} size={48} stroke={6} /> : <ToneIcon tone={tone} icon={icon} size={40} iconSize={20} />}
         <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 0 }}>
           <span style={{ fontSize: 15, color: "var(--tx-4)", fontWeight: 500 }}>{label}</span>
           <span style={{ fontSize: 26, lineHeight: 1, fontWeight: 700, color: "var(--tx-1)", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
@@ -200,12 +215,13 @@ function QuickLinks({ items }: { items: any[] }) {
 }
 
 function KPIRow({ asOf, kpis }: { asOf: string; kpis: any[] }) {
-  const firstRow = kpis.slice(0, 4);
-  const secondRow = kpis.slice(4);
+  const byId = new Map((kpis ?? []).map((k) => [k.id, k]));
+  const firstRow = ["headcount", "running", "proposing", "idle", "utilization", "contract"].map((id) => byId.get(id)).filter(Boolean);
+  const secondRow = ["new-project", "completion", "completed-project", "movement", "yearWin", "yearLoss"].map((id) => byId.get(id)).filter(Boolean);
   return (
     <section style={{ marginBottom: 28 }}>
       <h2 className="pmo-section-title">핵심 현황<span style={{ marginLeft: 8, fontSize: 15, fontWeight: 500, color: "var(--tx-4)" }}>(기준일 {asOf})</span></h2>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12, marginBottom: 12 }}>
         {firstRow.map((k) => <KPICard key={k.id} kpi={k} />)}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12 }}>
@@ -264,9 +280,10 @@ function RecentProjects({ rows }: { rows: any[] }) {
 
 function MonthSummaryRow({ row }: { row: any }) {
   const isMetric = Boolean(row.donut);
+  const metricColor = row.color === "info" ? getRateColor("contract") : getRateColor("utilization");
   return (
     <li style={{ display: "flex", alignItems: "center", gap: 14, padding: "13px 0", borderBottom: "1px solid var(--line-1)" }}>
-      {isMetric ? <Donut value={row.pct} color={row.color === "info" ? "var(--info)" : "var(--brand)"} size={36} stroke={5} /> : <ToneIcon tone={row.tone} icon={row.icon} size={36} iconSize={18} />}
+      {isMetric ? <Donut value={row.pct} color={metricColor} size={36} stroke={5} /> : <ToneIcon tone={row.tone} icon={row.icon} size={36} iconSize={18} />}
       <span style={{ flex: 1, fontSize: 16, color: "var(--tx-2)", fontWeight: 500 }}>{row.label}</span>
       <span style={{ display: "inline-flex", alignItems: "baseline", gap: 8 }}>
         <span style={{ fontSize: 16, fontWeight: 700, color: "var(--tx-1)" }}>{row.value}</span>
@@ -293,7 +310,6 @@ function MonthSummary({ summary }: { summary: any }) {
 export default function HomePage() {
   const [data, setData] = useState<any | null>(null);
   const [mounted, setMounted] = useState(false);
-  const rootRef = useRef<HTMLDivElement | null>(null);
   const [trendFilter, setTrendFilter] = useState<"thisYear" | "lastYear" | "allPeriod">("thisYear");
   const [selectedYear, setSelectedYear] = useState<string>("all");
 
@@ -377,7 +393,7 @@ export default function HomePage() {
     return `${y}-${m}-${d}`;
   }, []);
 
-  if (!mounted || !data || !filteredTrend) return <div ref={rootRef} />;
+  if (!mounted || !data || !filteredTrend) return <LightweightLoading label="홈" />;
 
   return (
     <PmoShell user={data.meta.user} notifications={data.meta.notifications} currentId="home" pageTitle="홈">
@@ -488,16 +504,18 @@ function TrendChart({ trend }: { trend: any }) {
   const y = (v: number) => padT + innerH - ((v - yMin) / (yMax - yMin)) * innerH;
   const line = (vals: number[]) => vals.map((v, i) => `${i === 0 ? "M" : "L"}${x(i)},${y(v)}`).join(" ");
   const yTicks = [30, 50, 70, 90, 100];
+  const utilColor = getRateColor("utilization");
+  const contractColor = getRateColor("contract");
 
   return (
     <div style={{ width: "100%", overflow: "hidden" }}>
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 14, marginBottom: 8, fontSize: 13, color: "var(--tx-3)", fontWeight: 600 }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <i style={{ width: 16, height: 0, borderTop: "3px solid var(--brand)", borderRadius: 999 }} />
+          <i style={{ width: 16, height: 0, borderTop: `3px solid ${utilColor}`, borderRadius: 999 }} />
           가동률
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <i style={{ width: 16, height: 0, borderTop: "3px solid var(--info)", borderRadius: 999 }} />
+          <i style={{ width: 16, height: 0, borderTop: `3px solid ${contractColor}`, borderRadius: 999 }} />
           가득률
         </span>
       </div>
@@ -515,13 +533,13 @@ function TrendChart({ trend }: { trend: any }) {
             {m.replace("-", ".")}
           </text>
         ))}
-        <path d={line(u)} fill="none" stroke="var(--brand)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-        <path d={line(c)} fill="none" stroke="var(--info)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={line(u)} fill="none" stroke={utilColor} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={line(c)} fill="none" stroke={contractColor} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
         {u.map((v: number, i: number) => (
-          <circle key={`u${i}`} cx={x(i)} cy={y(v)} r={i === u.length - 1 ? 5 : 3.2} fill="#fff" stroke="var(--brand)" strokeWidth={i === u.length - 1 ? 2.5 : 2} />
+          <circle key={`u${i}`} cx={x(i)} cy={y(v)} r={i === u.length - 1 ? 5 : 3.2} fill="#fff" stroke={utilColor} strokeWidth={i === u.length - 1 ? 2.5 : 2} />
         ))}
         {c.map((v: number, i: number) => (
-          <circle key={`c${i}`} cx={x(i)} cy={y(v)} r={i === c.length - 1 ? 5 : 3.2} fill="#fff" stroke="var(--info)" strokeWidth={i === c.length - 1 ? 2.5 : 2} />
+          <circle key={`c${i}`} cx={x(i)} cy={y(v)} r={i === c.length - 1 ? 5 : 3.2} fill="#fff" stroke={contractColor} strokeWidth={i === c.length - 1 ? 2.5 : 2} />
         ))}
         {u.map((v: number, i: number) =>
           i !== u.length - 1 ? (
@@ -541,10 +559,10 @@ function TrendChart({ trend }: { trend: any }) {
           const last = u.length - 1;
           return (
             <g>
-              <text x={x(last)} y={y(u[last]) - 12} fontSize="14" fontWeight="700" fill="var(--brand)" textAnchor="middle">
+              <text x={x(last)} y={y(u[last]) - 12} fontSize="14" fontWeight="700" fill={utilColor} textAnchor="middle">
                 {u[last].toFixed(1)}%
               </text>
-              <text x={x(last)} y={y(c[last]) + 18} fontSize="14" fontWeight="700" fill="var(--info)" textAnchor="middle">
+              <text x={x(last)} y={y(c[last]) + 18} fontSize="14" fontWeight="700" fill={contractColor} textAnchor="middle">
                 {c[last].toFixed(1)}%
               </text>
             </g>
@@ -557,34 +575,62 @@ function TrendChart({ trend }: { trend: any }) {
 
 function TeamHeadcount({ rows }: { rows: any[] }) {
   const total = rows.reduce((a, r) => a + r.total, 0);
+  const hqRow = useMemo(() => {
+    const merged = rows.reduce(
+      (acc, row) => {
+        acc.total += Number(row.total ?? 0);
+        acc.running += Number(row.running ?? 0);
+        acc.proposing += Number(row.proposing ?? 0);
+        acc.idle += Number(row.idle ?? 0);
+        return acc;
+      },
+      { team: "PMO본부", total: 0, running: 0, proposing: 0, idle: 0 }
+    );
+    return merged;
+  }, [rows]);
+  const displayRows = useMemo(() => [hqRow, ...rows], [hqRow, rows]);
   return (
     <section className="pmo-panel" style={{ padding: "20px 22px", display: "flex", flexDirection: "column" }}>
       <header style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 14 }}>
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--tx-1)" }}>팀별 인력 현황</h2>
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--tx-1)" }}>인력 현황</h2>
         <span style={{ fontSize: 13, color: "var(--tx-5)", fontWeight: 700 }}>합계 {total}명</span>
       </header>
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "flex", flexDirection: "column", gap: 14 }}>
-        {rows.map((r) => (
-          <li key={r.team} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {displayRows.map((r, idx) => {
+          const isHq = idx === 0;
+          return (
+          <li
+            key={`${r.team}-${idx}`}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              padding: isHq ? "10px 10px 8px" : "0",
+              borderRadius: isHq ? 10 : 0,
+              background: isHq ? "#f4f7ff" : "transparent",
+              borderBottom: isHq ? "1px solid var(--line-2)" : "0",
+              marginBottom: isHq ? 4 : 0,
+            }}
+          >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: "var(--tx-1)" }}>{r.team}</span>
+              <span style={{ fontSize: 14, fontWeight: isHq ? 700 : 600, color: "var(--tx-1)" }}>{r.team}</span>
               <span style={{ fontSize: 14, fontWeight: 700, color: "var(--tx-1)" }}>
                 {r.total}
                 <span style={{ fontSize: 12, color: "var(--tx-4)", fontWeight: 500, marginLeft: 2 }}>명</span>
               </span>
             </div>
             <div style={{ display: "flex", gap: 2, height: 8, borderRadius: 999, background: "var(--bg-subtle)", overflow: "hidden", padding: "0 1px" }}>
-              {r.running > 0 && <i title={`수행 ${r.running}`} style={{ width: `${(r.running / r.total) * 100}%`, background: "var(--brand)", borderRadius: 999 }} />}
-              {r.proposing > 0 && <i title={`제안 ${r.proposing}`} style={{ width: `${(r.proposing / r.total) * 100}%`, background: "var(--info)", borderRadius: 999 }} />}
+              {r.running > 0 && <i title={`수행 ${r.running}`} style={{ width: `${(r.running / r.total) * 100}%`, background: getRateColor("utilization"), borderRadius: 999 }} />}
+              {r.proposing > 0 && <i title={`제안 ${r.proposing}`} style={{ width: `${(r.proposing / r.total) * 100}%`, background: getRateColor("contract"), borderRadius: 999 }} />}
               {r.idle > 0 && <i title={`대기 ${r.idle}`} style={{ width: `${(r.idle / r.total) * 100}%`, background: "var(--warn)", borderRadius: 999 }} />}
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "var(--tx-1)" }}>
               <span>
-                <i style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "var(--brand)", marginRight: 5, verticalAlign: 1 }} />
+                <i style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: getRateColor("utilization"), marginRight: 5, verticalAlign: 1 }} />
                 수행 {r.running}
               </span>
               <span>
-                <i style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: "var(--info)", marginRight: 5, verticalAlign: 1 }} />
+                <i style={{ display: "inline-block", width: 6, height: 6, borderRadius: 999, background: getRateColor("contract"), marginRight: 5, verticalAlign: 1 }} />
                 제안 {r.proposing}
               </span>
               <span>
@@ -593,13 +639,15 @@ function TeamHeadcount({ rows }: { rows: any[] }) {
               </span>
             </div>
           </li>
-        ))}
+        )})}
       </ul>
     </section>
   );
 }
 
 function DualBar({ utilization, contractRate }: { utilization: number; contractRate: number }) {
+  const utilColor = getRateColor("utilization");
+  const contractColor = getRateColor("contract");
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingRight: 12 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -607,9 +655,9 @@ function DualBar({ utilization, contractRate }: { utilization: number; contractR
           가동
         </span>
         <div style={{ flex: 1, height: 10, borderRadius: 999, background: "var(--bg-subtle)", overflow: "hidden" }}>
-          <i style={{ display: "block", width: `${utilization}%`, height: "100%", background: "var(--brand)", borderRadius: 999 }} />
+          <i style={{ display: "block", width: `${utilization}%`, height: "100%", background: utilColor, borderRadius: 999 }} />
         </div>
-        <span className="num" style={{ fontSize: 12, color: "var(--brand)", fontWeight: 700, width: 46, textAlign: "right" }}>
+        <span className="num" style={{ fontSize: 12, color: utilColor, fontWeight: 700, width: 46, textAlign: "right" }}>
           {utilization.toFixed(1)}%
         </span>
       </div>
@@ -618,9 +666,9 @@ function DualBar({ utilization, contractRate }: { utilization: number; contractR
           가득
         </span>
         <div style={{ flex: 1, height: 10, borderRadius: 999, background: "var(--bg-subtle)", overflow: "hidden" }}>
-          <i style={{ display: "block", width: `${contractRate}%`, height: "100%", background: "var(--info)", borderRadius: 999 }} />
+          <i style={{ display: "block", width: `${contractRate}%`, height: "100%", background: contractColor, borderRadius: 999 }} />
         </div>
-        <span className="num" style={{ fontSize: 12, color: "var(--info)", fontWeight: 700, width: 46, textAlign: "right" }}>
+        <span className="num" style={{ fontSize: 12, color: contractColor, fontWeight: 700, width: 46, textAlign: "right" }}>
           {contractRate.toFixed(1)}%
         </span>
       </div>
@@ -629,16 +677,32 @@ function DualBar({ utilization, contractRate }: { utilization: number; contractR
 }
 
 function TeamUtilization({ rows }: { rows: any[] }) {
-  const sorted = useMemo(() => {
+  const hqRow = useMemo(() => {
+    const merged = rows.reduce(
+      (acc, row) => {
+        acc.headcount += Number(row.headcount ?? 0);
+        acc.running += Number(row.running ?? 0);
+        acc.proposing += Number(row.proposing ?? 0);
+        return acc;
+      },
+      { team: "PMO본부", headcount: 0, running: 0, proposing: 0, utilization: 0, contractRate: 0 }
+    );
+    const denominator = merged.headcount > 0 ? merged.headcount : 1;
+    merged.utilization = round1(((merged.running + merged.proposing) / denominator) * 100);
+    merged.contractRate = round1((merged.running / denominator) * 100);
+    return merged;
+  }, [rows]);
+  const sortedTeams = useMemo(() => {
     const result = [...rows];
     result.sort((a, b) => String(a.team ?? "").localeCompare(String(b.team ?? ""), "ko-KR"));
     return result;
   }, [rows]);
+  const displayRows = useMemo(() => [hqRow, ...sortedTeams], [hqRow, sortedTeams]);
   return (
     <section className="pmo-panel" style={{ padding: "20px 22px" }}>
       <header style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 16 }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--tx-1)" }}>팀별 가동률 / 가득률</h2>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: "var(--tx-1)" }}>가동률 / 가득률</h2>
           <p style={{ margin: "4px 0 0", fontSize: 13, color: "var(--tx-4)" }}>현재 기준(스냅샷) · 본부 합계와 정합</p>
         </div>
       </header>
@@ -658,23 +722,25 @@ function TeamUtilization({ rows }: { rows: any[] }) {
           </tr>
         </thead>
         <tbody>
-          {sorted.map((r) => (
-            <tr key={r.team}>
-              <td className="name" style={{ color: "var(--tx-1)", fontWeight: 600 }}>{r.team}</td>
-              <td className="num" style={{ textAlign: "right" }}>{r.headcount}명</td>
-              <td><DualBar utilization={r.utilization} contractRate={r.contractRate} /></td>
-              <td className="num" style={{ textAlign: "right", paddingRight: 22, color: "var(--tx-1)", fontWeight: 700, fontSize: 16 }}>{r.utilization.toFixed(1)}%</td>
+          {displayRows.map((r, idx) => {
+            const isHq = idx === 0;
+            return (
+            <tr key={`${r.team}-${idx}`} style={isHq ? { background: "#f4f7ff" } : undefined}>
+              <td className="name" style={{ color: "var(--tx-1)", fontWeight: isHq ? 700 : 600, borderBottom: isHq ? "1px solid var(--line-2)" : undefined }}>{r.team}</td>
+              <td className="num" style={{ textAlign: "right", fontWeight: isHq ? 700 : 600, borderBottom: isHq ? "1px solid var(--line-2)" : undefined }}>{r.headcount}명</td>
+              <td style={{ borderBottom: isHq ? "1px solid var(--line-2)" : undefined }}><DualBar utilization={r.utilization} contractRate={r.contractRate} /></td>
+              <td className="num" style={{ textAlign: "right", paddingRight: 22, color: "var(--tx-1)", fontWeight: 700, fontSize: 16, borderBottom: isHq ? "1px solid var(--line-2)" : undefined }}>{r.utilization.toFixed(1)}%</td>
             </tr>
-          ))}
+          )})}
         </tbody>
       </table>
       <div style={{ display: "flex", gap: 18, marginTop: 14, paddingTop: 12, borderTop: "1px dashed var(--line-2)", fontSize: 13, color: "var(--tx-4)", flexWrap: "wrap" }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <i style={{ width: 12, height: 8, borderRadius: 2, background: "var(--brand)" }} />
+          <i style={{ width: 12, height: 8, borderRadius: 2, background: getRateColor("utilization") }} />
           가동률 = (수행 + 제안) / 현재 인원
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <i style={{ width: 12, height: 8, borderRadius: 2, background: "var(--info)" }} />
+          <i style={{ width: 12, height: 8, borderRadius: 2, background: getRateColor("contract") }} />
           가득률 = 수행 / 현재 인원
         </span>
       </div>

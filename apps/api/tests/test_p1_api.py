@@ -30,20 +30,46 @@ def client() -> Generator[TestClient, None, None]:
     app.dependency_overrides.clear()
 
 
+def create_project_payload(project_code_id: str, **overrides: object) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "name": "차세대 PMO 구축",
+        "client_name": "내부",
+        "project_type": "main",
+        "status": "proposing",
+        "certainty": "우세",
+        "total_amount": 10,
+        "company_amount": 5,
+        "sales_owner": "영업대표",
+        "sales_department": "공공영업팀",
+        "proposal_pm_name": "관리자",
+        "presentation_pm_name": "관리자",
+        "delivery_pm_name": "관리자",
+        "start_date": "2026-01-01",
+        "end_date": "2026-03-31",
+        "submission_at": "2026-01-10T09:00:00",
+        "submission_format": "온라인",
+        "project_code_id": project_code_id,
+    }
+    payload.update(overrides)
+    return payload
+
+
 def test_project_lifecycle_and_invalid_transition(client: TestClient) -> None:
+    created_code = client.post(
+        "/api/project-codes",
+        json={"name": "차세대 PMO 구축", "project_type": "main", "status": "proposing", "certainty": "우세"},
+    )
+    assert created_code.status_code == 201
+    project_code = created_code.json()["data"]
+    assert project_code["code"] == "P2026001"
+
     created = client.post(
         "/api/projects",
-        json={
-            "name": "차세대 PMO 구축",
-            "client_name": "내부",
-            "project_type": "main",
-            "status": "proposing",
-            "proposal_pm_name": "관리자",
-        },
+        json=create_project_payload(project_code["id"]),
     )
     assert created.status_code == 201
     project = created.json()["data"]
-    assert project["code"] == "PMO-0001"
+    assert project["code"] == "P2026001"
 
     invalid = client.patch(f"/api/projects/{project['id']}", json={"status": "running"})
     assert invalid.status_code == 400
@@ -68,10 +94,25 @@ def test_read_only_user_cannot_mutate(client: TestClient) -> None:
 
 
 def test_project_editor_can_update_own_presented_project_only(client: TestClient) -> None:
+    created_code = client.post(
+        "/api/project-codes",
+        json={"name": "담당자 검증", "project_type": "main", "status": "presented", "certainty": "우세"},
+    )
+    assert created_code.status_code == 201
+    project_code = created_code.json()["data"]
+
     created = client.post(
         "/api/projects",
-        json={"name": "담당자 검증", "project_type": "main", "status": "presented", "proposal_pm_name": "pm1"},
+        json=create_project_payload(
+            project_code["id"],
+            name="담당자 검증",
+            status="presented",
+            proposal_pm_name="pm1",
+            presentation_pm_name="pm1",
+            delivery_pm_name="pm1",
+        ),
     )
+    assert created.status_code == 201
     project = created.json()["data"]
 
     denied = client.patch(

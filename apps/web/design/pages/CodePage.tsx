@@ -788,24 +788,11 @@ function CodePageImpl({ initialCreate = false, initialEditCode = null }: CodePag
     setFieldErrors({});
   };
 
-  const makeNextProjectCode = (): string => {
-    const rows = data?.rows ?? [];
-    const year = new Date().getFullYear();
-    const currentYearPrefix = `P${year}`;
-    const sequenceByYear = rows
-      .map((row: any) => String(row.code ?? "").trim())
-      .filter((code: string) => code.startsWith(currentYearPrefix))
-      .map((code: string) => Number(code.slice(currentYearPrefix.length)))
-      .filter((seq: number) => Number.isFinite(seq));
-    const next = (sequenceByYear.length ? Math.max(...sequenceByYear) : 0) + 1;
-    return `${currentYearPrefix}${String(next).padStart(3, "0")}`;
-  };
-
   const openCreate = () => {
     setModalMode("create");
     setEditingRow(null);
     setEditForm({
-      code: makeNextProjectCode(),
+      code: "",
       name: "",
       clientName: "",
       salesDept: "",
@@ -916,7 +903,6 @@ function CodePageImpl({ initialCreate = false, initialEditCode = null }: CodePag
     try {
       const mappedProjectType = ({ "주사업": "main", "부사업": "sub", "하도": "subcontract", "협력": "partner" } as const)[editForm.projectType as "주사업" | "부사업" | "하도" | "협력"] ?? "main";
       const payload: any = {
-        code: editForm.code.trim() || undefined,
         name: editForm.name.trim() || undefined,
         project_type: mappedProjectType,
         status: editForm.status as any,
@@ -931,7 +917,6 @@ function CodePageImpl({ initialCreate = false, initialEditCode = null }: CodePag
       if (modalMode === "create") {
         const createdCode = await createProjectCode(payload);
         await createProject({
-          code: editForm.code.trim() || undefined,
           name: editForm.name.trim() || undefined,
           client_name: editForm.clientName.trim() || null,
           project_type: mappedProjectType as any,
@@ -960,6 +945,7 @@ function CodePageImpl({ initialCreate = false, initialEditCode = null }: CodePag
         } as any);
       } else {
         if (!editingRow) return;
+        payload.code = editForm.code.trim() || undefined;
         const updated = await updateProjectCode(editingRow.id, payload);
         const updatedData = updated.data as any;
         if (editingRow.projectId) {
@@ -1417,7 +1403,7 @@ function CodePageImpl({ initialCreate = false, initialEditCode = null }: CodePag
                   <div style={{ gridRow: 1, gridColumn: 3 }} />
                   <div style={{ gridRow: 1, gridColumn: 4 }} />
 
-                  <label className="pmo-field" style={{ gridRow: 2, gridColumn: 1 }}><span>코드</span><input value={editForm.code} onChange={(e) => setEditForm({ ...editForm, code: e.target.value })} /></label>
+                  <label className="pmo-field" style={{ gridRow: 2, gridColumn: 1 }}><span>코드</span><input value={modalMode === "create" ? "저장 시 자동 발급" : editForm.code} disabled={modalMode === "create"} onChange={(e) => setEditForm({ ...editForm, code: e.target.value })} /></label>
                   <label className="pmo-field" data-field="name" style={{ gridRow: 2, gridColumn: 2 }}><span style={fieldLabelErrorStyle("name")}>프로젝트명</span><input value={editForm.name} onChange={(e) => { clearFieldError("name"); setEditForm({ ...editForm, name: e.target.value }); }} style={errorInputStyle("name")} /></label>
                   <label className="pmo-field" style={{ gridRow: 2, gridColumn: 3 }}><span>공고번호</span><input value={editForm.bidNoticeNo} onChange={(e) => setEditForm({ ...editForm, bidNoticeNo: e.target.value })} /></label>
                   <label className="pmo-field" style={{ gridRow: 2, gridColumn: 4 }}><span>공고일</span><input type="date" value={editForm.bidNoticeDate} onChange={(e) => setEditForm({ ...editForm, bidNoticeDate: e.target.value })} /></label>

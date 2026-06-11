@@ -169,17 +169,8 @@ export default function ProjectMasterEditModal({
   useEffect(() => {
     if (!open) return;
     if (mode === "create") {
-      const year = new Date().getFullYear();
-      const currentYearPrefix = `P${year}`;
-      const sequenceByYear = rows
-        .map((item: any) => String(item.code ?? "").trim())
-        .filter((code: string) => code.startsWith(currentYearPrefix))
-        .map((code: string) => Number(code.slice(currentYearPrefix.length)))
-        .filter((seq: number) => Number.isFinite(seq));
-      const next = (sequenceByYear.length ? Math.max(...sequenceByYear) : 0) + 1;
-      const nextCode = `${currentYearPrefix}${String(next).padStart(3, "0")}`;
       setEditForm({
-        code: nextCode,
+        code: "",
         name: "",
         clientName: "",
         salesDept: "",
@@ -341,7 +332,6 @@ export default function ProjectMasterEditModal({
     try {
       const mappedProjectType = ({ "주사업": "main", "부사업": "sub", "하도": "subcontract", "협력": "partner" } as const)[editForm.projectType as "주사업" | "부사업" | "하도" | "협력"] ?? "main";
       const payload: any = {
-        code: editForm.code.trim() || undefined,
         name: editForm.name.trim() || undefined,
         project_type: mappedProjectType,
         status: editForm.status as any,
@@ -356,7 +346,6 @@ export default function ProjectMasterEditModal({
       if (mode === "create") {
         const createdCode = await createProjectCode(payload);
         await createProject({
-          code: editForm.code.trim() || undefined,
           name: editForm.name.trim() || undefined,
           client_name: editForm.clientName.trim() || null,
           project_type: mappedProjectType as any,
@@ -384,6 +373,7 @@ export default function ProjectMasterEditModal({
           project_code_id: createdCode.data.id,
         } as any);
       } else {
+        payload.code = editForm.code.trim() || undefined;
         if (row?.id) {
           await updateProjectCode(row.id, payload);
         }
@@ -453,7 +443,7 @@ export default function ProjectMasterEditModal({
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 }}>
               <label className="pmo-field" data-field="status" style={{ gridRow: 1, gridColumn: 1 }}><span style={fieldLabelErrorStyle("status")}>상태</span><select value={editForm.status} onChange={(e) => { clearFieldError("status"); setEditForm({ ...editForm, status: e.target.value }); }} style={errorInputStyle("status")}>{Object.keys(STATUS_LABEL).map((code) => <option key={code} value={code}>{STATUS_LABEL[code]}</option>)}</select></label>
               <div style={{ gridRow: 1, gridColumn: 2 }} /><div style={{ gridRow: 1, gridColumn: 3 }} /><div style={{ gridRow: 1, gridColumn: 4 }} />
-              <label className="pmo-field" style={{ gridRow: 2, gridColumn: 1 }}><span>코드</span><input value={editForm.code} onChange={(e) => setEditForm({ ...editForm, code: e.target.value })} /></label>
+              <label className="pmo-field" style={{ gridRow: 2, gridColumn: 1 }}><span>코드</span><input value={mode === "create" ? "저장 시 자동 발급" : editForm.code} disabled={mode === "create"} onChange={(e) => setEditForm({ ...editForm, code: e.target.value })} /></label>
               <label className="pmo-field" data-field="name" style={{ gridRow: 2, gridColumn: 2 }}><span style={fieldLabelErrorStyle("name")}>프로젝트명</span><input value={editForm.name} onChange={(e) => { clearFieldError("name"); setEditForm({ ...editForm, name: e.target.value }); }} style={errorInputStyle("name")} /></label>
               <label className="pmo-field" style={{ gridRow: 2, gridColumn: 3 }}><span>공고번호</span><input value={editForm.bidNoticeNo} onChange={(e) => setEditForm({ ...editForm, bidNoticeNo: e.target.value })} /></label>
               <label className="pmo-field" style={{ gridRow: 2, gridColumn: 4 }}><span>공고일</span><input type="date" value={editForm.bidNoticeDate} onChange={(e) => setEditForm({ ...editForm, bidNoticeDate: e.target.value })} /></label>

@@ -1,19 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import select
 
 from app.api.common import ListParams, apply_text_search, envelope, paginate, parse_sort
 from app.api.deps import CurrentUser, DbSession
+from app.domain.project_code_policy import generate_project_code
 from app.domain.projects import can_mutate_master
 from app.enums import ProjectStatus, ProjectType
 from app.models.core import ProjectCode
 from app.schemas.projects import ProjectCodeCreate, ProjectCodeRead, ProjectCodeUpdate
 
 router = APIRouter()
-
-
-def next_code(session: DbSession) -> str:
-    total = session.scalar(select(func.count()).select_from(ProjectCode).where(ProjectCode.code.like("PC-%"))) or 0
-    return f"PC-{total + 1:04d}"
 
 
 @router.get("")
@@ -63,7 +59,7 @@ def create_project_code(
     missing_required = [label for label, value in required_checks if value is None or (isinstance(value, str) and not value.strip())]
     if missing_required:
         raise HTTPException(status_code=400, detail=f"필수 항목 누락: {', '.join(missing_required)}")
-    code = payload.code or next_code(session)
+    code = payload.code or generate_project_code(session)
     if session.scalar(select(ProjectCode).where(ProjectCode.code == code)):
         raise HTTPException(status_code=409, detail="이미 사용 중인 프로젝트 코드입니다.")
     project_code = ProjectCode(**payload.model_dump(exclude={"code"}), code=code)

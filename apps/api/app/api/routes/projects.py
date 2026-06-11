@@ -1,22 +1,18 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import select
 
 from app.api.common import ListParams, apply_text_search, envelope, paginate, parse_sort
 from app.api.deps import CurrentUser, DbSession
+from app.domain.project_code_policy import generate_project_code
 from app.domain.projects import allowed_next_statuses, can_mutate_project, is_valid_status_transition
 from app.domain.personnel import person_name_with_title, user_display_name
 from app.enums import ProjectLogStatus, ProjectStatus, ProjectType
-from app.models.core import Project, ProjectLog
+from app.models.core import Project, ProjectCode, ProjectLog
 from app.schemas.projects import ProjectCreate, ProjectRead, ProjectUpdate
 
 router = APIRouter()
-
-
-def next_project_code(session: DbSession) -> str:
-    count = session.scalar(select(func.count()).select_from(Project).where(Project.code.like("PMO-%"))) or 0
-    return f"PMO-{count + 1:04d}"
 
 
 def serialize_project(session: DbSession, project: Project) -> dict[str, object]:
@@ -86,7 +82,15 @@ def create_project(payload: ProjectCreate, session: DbSession, user: CurrentUser
     missing_required = [label for label, value in required_checks if value is None or (isinstance(value, str) and not value.strip())]
     if missing_required:
         raise HTTPException(status_code=400, detail=f"필수 항목 누락: {', '.join(missing_required)}")
-    code = payload.code or next_project_code(session)
+    project_code = session.get(ProjectCode, payload.project_code_id) if payload.project_code_id else None
+    if payload.project_code_id and project_code is None:
+        raise HTTPException(status_code=404, detail="프로젝트코드를 찾을 수 없습니다.")
+    if payload.code:
+        code = payload.code
+    elif project_code:
+        code = project_code.code
+    else:
+        code = generate_project_code(session)
     if session.scalar(select(Project).where(Project.code == code)):
         raise HTTPException(status_code=409, detail="이미 사용 중인 프로젝트 코드입니다.")
 

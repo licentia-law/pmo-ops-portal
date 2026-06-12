@@ -1,15 +1,15 @@
 # 프로젝트 관련 페이지 구현 설명
 
-이 문서는 PMO 업무수행 관리시스템에서 구현된 프로젝트 관련 4개 화면을 ChatGPT에게 설명하기 위한 전달용 문서다. 원본 파일은 수정하지 않았고, 관련 구현 파일은 `project_pages_files` 폴더 아래에 원래 경로 구조를 유지해 복사해 두었다.
+이 문서는 PMO 업무수행 관리시스템에서 구현된 프로젝트 관련 4개 화면을 ChatGPT에게 설명하기 위한 전달용 문서다. 원본 파일은 수정하지 않았고, 관련 구현 파일은 `docs/_temp/project_pages_files` 폴더 아래에 번호가 붙은 단일 파일명으로 복사해 두었다.
 
 ## 대상 화면
 
-| 화면명 | URL | Next.js 라우트 파일 | 실제 화면 컴포넌트 |
-| --- | --- | --- | --- |
-| 프로젝트 관리 | `/projects/codes` | `project_pages_files/apps/web/app/(protected)/projects/codes/page.tsx` | `project_pages_files/apps/web/design/pages/CodePage.tsx` |
-| 업무수행현황 | `/projects/operations` | `project_pages_files/apps/web/app/(protected)/projects/operations/page.tsx` | `project_pages_files/apps/web/design/pages/ExecutionPage.tsx` |
-| 프로젝트 상세 | `/projects/[projectId]` | `project_pages_files/apps/web/app/(protected)/projects/[projectId]/page.tsx` | `project_pages_files/apps/web/design/pages/ProjectDetailPage.tsx` |
-| 진행이력 | `/projects/logs` | `project_pages_files/apps/web/app/(protected)/projects/logs/page.tsx` | `project_pages_files/apps/web/design/pages/HistoryPage.tsx` |
+| 화면명 | URL | 원본 Next.js 라우트 파일 | 원본 실제 화면 컴포넌트 | 복사본 라우트 파일 | 복사본 화면 컴포넌트 |
+| --- | --- | --- | --- | --- | --- |
+| 프로젝트 관리 | `/projects/codes` | `apps/web/app/(protected)/projects/codes/page.tsx` | `apps/web/design/pages/CodePage.tsx` | `docs/_temp/project_pages_files/01_route_projects_codes_page.tsx` | `docs/_temp/project_pages_files/05_frontend_CodePage.tsx` |
+| 업무수행현황 | `/projects/operations` | `apps/web/app/(protected)/projects/operations/page.tsx` | `apps/web/design/pages/ExecutionPage.tsx` | `docs/_temp/project_pages_files/02_route_projects_operations_page.tsx` | `docs/_temp/project_pages_files/06_frontend_ExecutionPage.tsx` |
+| 프로젝트 상세 | `/projects/[projectId]` | `apps/web/app/(protected)/projects/[projectId]/page.tsx` | `apps/web/design/pages/ProjectDetailPage.tsx` | `docs/_temp/project_pages_files/03_route_projects_projectId_page.tsx` | `docs/_temp/project_pages_files/07_frontend_ProjectDetailPage.tsx` |
+| 진행이력 | `/projects/logs` | `apps/web/app/(protected)/projects/logs/page.tsx` | `apps/web/design/pages/HistoryPage.tsx` | `docs/_temp/project_pages_files/04_route_projects_logs_page.tsx` | `docs/_temp/project_pages_files/08_frontend_HistoryPage.tsx` |
 
 ## 전체 구조
 
@@ -179,36 +179,63 @@ API 호출은 `apps/web/app/lib/api.ts`에 모여 있다. 기본 API 주소는 `
 
 `ProjectCode`와 `Project`는 현재 UI 기준으로 강하게 연결되어 있다. 특히 프로젝트 관리 화면은 모든 코드에 연결 프로젝트가 있어야 정상 응답을 만든다.
 
-## 복사한 참고 파일 목록
+## 관련 원본 스크립트 경로
 
-아래 파일들은 원본을 이동하지 않고 `docs/_temp/project_pages_files` 아래에 복사한 사본이다.
+아래는 업무수행현황, 프로젝트 상세, 진행이력, 프로젝트 관리 화면과 직접 연결된 원본 구현/디자인 파일이다.
 
-1. `project_pages_files/apps/web/app/(protected)/projects/codes/page.tsx`
-2. `project_pages_files/apps/web/app/(protected)/projects/operations/page.tsx`
-3. `project_pages_files/apps/web/app/(protected)/projects/[projectId]/page.tsx`
-4. `project_pages_files/apps/web/app/(protected)/projects/logs/page.tsx`
-5. `project_pages_files/apps/web/design/pages/CodePage.tsx`
-6. `project_pages_files/apps/web/design/pages/ExecutionPage.tsx`
-7. `project_pages_files/apps/web/design/pages/ProjectDetailPage.tsx`
-8. `project_pages_files/apps/web/design/pages/HistoryPage.tsx`
-9. `project_pages_files/apps/web/design/components/PmoShell.tsx`
-10. `project_pages_files/apps/web/design/components/CommonPeriodPicker.tsx`
-11. `project_pages_files/apps/web/design/components/ProjectMasterEditModal.tsx`
-12. `project_pages_files/apps/web/app/lib/api.ts`
-13. `project_pages_files/apps/api/app/api/routes/p1_screens.py`
-14. `project_pages_files/apps/api/app/api/routes/projects.py`
-15. `project_pages_files/apps/api/app/api/routes/project_codes.py`
-16. `project_pages_files/apps/api/app/api/routes/project_logs.py`
-17. `project_pages_files/apps/api/app/models/core.py`
-18. `project_pages_files/apps/api/app/schemas/projects.py`
-19. `project_pages_files/apps/api/app/domain/projects.py`
+### Next.js 라우트
 
-## ChatGPT에게 요청할 때 함께 전달하면 좋은 질문
+1. `apps/web/app/(protected)/projects/codes/page.tsx`
+2. `apps/web/app/(protected)/projects/operations/page.tsx`
+3. `apps/web/app/(protected)/projects/[projectId]/page.tsx`
+4. `apps/web/app/(protected)/projects/logs/page.tsx`
 
-이 구현을 바탕으로 추가 설계나 개선 의견을 받고 싶다면 다음처럼 질문하면 된다.
+### 프론트엔드 화면/공통 컴포넌트
 
-```text
-첨부한 MD와 파일 사본을 기준으로 프로젝트 관리, 업무수행현황, 프로젝트 상세, 진행이력 화면의 현재 구현 구조를 분석해줘.
-특히 프론트엔드 화면 상태 관리, API 응답 구조, 백엔드 도메인 규칙, 데이터 모델 연결이 일관적인지 검토하고,
-리팩터링이 필요하다면 우선순위와 영향 범위를 제안해줘.
-```
+1. `apps/web/design/pages/CodePage.tsx`
+2. `apps/web/design/pages/ExecutionPage.tsx`
+3. `apps/web/design/pages/ProjectDetailPage.tsx`
+4. `apps/web/design/pages/HistoryPage.tsx`
+5. `apps/web/design/pages/projectWorkbookExport.ts`
+6. `apps/web/design/components/PmoShell.tsx`
+7. `apps/web/design/components/CommonPeriodPicker.tsx`
+8. `apps/web/design/components/ProjectMasterEditModal.tsx`
+9. `apps/web/design/constants/projectFormOptions.ts`
+10. `apps/web/app/lib/api.ts`
+
+### 백엔드 API/도메인/모델
+
+1. `apps/api/app/api/routes/p1_screens.py`
+2. `apps/api/app/api/routes/projects.py`
+3. `apps/api/app/api/routes/project_codes.py`
+4. `apps/api/app/api/routes/project_logs.py`
+5. `apps/api/app/models/core.py`
+6. `apps/api/app/schemas/projects.py`
+7. `apps/api/app/domain/projects.py`
+
+### 디자인 원본/참고 파일
+
+1. `apps/web/design/03_업무수행현황/PMO Execution.html`
+2. `apps/web/design/03_업무수행현황/execution.jsx`
+3. `apps/web/design/03_업무수행현황/execution.json`
+4. `apps/web/design/04_프로젝트코드/PMO Code.html`
+5. `apps/web/design/04_프로젝트코드/code.jsx`
+6. `apps/web/design/04_프로젝트코드/code.json`
+7. `apps/web/design/05_프로젝트상세/PMO Project.html`
+8. `apps/web/design/05_프로젝트상세/project.jsx`
+9. `apps/web/design/05_프로젝트상세/project.json`
+10. `apps/web/design/06_진행이력/PMO History.html`
+11. `apps/web/design/06_진행이력/history.jsx`
+12. `apps/web/design/06_진행이력/history.json`
+13. `docs/design/draft_260508/03_업무수행현황.png`
+14. `docs/design/draft_260508/04_프로젝트코드.png`
+15. `docs/design/draft_260508/05_프로젝트상세.png`
+16. `docs/design/draft_260508/06_진행이력.png`
+
+### 디자인 완료 파일 (브라우저 화면 캡쳐본)
+1. `docs\design\complete\홈_260611_1654.png`
+2. `docs\design\complete\프로젝트_관리_01_260611_1744.png`
+3. `docs\design\complete\프로젝트_관리_02_260611_1744.png`
+4. `docs\design\complete\업무수행현황_260611_1655.png`
+5. `docs\design\complete\프로젝트_상세_260611_1740.png`
+6. `docs\design\complete\진행이력_260611_1742.png`

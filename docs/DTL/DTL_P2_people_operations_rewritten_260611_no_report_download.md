@@ -3,6 +3,7 @@
 - 작성일시: 2026-05-08 07:02
 - 1차 업데이트: 2026-05-28 16:08
 - 2차 업데이트: 2026-06-11
+- 3차 업데이트: 2026-06-11
 - 기준 문서:
   - `PRD_260506_1415.md`
   - `analysis_pmo_excel_260429_1749.md`
@@ -11,6 +12,7 @@
   - 현재까지 논의한 메뉴 통폐합 방향을 반영한다.
   - `2026년 PMO본부 KPI_가동율` 엑셀 시트의 성격을 웹 페이지/관리 화면/집계 API로 재배치한다.
   - 인력 파트의 페이지 역할을 명확히 하여 Codex 구현 전 기준선을 고정한다.
+  - 현재 로컬 구현을 수정하는 문서가 아니라 P2 인력 운영 신규 구현의 기준 문서로 사용한다.
 
 ---
 
@@ -68,6 +70,20 @@
 | 월별투입현황 | 월별 MM 요약으로 사용 | 프론트 계산 금지, 백엔드 집계/API 기준 |
 | 제안PRJ/이행PRJ | 보류 또는 보고 영역 | 별도 페이지 삭제, 업무수행현황 필터와 화면별 엑셀 다운로드로 대체 |
 
+### 0.4 3차 업데이트 확정 사항
+
+| 항목 | 확정 방향 |
+|---|---|
+| 현재 메뉴 구조 | DTL 기준으로 수정한다. 인력 메뉴는 `인력 투입 현황`, `대기/제안 현황` 2개만 노출한다. |
+| 인력 관리 라우트 | 기존 `/people/employment`를 유지하되 `관리 > 인력 관리` 메뉴에만 노출한다. |
+| 인력 투입 현황 라우트 | `/people/current-assignments`로 구현한다. |
+| 대기/제안 현황 라우트 | `/people/waiting-proposals`로 구현한다. |
+| 인력 화면/API 현황 | 현재 mock 또는 P1성 구현은 참고만 한다. 본 문서는 P2 신규 구현 기준이다. |
+| 역할/직무 기준 | `roles` 신규 테이블/API로 구현한다. 문자열/enum 임시 처리는 MVP 기준에서 제외한다. |
+| 배정 취소 상태 | `AssignmentStatus.cancelled`를 추가한다. 취소된 배정은 삭제하지 않고 이력으로 보존한다. |
+| 근무 위치 구분 | `WorkLocationType` enum을 추가한다. 값은 `onsite`, `remote`, `hybrid`로 한다. |
+| 주간 KPI | `GET /api/weekly-kpi-summaries` API는 제공하되, MVP에서는 별도 테이블 없이 `current_assignment_snapshots`, `weekly_load_snapshots` 기반 파생 응답으로 구현한다. |
+
 ---
 
 ## 1. 최종 메뉴 구조
@@ -104,7 +120,7 @@ KPI/보고
 ├─ 사용자/권한 관리
 ├─ 기준정보 관리
 ├─ 프로젝트 관리
-├─ 인력 관리
+├─ 인력 관리 (/people/employment)
 ├─ 공휴일 관리
 └─ 월마감/스냅샷
 ```
@@ -135,6 +151,9 @@ KPI/보고
 
 인력 관리 화면은 DB 기준 데이터 역할을 한다.  
 운영 화면에서 조회되는 모든 인력 정보는 `관리 > 인력 관리`에 등록된 인력 마스터를 기준으로 한다.
+
+실제 라우트는 기존 구현과의 연속성을 위해 `/people/employment`를 유지한다.  
+단, 사이드바에서는 `인력` 메뉴가 아니라 `관리 > 인력 관리`에만 노출한다.
 
 ---
 
@@ -332,6 +351,9 @@ KPI/보고
 이 화면은 운영 화면이 아니라 DB 기준 데이터 관리 화면이다.  
 따라서 정확성, 수정 이력, 필수값 검증이 중요하다.
 
+실제 라우트는 `/people/employment`를 유지한다.  
+다만 메뉴 노출 위치는 `관리 > 인력 관리`로 제한하며, 일반 `인력` 메뉴에는 노출하지 않는다.
+
 ### 4.2 사용자
 
 | 사용자 | 사용 목적 |
@@ -429,6 +451,9 @@ PATCH  /api/roles/{id}
 
 이 화면은 기존 `인원별_투입(현재)` 시트의 역할을 웹으로 옮긴다.  
 다만 단순 스냅샷만 보여주는 것이 아니라, 인력 상세와 배정 원장으로 진입하는 허브 역할도 한다.
+
+실제 라우트는 `/people/current-assignments`로 구현한다.  
+기존 `/people/current` 또는 `/people/assignments` 라우트는 신규 메뉴 라우트로 사용하지 않는다.
 
 ### 5.2 사용자
 
@@ -632,6 +657,9 @@ GET    /api/monthly-assignment-mm?personnelId={id}
 이 화면은 기존 `대기현황`과 `Ⅱ.3.대기·제안인원` 시트를 통합한다.  
 주간현황 하단에 흡수하지 않고 별도 페이지로 유지한다.
 
+실제 라우트는 `/people/waiting-proposals`로 구현한다.  
+기존 `/people/waiting` 라우트는 신규 메뉴 라우트로 재사용하지 않는다.
+
 ### 7.2 별도 페이지로 유지하는 이유
 
 - 본부장/팀장이 대기 인력을 확인하는 빈도가 높다.
@@ -739,6 +767,9 @@ MVP에서는 `weekly_load_snapshots`와 `current_assignment_snapshots` 조합으
 주간현황은 KPI 보고 화면이다.  
 대기/제안 인원 상세 리스트는 `인력 > 대기/제안 현황`에서 확인한다.
 
+주간 KPI API는 `GET /api/weekly-kpi-summaries`로 제공한다.  
+MVP에서는 별도 `weekly_kpi_summaries` 테이블을 만들지 않고 `current_assignment_snapshots`, `weekly_load_snapshots` 기반 파생 응답으로 구현한다.
+
 주간현황의 역할은 다음으로 제한한다.
 
 | 영역 | 내용 |
@@ -770,7 +801,7 @@ MVP에서는 `weekly_load_snapshots`와 `current_assignment_snapshots` 조합으
 | 테이블 | 역할 |
 |---|---|
 | personnel | 인력 마스터 |
-| roles | 역할/직무 기준정보. 현재 DB에 없으면 기준정보 테이블 또는 enum으로 시작 가능 |
+| roles | 역할/직무 기준정보. 신규 테이블/API로 구현한다. |
 | project_assignments | 인력×프로젝트 배정 원장 |
 | monthly_employment_mm | 월별 재직 MM |
 | monthly_assignment_mm | 월별 투입 MM |
@@ -788,6 +819,12 @@ MVP에서는 `weekly_load_snapshots`와 `current_assignment_snapshots` 조합으
 | AssignmentStatus | planned, assigned, ended, cancelled |
 | WorkLocationType | onsite, remote, hybrid |
 | OrganizationRole | head, team_lead, member, pm, pl, other |
+
+`AssignmentStatus.cancelled`는 예정 또는 진행 전 배정이 취소된 경우에 사용한다.  
+취소된 배정은 삭제하지 않고 이력으로 보존한다.
+
+`WorkLocationType`은 상주/원격/혼합 구분을 표준화하기 위한 enum이다.  
+기존 문자열 필드가 있더라도 신규 구현에서는 enum 기준으로 검증한다.
 
 ### 9.3 주요 관계
 
@@ -912,6 +949,12 @@ GET /api/monthly-kpi-summaries
 GET /api/monthly-assignment-mm
 ```
 
+`GET /api/weekly-kpi-summaries`는 MVP에서 별도 저장 테이블을 만들지 않는다.  
+응답은 `current_assignment_snapshots`, `weekly_load_snapshots`를 기준으로 백엔드에서 파생 계산한다.
+
+`GET /api/monthly-kpi-summaries`는 `monthly_kpi_summaries` 저장 집계를 기준으로 한다.  
+월별 MM 상세는 `monthly_assignment_mm`, `monthly_employment_mm`를 함께 사용한다.
+
 ### 11.6 응답 envelope
 
 P1에서 확정한 표준을 유지한다.
@@ -1008,7 +1051,8 @@ P1에서 구현한 공통 컴포넌트를 재사용한다.
 인력재직현황과 역할과직무 시트의 역할을 통합한다.
 
 작업:
-- /admin/personnel 라우트 생성 또는 기존 인력 관리 라우트 정리
+- /people/employment 라우트 유지
+- 관리 > 인력 관리 메뉴에만 노출되도록 메뉴 정리
 - personnel 목록 조회 API 연결
 - personnel 등록/수정 API 연결
 - 재직 상태 변경 UI 구현
@@ -1038,7 +1082,7 @@ P1에서 구현한 공통 컴포넌트를 재사용한다.
 기존 인원별_투입(현재) 성격을 인력 투입 현황 화면으로 구현한다.
 
 작업:
-- /people/assignment-status 또는 /people/current-assignments 라우트 구성
+- /people/current-assignments 라우트 구성
 - current_assignment_snapshots API 연결
 - KPI 카드 구현
 - 기준일 현재 스냅샷 테이블 구현
@@ -1082,7 +1126,8 @@ P1에서 구현한 공통 컴포넌트를 재사용한다.
 인력 운영 데이터가 KPI/보고 화면에서 집계 결과로 사용되도록 연결한다.
 
 작업:
-- 주간현황에서 weekly_kpi_summaries 조회
+- 주간현황에서 /api/weekly-kpi-summaries 조회
+- /api/weekly-kpi-summaries는 current_assignment_snapshots, weekly_load_snapshots 기반 파생 응답으로 구현
 - 월별가동현황에서 monthly_kpi_summaries 조회
 - 월별투입현황 계산은 백엔드 집계로 처리
 - 주간현황/월별가동현황의 화면별 엑셀 다운로드 조건과 백엔드 집계 기준을 정리
@@ -1099,7 +1144,7 @@ P1에서 구현한 공통 컴포넌트를 재사용한다.
 기준 문서:
 - docs/DTL/DTL_common_PMO_work_management_system_260508_0702.md
 - docs/DTL/DTL_P1_core_operations_260508_0702.md
-- docs/DTL/DTL_P2_people_operations_rewritten_260611.md
+- docs/DTL/DTL_P2_people_operations_rewritten_260611_no_report_download.md
 - docs/PRD_260506_1415.md
 - docs/schema/P1_operational_schema_260511.md
 
@@ -1109,6 +1154,12 @@ P1에서 구현한 공통 컴포넌트를 재사용한다.
 3. `인력재직현황`과 `역할과직무`는 `관리 > 인력 관리`로 통합한다.
 4. `월별투입현황`은 프론트 계산이 아니라 백엔드 집계/API로 처리한다.
 5. `제안PRJ`, `이행PRJ`는 별도 페이지로 구현하지 않고 업무수행현황 필터와 해당 화면 엑셀 다운로드로 대체한다.
+
+확정 라우트:
+1. 관리 > 인력 관리: `/people/employment`
+2. 인력 > 인력 투입 현황: `/people/current-assignments`
+3. 인력 > 대기/제안 현황: `/people/waiting-proposals`
+4. 숨김 라우트 > 인력별 투입 상세: `/people/assignments/[personnelId]`
 
 권장 작업 순서:
 1. 관리자 > 인력 관리 구현
@@ -1123,6 +1174,10 @@ P1에서 구현한 공통 컴포넌트를 재사용한다.
 - MVP에서 드래그앤드롭, 복잡한 캘린더 편집, 과부하 자동 판정은 제외한다.
 - 중복 배정은 경고 중심으로 구현한다.
 - MM 계산은 프론트가 아니라 백엔드 기준으로 구현한다.
+- roles는 신규 테이블/API로 구현한다.
+- AssignmentStatus에는 `cancelled`를 추가한다.
+- WorkLocationType enum은 `onsite`, `remote`, `hybrid`로 구현한다.
+- 주간 KPI API는 제공하되 MVP에서는 별도 테이블 없이 스냅샷 기반 파생 응답으로 구현한다.
 - 기존 공통 컴포넌트(FilterBar, BaseTable, Pagination, SummaryCard, StatusBadge)를 재사용한다.
 
 산출물:

@@ -63,10 +63,7 @@ export const DATA_SCOPES = [
 
 export const REPORT_TYPES = [
   { code: "weekly", label: "주간현황" },
-  { code: "monthly", label: "월별가동현황" },
-  { code: "waiting_proposal", label: "대기/제안인원" },
-  { code: "proposal_projects", label: "제안PRJ" },
-  { code: "delivery_projects", label: "이행PRJ" }
+  { code: "monthly", label: "월별가동현황" }
 ] as const;
 
 export const HOLIDAY_TYPES = [

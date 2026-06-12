@@ -12,7 +12,7 @@ const columns: Column<(typeof assignmentsMock)[number]>[] = [
 
 export default function PeopleAssignmentsPage() {
   return (
-    <AppShell currentPath={ROUTES.peopleAssignments} pageTitle="인력배치/투입현황">
+    <AppShell currentPath={ROUTES.peopleAssignments} pageTitle="인력 투입 현황">
       <div className="pmo-page-stack">
         <FilterBar actions={<button className="pmo-btn">조회</button>}>
           <TextFilter label="검색어" placeholder="인력/프로젝트" />

@@ -82,9 +82,6 @@ class DataScope(StrEnum):
 class ReportType(StrEnum):
     WEEKLY = "weekly"
     MONTHLY = "monthly"
-    WAITING_PROPOSAL = "waiting_proposal"
-    PROPOSAL_PROJECTS = "proposal_projects"
-    DELIVERY_PROJECTS = "delivery_projects"
 
 
 class HolidayType(StrEnum):

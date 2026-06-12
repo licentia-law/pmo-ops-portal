@@ -30,9 +30,7 @@ export const MENU_CONFIG: MenuGroup[] = [
     id: "people",
     label: "인력",
     items: [
-      { id: "people-assignments", label: "인력배치/투입현황", href: ROUTES.peopleAssignments },
-      { id: "people-current", label: "인원별 투입(현재)", href: ROUTES.peopleCurrent },
-      { id: "people-waiting", label: "대기현황", href: ROUTES.peopleWaiting }
+      { id: "people-assignments", label: "인력 투입 현황", href: ROUTES.peopleAssignments }
     ]
   },
   {
@@ -40,11 +38,7 @@ export const MENU_CONFIG: MenuGroup[] = [
     label: "KPI/보고",
     items: [
       { id: "reports-weekly", label: "주간현황", href: ROUTES.reportsWeekly },
-      { id: "reports-monthly", label: "월별가동현황", href: ROUTES.reportsMonthly },
-      { id: "reports-waiting-proposal", label: "대기/제안인원", href: ROUTES.reportsWaitingProposal },
-      { id: "reports-proposal-projects", label: "제안PRJ", href: ROUTES.reportsProposalProjects },
-      { id: "reports-delivery-projects", label: "이행PRJ", href: ROUTES.reportsDeliveryProjects },
-      { id: "reports-downloads", label: "보고서 다운로드", href: ROUTES.reportsDownloads }
+      { id: "reports-monthly", label: "월별가동현황", href: ROUTES.reportsMonthly }
     ]
   },
   {

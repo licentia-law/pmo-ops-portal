@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties, type ReactNode } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 import { MENU_CONFIG, type MenuGroup } from "@pmo/shared-types";
 
 type ShellIconName =
@@ -10,7 +10,6 @@ type ShellIconName =
   | "trending"
   | "settings"
   | "chevronDown"
-  | "chevronUp"
   | "bell"
   | "menu";
 
@@ -21,7 +20,6 @@ const SHELL_ICONS: Record<ShellIconName, string> = {
   trending: "M3 17l5-5 4 4 7-7M14 9h6v6",
   settings: "M12 8.5a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7zM19.4 15a1 1 0 0 0 .2 1.1l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1 1 0 0 0-1.7.7v.4a2 2 0 0 1-4 0v-.2a1 1 0 0 0-1.7-.7l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1 1 0 0 0-.7-1.7H5a2 2 0 0 1 0-4h.2a1 1 0 0 0 .7-1.7l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1 1 0 0 0 1.7-.7V5a2 2 0 0 1 4 0v.2a1 1 0 0 0 1.7.7l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1 1 0 0 0-.7 1.7H19a2 2 0 0 1 0 4h-.2a1 1 0 0 0-.4 0",
   chevronDown: "M6 9l6 6 6-6",
-  chevronUp: "M6 15l6-6 6 6",
   bell: "M6 8a6 6 0 0 1 12 0c0 7 3 5 3 9H3c0-4 3-2 3-9zM10 21a2 2 0 0 0 4 0",
   menu: "M4 6h16M4 12h16M4 18h16"
 };
@@ -92,14 +90,11 @@ function SidebarItem({ id, label, href, currentId, indent = false }: { id: strin
 }
 
 function SidebarGroup({ group, currentId }: { group: MenuGroup; currentId: string }) {
-  const containsActive = group.items.some((item) => item.id === currentId);
-  const [open, setOpen] = useState(containsActive || group.id === "projects");
   const icon = GROUP_ICON[group.id] ?? "briefcase";
 
   return (
     <div style={{ marginBottom: 4 }}>
-      <button
-        onClick={() => setOpen(!open)}
+      <div
         style={{
           display: "flex",
           alignItems: "center",
@@ -113,20 +108,18 @@ function SidebarGroup({ group, currentId }: { group: MenuGroup; currentId: strin
           borderRadius: 8,
           color: "var(--tx-3)",
           fontWeight: 600,
-          fontSize: 15.5
+          fontSize: 15.5,
+          boxSizing: "border-box"
         }}
       >
         <ShellIcon name={icon} size={16} stroke={1.7} style={{ color: "var(--tx-4)" }} />
         <span style={{ flex: 1, textAlign: "left" }}>{group.label}</span>
-        <ShellIcon name={open ? "chevronUp" : "chevronDown"} size={14} stroke={2} style={{ color: "var(--tx-5)" }} />
-      </button>
-      {open ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }}>
-          {group.items.map((item) => (
-            <SidebarItem key={item.id} id={item.id} label={item.label} href={item.href} currentId={currentId} indent />
-          ))}
-        </div>
-      ) : null}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 2 }}>
+        {group.items.map((item) => (
+          <SidebarItem key={item.id} id={item.id} label={item.label} href={item.href} currentId={currentId} indent />
+        ))}
+      </div>
     </div>
   );
 }

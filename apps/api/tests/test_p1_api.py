@@ -8,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base, get_session
 from app.main import app
+from app.models.core import MonthlyEmploymentMM, Personnel
 
 
 @pytest.fixture()
@@ -27,6 +28,26 @@ def client() -> Generator[TestClient, None, None]:
     app.dependency_overrides[get_session] = override_session
     with TestClient(app) as test_client:
         yield test_client
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture()
+def client_and_session() -> Generator[tuple[TestClient, sessionmaker[Session]], None, None]:
+    engine = create_engine(
+        "sqlite+pysqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    TestingSessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    Base.metadata.create_all(bind=engine)
+
+    def override_session() -> Generator[Session, None, None]:
+        with TestingSessionLocal() as session:
+            yield session
+
+    app.dependency_overrides[get_session] = override_session
+    with TestClient(app) as test_client:
+        yield test_client, TestingSessionLocal
     app.dependency_overrides.clear()
 
 
@@ -129,3 +150,152 @@ def test_project_editor_can_update_own_presented_project_only(client: TestClient
     )
     assert allowed.status_code == 200
     assert allowed.json()["data"]["name"] == "수정 성공"
+
+
+def test_people_reference_apis_validate_roles_and_permissions(client: TestClient) -> None:
+    denied_role = client.post(
+        "/api/roles",
+        headers={"x-user-permission": "general_editor"},
+        json={"code": "DEV", "name": "개발", "job_group": "개발"},
+    )
+    assert denied_role.status_code == 403
+
+    created_role = client.post(
+        "/api/roles",
+        json={"code": "DEV", "name": "개발", "job_group": "개발", "sort_order": 10},
+    )
+    assert created_role.status_code == 201
+    role = created_role.json()["data"]
+
+    duplicate_role = client.post(
+        "/api/roles",
+        json={"code": "DEV", "name": "개발2", "job_group": "개발"},
+    )
+    assert duplicate_role.status_code == 409
+
+    denied_person = client.post(
+        "/api/personnel",
+        headers={"x-user-permission": "general_editor"},
+        json={
+            "name": "홍길동",
+            "group_name": "PMO본부",
+            "employment_status": "active",
+            "role_id": role["id"],
+        },
+    )
+    assert denied_person.status_code == 403
+
+    denied_head_create = client.post(
+        "/api/personnel",
+        headers={"x-user-permission": "read_only", "x-user-organization-role": "head"},
+        json={
+            "employee_no": "E001",
+            "name": "홍길동",
+            "email": "hong@example.local",
+            "group_name": "PMO본부",
+            "team_name": "PMO1팀",
+            "position_name": "책임",
+            "employment_status": "active",
+            "role_id": role["id"],
+        },
+    )
+    assert denied_head_create.status_code == 403
+
+    created_person = client.post(
+        "/api/personnel",
+        json={
+            "employee_no": "E001",
+            "name": "홍길동",
+            "email": "hong@example.local",
+            "group_name": "PMO본부",
+            "team_name": "PMO1팀",
+            "position_name": "책임",
+            "employment_status": "active",
+            "role_id": role["id"],
+        },
+    )
+    assert created_person.status_code == 201
+    person = created_person.json()["data"]
+    assert person["id"]
+    assert person["role_id"] == role["id"]
+    assert person["role_name"] == "개발"
+
+    listed = client.get(
+        "/api/personnel",
+        params={"group_name": "PMO본부", "employment_status": "active", "role_id": role["id"], "q": "홍길동"},
+    )
+    assert listed.status_code == 200
+    assert listed.json()["meta"]["total"] == 1
+    assert listed.json()["data"][0]["id"] == person["id"]
+
+    listed_by_role = client.get("/api/personnel", params={"q": "개발"})
+    assert listed_by_role.status_code == 200
+    assert listed_by_role.json()["meta"]["total"] == 1
+    assert listed_by_role.json()["data"][0]["id"] == person["id"]
+
+    denied_head_master_update = client.patch(
+        f"/api/personnel/{person['id']}",
+        headers={"x-user-permission": "read_only", "x-user-organization-role": "head"},
+        json={"name": "권한초과"},
+    )
+    assert denied_head_master_update.status_code == 403
+
+    patched = client.patch(
+        f"/api/personnel/{person['id']}",
+        headers={"x-user-permission": "read_only", "x-user-organization-role": "head"},
+        json={"employment_status": "leave"},
+    )
+    assert patched.status_code == 200
+    assert patched.json()["data"]["employment_status"] == "leave"
+
+    inactive_role = client.post("/api/roles", json={"code": "OLD", "name": "구역할", "is_active": False})
+    assert inactive_role.status_code == 201
+    rejected = client.patch(
+        f"/api/personnel/{person['id']}",
+        json={"role_id": inactive_role.json()["data"]["id"]},
+    )
+    assert rejected.status_code == 400
+
+
+def test_monthly_employment_mm_list_and_patch(client_and_session: tuple[TestClient, sessionmaker[Session]]) -> None:
+    client, SessionLocal = client_and_session
+    with SessionLocal() as session:
+        person = Personnel(
+            name="김월별",
+            group_name="PMO본부",
+            team_name="PMO2팀",
+            employment_status="active",
+        )
+        session.add(person)
+        session.flush()
+        monthly = MonthlyEmploymentMM(
+            personnel_id=person.id,
+            year=2026,
+            month=6,
+            workdays=20,
+            employed_workdays=10,
+            employment_mm=0.5,
+        )
+        session.add(monthly)
+        session.commit()
+        monthly_id = monthly.id
+
+    listed = client.get("/api/monthly-employment-mm", params={"year": 2026, "group_name": "PMO본부"})
+    assert listed.status_code == 200
+    assert listed.json()["meta"]["total"] == 1
+    assert listed.json()["data"][0]["personnel_name"] == "김월별"
+
+    invalid = client.patch(
+        f"/api/monthly-employment-mm/{monthly_id}",
+        json={"workdays": 10, "employed_workdays": 11},
+    )
+    assert invalid.status_code == 400
+
+    patched = client.patch(
+        f"/api/monthly-employment-mm/{monthly_id}",
+        headers={"x-user-organization-role": "head"},
+        json={"employed_workdays": 20, "employment_mm": 1.0, "note": "보정"},
+    )
+    assert patched.status_code == 200
+    assert patched.json()["data"]["employment_mm"] == 1.0
+    assert patched.json()["data"]["note"] == "보정"

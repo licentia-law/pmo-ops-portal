@@ -1,4 +1,4 @@
-from app.models.core import Holiday, Personnel, Project, ProjectAssignment, ProjectCode, ProjectLog, User
+from app.models.core import Holiday, Personnel, Project, ProjectAssignment, ProjectCode, ProjectLog, Role, User
 
 __all__ = [
     "Holiday",
@@ -7,5 +7,6 @@ __all__ = [
     "ProjectAssignment",
     "ProjectCode",
     "ProjectLog",
+    "Role",
     "User",
 ]

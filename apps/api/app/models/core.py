@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import date, datetime
 from uuid import uuid4
 
@@ -48,6 +50,18 @@ class User(Base, TimestampMixin):
     # 확정 전까지 team_name 문자열로만 시작한다.
 
 
+class Role(Base, TimestampMixin):
+    __tablename__ = "roles"
+
+    id: Mapped[str] = uuid_pk()
+    code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    job_group: Mapped[str | None] = mapped_column(String(100))
+    description: Mapped[str | None] = mapped_column(Text)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
 class Personnel(Base, TimestampMixin):
     __tablename__ = "personnel"
 
@@ -59,6 +73,7 @@ class Personnel(Base, TimestampMixin):
     team_name: Mapped[str | None] = mapped_column(String(100))
     department_name: Mapped[str | None] = mapped_column(String(100))
     position_name: Mapped[str | None] = mapped_column(String(100))
+    role_id: Mapped[str | None] = mapped_column(ForeignKey("roles.id"))
     role_name: Mapped[str | None] = mapped_column(String(100))
     grade_name: Mapped[str | None] = mapped_column(String(50))
     employment_status: Mapped[EmploymentStatus] = mapped_column(Enum(EmploymentStatus, **ENUM_VALUE_KWARGS), nullable=False)
@@ -70,6 +85,8 @@ class Personnel(Base, TimestampMixin):
     monthly_mm: Mapped[dict | None] = mapped_column(JSON)
     total_mm: Mapped[float | None] = mapped_column(Numeric(8, 2))
     note: Mapped[str | None] = mapped_column(Text)
+
+    role: Mapped[Role | None] = relationship()
 
 
 class ProjectCode(Base, TimestampMixin):

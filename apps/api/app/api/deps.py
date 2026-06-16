@@ -14,6 +14,7 @@ def get_current_user(
     x_user_name: Annotated[str | None, Header()] = None,
     x_user_email: Annotated[str | None, Header()] = None,
     x_user_permission: Annotated[UserPermission | None, Header()] = None,
+    x_user_organization_role: Annotated[OrganizationRole | None, Header()] = None,
 ) -> User:
     # TODO: 로컬 계정 로그인/JWT가 붙기 전까지 개발용 헤더로 최소 권한 흐름을 검증한다.
     return User(
@@ -22,7 +23,7 @@ def get_current_user(
         name=x_user_name or "관리자",
         permission=x_user_permission or UserPermission.ADMIN,
         data_scope=DataScope.ALL,
-        organization_role=OrganizationRole.OTHER,
+        organization_role=x_user_organization_role or OrganizationRole.OTHER,
         team_name=None,
     )
 

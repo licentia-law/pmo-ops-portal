@@ -128,8 +128,8 @@
 | `grade_name` | string | 호봉/등급 |
 | `employment_status` | enum | 재직/휴직/전배/퇴직/대기 |
 | `joined_on` | date | 입사일자 |
-| `employment_start_date` | date | 재직 MM 산정 시작일 |
-| `employment_end_date` | date | 재직 MM 산정 종료일 |
+| `mm_start_date` | date | MM 시작일 |
+| `mm_end_date` | date | MM 종료일 |
 | `unit_price` | numeric | 사내단가 |
 | `base_mm` | numeric | 기준 MM |
 | `monthly_mm` | JSON | `{ "2026-01": 1.0, ... }` |

@@ -36,6 +36,8 @@ type PmoShellUser = {
   name: string;
   team: string;
   role: string;
+  permission?: "read_only" | "general_editor" | "project_editor" | "admin";
+  organizationRole?: "head" | "team_lead" | "member" | "pm" | "pl" | "other";
 };
 
 type PmoShellProps = {
@@ -134,9 +136,17 @@ export function PmoShell({
   const currentUser: PmoShellUser = {
     name: user?.name ?? "김PMO 책임",
     team: user?.team ?? "PMO본부",
-    role: user?.role ?? "관리자"
+    role: user?.role ?? "관리자",
+    permission: user?.permission,
+    organizationRole: user?.organizationRole
   };
   const avatarLabel = currentUser.name.trim().slice(0, 2) || "유저";
+  const visibleMenuConfig = MENU_CONFIG.map((group) => {
+    if (group.id !== "admin" || !currentUser.permission) return group;
+    if (currentUser.permission === "admin") return group;
+    if (currentUser.organizationRole === "head") return { ...group, items: group.items.filter((item) => item.id === "people-employment") };
+    return { ...group, items: [] };
+  }).filter((group) => group.items.length > 0);
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "var(--bg-0)" }}>
@@ -150,7 +160,7 @@ export function PmoShell({
           <span style={{ fontSize: 16, fontWeight: 700, color: "var(--tx-1)", letterSpacing: "0.01em", lineHeight: 1.2 }}>PMO 업무수행<br />관리시스템</span>
         </a>
         <nav style={{ flex: 1, overflowY: "auto", padding: "12px 0" }}>
-          {MENU_CONFIG.map((group) => {
+          {visibleMenuConfig.map((group) => {
             if (group.id === "home") {
               return group.items.map((item) => (
                 <a

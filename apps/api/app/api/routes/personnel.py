@@ -17,8 +17,6 @@ from app.models.core import Personnel, Role
 from app.schemas.people import PersonnelCreate, PersonnelRead, PersonnelUpdate
 
 router = APIRouter()
-
-
 def serialize_personnel(person: Personnel) -> dict[str, object]:
     payload = PersonnelRead.model_validate(person).model_dump(mode="json")
     if person.role:
@@ -39,6 +37,7 @@ def list_personnel(
     position_name: str | None = None,
     employment_status: EmploymentStatus | None = None,
     role_id: str | None = None,
+    is_active: bool | None = None,
 ) -> dict[str, object]:
     statement = select(Personnel).outerjoin(Role, Personnel.role_id == Role.id).options(joinedload(Personnel.role))
     statement = apply_text_search(
@@ -68,6 +67,8 @@ def list_personnel(
         statement = statement.where(Personnel.employment_status == employment_status)
     if role_id:
         statement = statement.where(Personnel.role_id == role_id)
+    if is_active is not None:
+        statement = statement.where(Personnel.is_active == is_active)
     statement = statement.order_by(
         parse_sort(
             params.sort,

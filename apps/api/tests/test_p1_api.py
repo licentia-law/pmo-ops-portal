@@ -219,6 +219,7 @@ def test_people_reference_apis_validate_roles_and_permissions(client: TestClient
     assert person["id"]
     assert person["role_id"] == role["id"]
     assert person["role_name"] == "개발"
+    assert person["is_active"] is True
 
     listed = client.get(
         "/api/personnel",
@@ -248,6 +249,25 @@ def test_people_reference_apis_validate_roles_and_permissions(client: TestClient
     assert patched.status_code == 200
     assert patched.json()["data"]["employment_status"] == "leave"
 
+    denied_head_use_status = client.patch(
+        f"/api/personnel/{person['id']}",
+        headers={"x-user-permission": "read_only", "x-user-organization-role": "head"},
+        json={"is_active": False},
+    )
+    assert denied_head_use_status.status_code == 403
+
+    deactivated = client.patch(
+        f"/api/personnel/{person['id']}",
+        json={"is_active": False},
+    )
+    assert deactivated.status_code == 200
+    assert deactivated.json()["data"]["is_active"] is False
+
+    inactive_listed = client.get("/api/personnel", params={"is_active": False})
+    assert inactive_listed.status_code == 200
+    assert inactive_listed.json()["meta"]["total"] == 1
+    assert inactive_listed.json()["data"][0]["id"] == person["id"]
+
     inactive_role = client.post("/api/roles", json={"code": "OLD", "name": "구역할", "is_active": False})
     assert inactive_role.status_code == 201
     rejected = client.patch(
@@ -265,6 +285,7 @@ def test_monthly_employment_mm_list_and_patch(client_and_session: tuple[TestClie
             group_name="PMO본부",
             team_name="PMO2팀",
             employment_status="active",
+            is_active=True,
         )
         session.add(person)
         session.flush()
@@ -277,6 +298,24 @@ def test_monthly_employment_mm_list_and_patch(client_and_session: tuple[TestClie
             employment_mm=0.5,
         )
         session.add(monthly)
+        inactive_person = Personnel(
+            name="김미사용",
+            group_name="PMO본부",
+            team_name="PMO2팀",
+            employment_status="active",
+            is_active=False,
+        )
+        session.add(inactive_person)
+        session.flush()
+        inactive_monthly = MonthlyEmploymentMM(
+            personnel_id=inactive_person.id,
+            year=2026,
+            month=6,
+            workdays=20,
+            employed_workdays=20,
+            employment_mm=1.0,
+        )
+        session.add(inactive_monthly)
         session.commit()
         monthly_id = monthly.id
 
@@ -285,15 +324,26 @@ def test_monthly_employment_mm_list_and_patch(client_and_session: tuple[TestClie
     assert listed.json()["meta"]["total"] == 1
     assert listed.json()["data"][0]["personnel_name"] == "김월별"
 
+    listed_inactive = client.get("/api/monthly-employment-mm", params={"year": 2026, "group_name": "PMO본부", "is_active": False})
+    assert listed_inactive.status_code == 200
+    assert listed_inactive.json()["meta"]["total"] == 1
+    assert listed_inactive.json()["data"][0]["personnel_name"] == "김미사용"
+
     invalid = client.patch(
         f"/api/monthly-employment-mm/{monthly_id}",
         json={"workdays": 10, "employed_workdays": 11},
     )
     assert invalid.status_code == 400
 
+    denied_head_patch = client.patch(
+        f"/api/monthly-employment-mm/{monthly_id}",
+        headers={"x-user-permission": "read_only", "x-user-organization-role": "head"},
+        json={"employed_workdays": 20, "employment_mm": 1.0, "note": "보정"},
+    )
+    assert denied_head_patch.status_code == 403
+
     patched = client.patch(
         f"/api/monthly-employment-mm/{monthly_id}",
-        headers={"x-user-organization-role": "head"},
         json={"employed_workdays": 20, "employment_mm": 1.0, "note": "보정"},
     )
     assert patched.status_code == 200

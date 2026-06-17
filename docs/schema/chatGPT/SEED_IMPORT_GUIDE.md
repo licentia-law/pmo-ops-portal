@@ -6,7 +6,7 @@
   - headers: id, email, name, permission, data_scope, organization_role, team_name
 - **personnel_seed.csv**
   - rows: 17
-  - headers: id, employee_no, name, email, group_name, team_name, department_name, position_name, role_name, grade_name, employment_status, joined_on, employment_start_date, employment_end_date, unit_price, base_mm, monthly_mm, total_mm, note
+  - headers: id, employee_no, name, email, group_name, team_name, position_name, role_name, employment_status, mm_start_date, mm_end_date, yearly_mm, note, is_active
 - **project_codes_seed.csv**
   - rows: 133
   - headers: id, code, name, project_type, status, certainty, sales_department, sales_owner, support_lead, owner_name, start_date, end_date, is_active, source_sheet, note

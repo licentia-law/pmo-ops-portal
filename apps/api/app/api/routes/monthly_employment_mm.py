@@ -3,7 +3,7 @@ from sqlalchemy import func, select
 
 from app.api.common import ListParams, apply_text_search, envelope, parse_sort
 from app.api.deps import CurrentUser, DbSession
-from app.domain.people import require_people_mutation
+from app.domain.people import require_admin
 from app.models.core import MonthlyEmploymentMM, Personnel
 from app.schemas.people import MonthlyEmploymentMMRead, MonthlyEmploymentMMUpdate
 
@@ -38,6 +38,7 @@ def list_monthly_employment_mm(
     personnel_id: str | None = None,
     group_name: str | None = None,
     team_name: str | None = None,
+    is_active: bool | None = True,
 ) -> dict[str, object]:
     statement = select(MonthlyEmploymentMM).join(Personnel, MonthlyEmploymentMM.personnel_id == Personnel.id, isouter=True)
     statement = apply_text_search(
@@ -57,6 +58,8 @@ def list_monthly_employment_mm(
         statement = statement.where(Personnel.group_name == group_name)
     if team_name:
         statement = statement.where(Personnel.team_name == team_name)
+    if is_active is not None:
+        statement = statement.where(Personnel.is_active == is_active)
     statement = statement.order_by(
         parse_sort(
             params.sort,
@@ -87,7 +90,7 @@ def update_monthly_employment_mm(
     session: DbSession,
     user: CurrentUser,
 ) -> dict[str, object]:
-    require_people_mutation(user, "월별 재직 MM 수정 권한이 없습니다.")
+    require_admin(user, "월별 재직 MM 수정 권한이 없습니다.")
     row = session.get(MonthlyEmploymentMM, monthly_employment_mm_id)
     if row is None:
         raise HTTPException(status_code=404, detail="월별 재직 MM을 찾을 수 없습니다.")

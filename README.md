@@ -10,11 +10,19 @@ npm run dev:web
 ```
 
 ```powershell
+npm run dev:api
+```
+
+- 기본 개발 API 주소: `http://127.0.0.1:8001/api`
+- 기본 개발 DB: `apps/api/pmo_ops_p1_schema.db`
+
+최초 1회 API 환경 준비:
+
+```powershell
 cd apps/api
 python -m venv .venv
 .\\.venv\\Scripts\\Activate.ps1
 pip install -e .
-uvicorn app.main:app --reload
 ```
 
 ## 범위

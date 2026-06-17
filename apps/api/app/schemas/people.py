@@ -41,18 +41,13 @@ class PersonnelBase(BaseModel):
     email: str | None = Field(default=None, max_length=255)
     group_name: str | None = Field(default=None, max_length=100)
     team_name: str | None = Field(default=None, max_length=100)
-    department_name: str | None = Field(default=None, max_length=100)
     position_name: str | None = Field(default=None, max_length=100)
     role_id: str | None = None
-    grade_name: str | None = Field(default=None, max_length=50)
     employment_status: EmploymentStatus
-    joined_on: date | None = None
-    employment_start_date: date | None = None
-    employment_end_date: date | None = None
-    unit_price: float | None = None
-    base_mm: float | None = None
-    monthly_mm: dict | None = None
-    total_mm: float | None = None
+    mm_start_date: date | None = None
+    mm_end_date: date | None = None
+    yearly_mm: float | None = None
+    is_active: bool = True
     note: str | None = None
 
 
@@ -66,18 +61,13 @@ class PersonnelUpdate(BaseModel):
     email: str | None = Field(default=None, max_length=255)
     group_name: str | None = Field(default=None, min_length=1, max_length=100)
     team_name: str | None = Field(default=None, max_length=100)
-    department_name: str | None = Field(default=None, max_length=100)
     position_name: str | None = Field(default=None, max_length=100)
     role_id: str | None = None
-    grade_name: str | None = Field(default=None, max_length=50)
     employment_status: EmploymentStatus | None = None
-    joined_on: date | None = None
-    employment_start_date: date | None = None
-    employment_end_date: date | None = None
-    unit_price: float | None = None
-    base_mm: float | None = None
-    monthly_mm: dict | None = None
-    total_mm: float | None = None
+    mm_start_date: date | None = None
+    mm_end_date: date | None = None
+    yearly_mm: float | None = None
+    is_active: bool | None = None
     note: str | None = None
 
 

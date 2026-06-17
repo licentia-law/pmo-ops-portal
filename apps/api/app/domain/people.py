@@ -23,6 +23,11 @@ def require_personnel_create(user: User, message: str) -> None:
         raise HTTPException(status_code=403, detail=message)
 
 
+def require_admin(user: User, message: str) -> None:
+    if user.permission != UserPermission.ADMIN:
+        raise HTTPException(status_code=403, detail=message)
+
+
 def require_personnel_update(user: User, updates: dict[str, object], message: str) -> None:
     if user.permission == UserPermission.ADMIN:
         return

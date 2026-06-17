@@ -309,6 +309,7 @@ function MonthSummary({ summary }: { summary: any }) {
 
 export default function HomePage() {
   const [data, setData] = useState<any | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
   const [trendFilter, setTrendFilter] = useState<"thisYear" | "lastYear" | "allPeriod">("thisYear");
   const [selectedYear, setSelectedYear] = useState<string>("all");
@@ -316,10 +317,16 @@ export default function HomePage() {
   useEffect(() => {
     setMounted(true);
     let alive = true;
-    getP1Screen("home").then((homeResult) => {
-      if (!alive) return;
-      setData(homeResult.data);
-    });
+    getP1Screen("home")
+      .then((homeResult) => {
+        if (!alive) return;
+        setData(homeResult.data);
+        setLoadError(null);
+      })
+      .catch((error) => {
+        if (!alive) return;
+        setLoadError(error instanceof Error ? error.message : "홈 데이터를 조회하지 못했습니다.");
+      });
     return () => {
       alive = false;
     };
@@ -392,6 +399,17 @@ export default function HomePage() {
     const d = `${now.getDate()}`.padStart(2, "0");
     return `${y}-${m}-${d}`;
   }, []);
+
+  if (loadError) {
+    return (
+      <PmoShell user={{ name: "관리자", team: "PMO본부", role: "관리자" }} notifications={0} currentId="home" pageTitle="홈">
+        <section className="pmo-panel" style={{ padding: 24 }}>
+          <h2 style={{ margin: "0 0 8px", fontSize: 20, fontWeight: 700, color: "var(--tx-1)" }}>데이터를 불러오지 못했습니다.</h2>
+          <p style={{ margin: 0, color: "var(--tx-4)", fontWeight: 600 }}>{loadError}</p>
+        </section>
+      </PmoShell>
+    );
+  }
 
   if (!mounted || !data || !filteredTrend) return <LightweightLoading label="홈" />;
 

@@ -254,9 +254,10 @@ def _previous_kpi(session: DbSession, kpi: MonthlyKpiSummary | None) -> MonthlyK
 
 
 def _snapshot_counts(session: DbSession, as_of: date | None) -> Counter[str]:
-    statement = select(CurrentAssignmentSnapshot.representative_status)
+    statement = select(CurrentAssignmentSnapshot.representative_status).join(Personnel, CurrentAssignmentSnapshot.personnel_id == Personnel.id)
     if as_of:
         statement = statement.where(CurrentAssignmentSnapshot.as_of_date == as_of)
+    statement = statement.where(Personnel.is_active.is_(True))
     return Counter(session.scalars(statement).all())
 
 
@@ -365,6 +366,7 @@ def _team_headcount(session: DbSession, as_of: date | None) -> list[dict[str, An
     statement = select(CurrentAssignmentSnapshot, Personnel).join(Personnel, CurrentAssignmentSnapshot.personnel_id == Personnel.id)
     if as_of:
         statement = statement.where(CurrentAssignmentSnapshot.as_of_date == as_of)
+    statement = statement.where(Personnel.is_active.is_(True))
     grouped: dict[str, Counter[str]] = defaultdict(Counter)
     for snapshot, person in session.execute(statement).all():
         grouped[person.team_name or "미지정"][snapshot.representative_status] += 1
@@ -464,18 +466,20 @@ def _month_summary(session: DbSession, kpi: MonthlyKpiSummary | None, prev: Mont
 
 
 def _execution_filters(session: DbSession, projects: list[Project]) -> dict[str, Any]:
+    proposal_pms = {
+        _person_name_with_title(session, pm_name)
+        for p in projects
+        for pm_name in (p.proposal_pm_name, p.presentation_pm_name, p.delivery_pm_name)
+        if pm_name
+    }
+    sales_owners = {_person_name_with_title(session, p.sales_owner) for p in projects if p.sales_owner}
     return {
         "headquarters": ["전체", *sorted({p.sales_department for p in projects if p.sales_department})],
         "teams": ["전체", "PMO1팀", "PMO2팀", "기술지원팀"],
         "businessTypes": ["전체", *[PROJECT_TYPE_LABELS[t] for t in ProjectType]],
         "statuses": ["전체", *[STATUS_LABELS[s] for s in ProjectStatus]],
-        "proposalPms": ["전체", *sorted({
-            _person_name_with_title(session, pm_name)
-            for p in projects
-            for pm_name in (p.proposal_pm_name, p.presentation_pm_name, p.delivery_pm_name)
-            if pm_name
-        })],
-        "salesOwners": ["전체", *sorted({_person_name_with_title(session, p.sales_owner) for p in projects if p.sales_owner})],
+        "proposalPms": ["전체", *sorted(name for name in proposal_pms if name and name != "-")],
+        "salesOwners": ["전체", *sorted(name for name in sales_owners if name and name != "-")],
         "from": "2025-01-01",
         "to": "2026-12-31",
     }
@@ -551,7 +555,7 @@ def _execution_team_text(session: DbSession, project: Project) -> str:
     ).all()
     for assignment in assignments:
         person = assignment.personnel
-        if not person or not person.name:
+        if not person or not person.is_active or not person.name:
             continue
         dedup_key = person.id or person.name
         if dedup_key in seen:
@@ -578,7 +582,7 @@ def _code_team_members(session: DbSession, project_ids: list[str]) -> dict[str, 
         if not assignment.project_id:
             continue
         person = assignment.personnel
-        if not person or not person.name:
+        if not person or not person.is_active or not person.name:
             continue
         position = (person.position_name or "").strip()
         member = f"{person.name} {position}".strip()
@@ -760,21 +764,23 @@ def _person_name_with_title(session: DbSession | None, raw_name: str | None) -> 
     name = _normalize_person_name(raw_name)
     if not name or name == "-":
         return "-"
-    # If title already exists in source string, keep it as-is.
-    if " " in name:
-        return name
     if session is None:
         return name
     cache = _person_title_cache(session)
     cached = cache.get(name)
-    if cached:
+    if cached is not None:
         return cached
-    person = session.scalar(select(Personnel).where(Personnel.name == name).order_by(Personnel.updated_at.desc()))
+    base_name, existing_title = (name.split(" ", 1) + [""])[:2] if " " in name else (name, "")
+    person = session.scalar(
+        select(Personnel)
+        .where(Personnel.name == base_name, Personnel.is_active.is_(True))
+        .order_by(desc(Personnel.updated_at))
+    )
     if not person:
-        cache[name] = name
-        return name
-    title = _normalize_person_name(person.position_name)
-    resolved = f"{name} {title}".strip() if title else name
+        cache[name] = "-"
+        return "-"
+    title = _normalize_person_name(existing_title or person.position_name)
+    resolved = f"{person.name} {title}".strip() if title else person.name
     cache[name] = resolved
     return resolved
 
@@ -801,10 +807,10 @@ def _prefetch_person_titles(session: DbSession, raw_names: list[str | None]) -> 
     if not missing:
         return
     for name in missing:
-        cache[name] = name
+        cache[name] = "-"
     rows = session.scalars(
         select(Personnel)
-        .where(Personnel.name.in_(missing))
+        .where(Personnel.name.in_(missing), Personnel.is_active.is_(True))
         .order_by(Personnel.name, desc(Personnel.updated_at))
     ).all()
     seen: set[str] = set()
@@ -1012,6 +1018,8 @@ def _project_participant_rows(
         else:
             role_code = ProjectAssignmentRole.SUPPORT_TEAM.value
         person = assignment.personnel
+        if not person or not person.is_active:
+            continue
         rows.append({
             "initials": _initials(display_name),
             "name": display_name,
@@ -1058,6 +1066,20 @@ def _project_kpi(project: Project, participant_rows: list[dict[str, Any]]) -> di
 
 def _assignment_row(assignment: ProjectAssignment) -> dict[str, Any]:
     person = assignment.personnel
+    if not person or not person.is_active:
+        return {
+            "initials": "-",
+            "name": "-",
+            "role": "-",
+            "roleTone": "indigo",
+            "team": "-",
+            "deployType": "-",
+            "status": "assigned",
+            "onsite": "-",
+            "from": _date(assignment.start_date) or "-",
+            "to": _date(assignment.end_date) or "-",
+            "note": assignment.note or "-",
+        }
     name = person.name if person else "-"
     role_code = assignment.assignment_role.value if assignment.assignment_role else ""
     return {
@@ -1099,7 +1121,7 @@ def _history_filters(session: DbSession) -> dict[str, Any]:
     projects = session.scalars(select(Project).order_by(Project.code).limit(20)).all()
     author_names = session.scalars(select(ProjectLog.author_name)).all()
     _prefetch_person_titles(session, list(author_names))
-    authors = sorted({_person_name_with_title(session, name) for name in author_names if name})
+    authors = sorted({name for name in (_person_name_with_title(session, raw_name) for raw_name in author_names if raw_name) if name and name != "-"})
     categories = ["메모", "진행", "완료"]
     today = date.today()
     from_date = today - timedelta(days=90)

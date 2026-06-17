@@ -68,8 +68,8 @@ export const REPORT_TYPES = [
 
 export const HOLIDAY_TYPES = [
   { code: "public", label: "공휴일" },
-  { code: "company", label: "회사휴일" }
-  // TODO: DTL에 공휴일 구분 코드 목록이 확정되어 있지 않아 최소 시작점만 둠.
+  { code: "company", label: "회사휴일" },
+  { code: "alternative", label: "대체휴일" }
 ] as const;
 
 export type ProjectStatusCode = (typeof PROJECT_STATUSES)[number]["code"];

@@ -176,6 +176,61 @@ export type MonthlyEmploymentMMRecord = {
   updated_at: string;
 };
 
+export type HolidayRecord = {
+  id: string;
+  holiday_date: string;
+  source_holiday_date: string;
+  name: string;
+  holiday_type: "public" | "company" | "alternative";
+  repeats_annually: boolean;
+  is_active: boolean;
+  is_counted_as_workday: boolean;
+  note: string | null;
+  is_projected: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type HolidayMonthlyCount = {
+  month: number;
+  count: number;
+  active_count: number;
+};
+
+export type HolidayUpcomingRecord = {
+  id: string;
+  holiday_date: string;
+  name: string;
+  holiday_type: "public" | "company" | "alternative";
+  d_day: number;
+};
+
+export type HolidayWorkdaySummary = {
+  year: number;
+  month: number;
+  workdays: number;
+  holiday_count: number;
+};
+
+export type HolidayListMeta = {
+  page?: number;
+  page_size?: number;
+  total?: number;
+  year: number;
+  month?: number | null;
+  basis_date: string;
+  summary: {
+    total_count: number;
+    public_count: number;
+    company_count: number;
+    alternative_count: number;
+    active_count: number;
+    monthly_counts: HolidayMonthlyCount[];
+    upcoming: HolidayUpcomingRecord[];
+  };
+  workday_summary?: HolidayWorkdaySummary | null;
+};
+
 export type ListQuery = {
   page?: number;
   page_size?: number;
@@ -195,6 +250,10 @@ export type ListQuery = {
   year?: number;
   month?: number;
   personnel_id?: string;
+  holiday_type?: string;
+  repeats_annually?: boolean;
+  start_date?: string;
+  end_date?: string;
 };
 
 function qs(query?: ListQuery): string {
@@ -330,6 +389,26 @@ export function updateMonthlyEmploymentMM(monthlyEmploymentMmId: string, payload
     method: "PATCH",
     body: JSON.stringify(payload)
   });
+}
+
+export function listHolidays(query?: ListQuery) {
+  return request<HolidayRecord[]>(`/holidays${qs(query)}`);
+}
+
+export function createHoliday(payload: Partial<HolidayRecord>) {
+  return request<HolidayRecord>("/holidays", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export function updateHoliday(holidayId: string, payload: Partial<HolidayRecord>) {
+  return request<HolidayRecord>(`/holidays/${holidayId}`, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
+export function deleteHoliday(holidayId: string) {
+  return request<{ id: string; deleted: boolean }>(`/holidays/${holidayId}`, { method: "DELETE" });
+}
+
+export function getHolidayWorkdays(start_date: string, end_date: string) {
+  return request<{ start_date: string; end_date: string; workdays: number }>(`/holidays/workdays${qs({ start_date, end_date })}`);
 }
 
 export function getP1Screen<T = unknown>(screen: string) {

@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from app.api.common import error_envelope
 from app.api.routes import (
     health,
+    holidays,
     monthly_employment_mm,
     p1_screens,
     personnel,
@@ -32,6 +33,7 @@ app.include_router(project_logs.router, prefix="/api/project-logs", tags=["proje
 app.include_router(personnel.router, prefix="/api/personnel", tags=["personnel"])
 app.include_router(roles.router, prefix="/api/roles", tags=["roles"])
 app.include_router(monthly_employment_mm.router, prefix="/api/monthly-employment-mm", tags=["monthly-employment-mm"])
+app.include_router(holidays.router, prefix="/api/holidays", tags=["holidays"])
 app.include_router(p1_screens.router, prefix="/api/p1-screens", tags=["p1-screens"])
 
 

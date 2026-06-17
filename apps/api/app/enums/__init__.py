@@ -36,6 +36,7 @@ class AssignmentStatus(StrEnum):
     PLANNED = "planned"
     ASSIGNED = "assigned"
     ENDED = "ended"
+    CANCELLED = "cancelled"
 
 
 class ProjectAssignmentRole(StrEnum):
@@ -87,4 +88,4 @@ class ReportType(StrEnum):
 class HolidayType(StrEnum):
     PUBLIC = "public"
     COMPANY = "company"
-    # TODO: 공휴일 구분 코드 상세 확정 필요.
+    ALTERNATIVE = "alternative"

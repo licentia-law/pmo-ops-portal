@@ -8,7 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base, get_session
 from app.main import app
-from app.models.core import MonthlyEmploymentMM, Personnel
+from app.models.core import Holiday, MonthlyEmploymentMM, Personnel
 
 
 @pytest.fixture()
@@ -349,3 +349,134 @@ def test_monthly_employment_mm_list_and_patch(client_and_session: tuple[TestClie
     assert patched.status_code == 200
     assert patched.json()["data"]["employment_mm"] == 1.0
     assert patched.json()["data"]["note"] == "보정"
+
+
+def test_holidays_crud_projection_and_workday_summary(
+    client_and_session: tuple[TestClient, sessionmaker[Session]],
+) -> None:
+    client, SessionLocal = client_and_session
+
+    denied_create = client.post(
+        "/api/holidays",
+        headers={"x-user-permission": "general_editor"},
+        json={
+            "holiday_date": "2026-01-01",
+            "name": "신정",
+            "holiday_type": "public",
+            "repeats_annually": True,
+            "is_active": True,
+        },
+    )
+    assert denied_create.status_code == 403
+
+    created_public = client.post(
+        "/api/holidays",
+        json={
+            "holiday_date": "2026-01-01",
+            "name": "신정",
+            "holiday_type": "public",
+            "repeats_annually": True,
+            "is_active": True,
+            "note": "연간 반복",
+        },
+    )
+    assert created_public.status_code == 201
+    public_holiday = created_public.json()["data"]
+    assert public_holiday["repeats_annually"] is True
+    assert public_holiday["is_counted_as_workday"] is False
+
+    created_alternative = client.post(
+        "/api/holidays",
+        json={
+            "holiday_date": "2026-05-06",
+            "name": "어린이날 대체휴일",
+            "holiday_type": "alternative",
+            "repeats_annually": False,
+            "is_active": True,
+        },
+    )
+    assert created_alternative.status_code == 201
+
+    rejected_repeat_alternative = client.post(
+        "/api/holidays",
+        json={
+            "holiday_date": "2026-05-07",
+            "name": "잘못된 대체휴일",
+            "holiday_type": "alternative",
+            "repeats_annually": True,
+            "is_active": True,
+        },
+    )
+    assert rejected_repeat_alternative.status_code == 400
+
+    created_company = client.post(
+        "/api/holidays",
+        json={
+            "holiday_date": "2026-12-31",
+            "name": "종무일",
+            "holiday_type": "company",
+            "repeats_annually": False,
+            "is_active": False,
+            "note": "사용 제외",
+        },
+    )
+    assert created_company.status_code == 201
+    company_holiday = created_company.json()["data"]
+    assert company_holiday["is_active"] is False
+    assert company_holiday["is_counted_as_workday"] is True
+
+    duplicate_month_day = client.post(
+        "/api/holidays",
+        json={
+            "holiday_date": "2027-01-01",
+            "name": "중복 신정",
+            "holiday_type": "public",
+            "repeats_annually": True,
+            "is_active": True,
+        },
+    )
+    assert duplicate_month_day.status_code == 409
+
+    projected = client.get("/api/holidays", params={"year": 2027, "page_size": 20})
+    assert projected.status_code == 200
+    projected_payload = projected.json()
+    projected_rows = projected_payload["data"]
+    assert projected_payload["meta"]["summary"]["total_count"] == 1
+    assert projected_rows[0]["holiday_date"] == "2027-01-01"
+    assert projected_rows[0]["is_projected"] is True
+
+    listed_2026 = client.get("/api/holidays", params={"year": 2026, "month": 5, "page_size": 20})
+    assert listed_2026.status_code == 200
+    listed_2026_payload = listed_2026.json()
+    assert listed_2026_payload["meta"]["summary"]["alternative_count"] == 1
+    assert listed_2026_payload["meta"]["summary"]["active_count"] == 1
+    assert listed_2026_payload["meta"]["workday_summary"]["month"] == 5
+    assert listed_2026_payload["meta"]["workday_summary"]["workdays"] >= 20
+
+    patched = client.patch(
+        f"/api/holidays/{company_holiday['id']}",
+        json={"is_active": True, "note": "사용 전환"},
+    )
+    assert patched.status_code == 200
+    assert patched.json()["data"]["is_counted_as_workday"] is False
+    assert patched.json()["data"]["note"] == "사용 전환"
+
+    workdays = client.get(
+        "/api/holidays/workdays",
+        params={"start_date": "2026-05-01", "end_date": "2026-05-31"},
+    )
+    assert workdays.status_code == 200
+    assert workdays.json()["data"]["workdays"] == 20
+
+    denied_delete = client.delete(
+        f"/api/holidays/{public_holiday['id']}",
+        headers={"x-user-permission": "project_editor"},
+    )
+    assert denied_delete.status_code == 403
+
+    deleted = client.delete(f"/api/holidays/{public_holiday['id']}")
+    assert deleted.status_code == 200
+
+    with SessionLocal() as session:
+        deleted_row = session.get(Holiday, public_holiday["id"])
+        assert deleted_row is None

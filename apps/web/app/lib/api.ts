@@ -181,10 +181,15 @@ export type HolidayRecord = {
   holiday_date: string;
   source_holiday_date: string;
   name: string;
-  holiday_type: "public" | "company" | "alternative";
+  holiday_type: "public" | "company";
   repeats_annually: boolean;
   is_active: boolean;
   is_counted_as_workday: boolean;
+  source_kind: "manual" | "seed" | "external_api";
+  source_provider: string | null;
+  source_external_id: string | null;
+  source_year: number | null;
+  last_synced_at: string | null;
   note: string | null;
   is_projected: boolean;
   created_at: string;
@@ -201,7 +206,7 @@ export type HolidayUpcomingRecord = {
   id: string;
   holiday_date: string;
   name: string;
-  holiday_type: "public" | "company" | "alternative";
+  holiday_type: "public" | "company";
   d_day: number;
 };
 
@@ -210,6 +215,17 @@ export type HolidayWorkdaySummary = {
   month: number;
   workdays: number;
   holiday_count: number;
+};
+
+export type HolidaySyncSummary = {
+  provider: string;
+  years: number[];
+  created: number;
+  updated: number;
+  deactivated: number;
+  skipped: number;
+  conflicts: number;
+  synced_at: string;
 };
 
 export type HolidayListMeta = {
@@ -223,7 +239,6 @@ export type HolidayListMeta = {
     total_count: number;
     public_count: number;
     company_count: number;
-    alternative_count: number;
     active_count: number;
     monthly_counts: HolidayMonthlyCount[];
     upcoming: HolidayUpcomingRecord[];
@@ -409,6 +424,10 @@ export function deleteHoliday(holidayId: string) {
 
 export function getHolidayWorkdays(start_date: string, end_date: string) {
   return request<{ start_date: string; end_date: string; workdays: number }>(`/holidays/workdays${qs({ start_date, end_date })}`);
+}
+
+export function syncPublicHolidays() {
+  return request<HolidaySyncSummary>("/holidays/sync", { method: "POST", body: JSON.stringify({}) });
 }
 
 export function getP1Screen<T = unknown>(screen: string) {

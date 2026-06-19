@@ -5,18 +5,25 @@ DTL 스캐폴딩 기준 초기 구조입니다.
 ## 실행
 
 ```powershell
+# WEB 의존성 설치: 최초 1회 또는 package.json / package-lock.json 변경 시
 npm install
+# WEB 서버 실행
 npm run dev:web
-```
-
-```powershell
+# API 서버 실행
 npm run dev:api
 ```
 
 - 기본 개발 API 주소: `http://127.0.0.1:8001/api`
 - 기본 개발 DB: `apps/api/pmo_ops_p1_schema.db`
 
-최초 1회 API 환경 준비:
+## OS별 예외
+
+- Windows: `npm run dev:api`가 `apps/api/.venv/Scripts/python.exe`를 우선 사용합니다.
+- Mac: `npm run dev:api`가 `apps/api/.venv/bin/python`을 우선 사용합니다.
+- 최초 1회 API 환경 준비가 필요하면 `apps/api`에서 `python -m venv .venv` 후 `pip install -e .`를 실행합니다.
+- Mac에서 시스템 Python만 쓰는 경우에는 필요에 따라 `python3` 대신 `python`을 사용할 수 있습니다.
+
+## 최초 1회 API 환경 준비
 
 ```powershell
 cd apps/api

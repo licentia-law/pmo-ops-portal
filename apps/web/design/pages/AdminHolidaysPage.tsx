@@ -6,11 +6,13 @@ import {
   deleteHoliday,
   getDevUserContext,
   listHolidays,
+  syncPublicHolidays,
   updateHoliday,
   type DevUserContext,
   type HolidayListMeta,
   type HolidayMonthlyCount,
   type HolidayRecord,
+  type HolidaySyncSummary,
   type HolidayUpcomingRecord,
   type OrganizationRole,
   type UserPermission,
@@ -27,7 +29,7 @@ type SummaryItem = {
   id: string;
   label: string;
   value: number;
-  note?: string;
+  breakdown?: Array<{ label: string; value: string }>;
   icon: IconName;
   tone: string;
   fg: string;
@@ -64,13 +66,11 @@ const ICONS: Record<IconName, string> = {
 const HOLIDAY_TYPE_LABEL: Record<HolidayTypeCode, string> = {
   public: "법정공휴일",
   company: "회사휴무",
-  alternative: "대체휴일",
 };
 
 const HOLIDAY_TYPE_TONE: Record<HolidayTypeCode, { fg: string; bg: string; line: string }> = {
   public: { fg: "#e11d48", bg: "#fff1f4", line: "#fecdd6" },
   company: { fg: "#059669", bg: "#e8fbf2", line: "#bce7d0" },
-  alternative: { fg: "#f97316", bg: "#fff4ea", line: "#ffd7bd" },
 };
 
 const WEEKDAY_LABEL = ["일", "월", "화", "수", "목", "금", "토"] as const;
@@ -105,6 +105,7 @@ function requiredMark(label: string) {
 }
 
 type FieldErrorMap = Partial<Record<keyof HolidayForm, string>>;
+type HolidaySummary = HolidayListMeta["summary"];
 
 function weekdayLabel(dateText: string) {
   const parsed = new Date(`${dateText}T00:00:00`);
@@ -128,22 +129,86 @@ function dDayLabel(dDay: number) {
   return dDay === 0 ? "D-Day" : `D-${dDay}`;
 }
 
-function makeYearOptions(currentYear: number) {
-  return Array.from({ length: 7 }, (_, index) => currentYear - 3 + index);
+function emptySummary(): HolidaySummary {
+  return {
+    total_count: 0,
+    public_count: 0,
+    company_count: 0,
+    active_count: 0,
+    monthly_counts: [],
+    upcoming: [],
+  };
 }
 
-function SummaryCard({ item }: { item: SummaryItem }) {
+function sortHolidayRows(items: HolidayRecord[]) {
+  return [...items].sort((left, right) => left.holiday_date.localeCompare(right.holiday_date));
+}
+
+function aggregateHolidaySummary(items: HolidayRecord[], basisDate: string): HolidaySummary {
+  const monthly_counts = Array.from({ length: 12 }, (_, index) => {
+    const month = index + 1;
+    const monthItems = items.filter((item) => Number(item.holiday_date.slice(5, 7)) === month);
+    return {
+      month,
+      count: monthItems.length,
+      active_count: monthItems.filter((item) => item.is_active).length,
+    };
+  });
+  const upcoming = items
+    .filter((item) => item.is_active && item.holiday_date >= basisDate)
+    .sort((left, right) => left.holiday_date.localeCompare(right.holiday_date))
+    .slice(0, 4)
+    .map((item) => ({
+      id: item.id,
+      holiday_date: item.holiday_date,
+      name: item.name,
+      holiday_type: item.holiday_type,
+      d_day: Math.floor((new Date(`${item.holiday_date}T00:00:00`).getTime() - new Date(`${basisDate}T00:00:00`).getTime()) / 86400000),
+    }));
+
+  return {
+    total_count: items.length,
+    public_count: items.filter((item) => item.holiday_type === "public").length,
+    company_count: items.filter((item) => item.holiday_type === "company").length,
+    active_count: items.filter((item) => item.is_active).length,
+    monthly_counts,
+    upcoming,
+  };
+}
+
+function countRowsByMetric(items: HolidayRecord[], metric: SummaryItem["id"]) {
+  if (metric === "total") return items.length;
+  if (metric === "public") return items.filter((item) => item.holiday_type === "public").length;
+  if (metric === "company") return items.filter((item) => item.holiday_type === "company").length;
+  return items.filter((item) => item.is_active).length;
+}
+
+function SummaryCard({ item, active, onClick }: { item: SummaryItem; active: boolean; onClick: () => void }) {
   return (
-    <section className="pmo-panel" style={{ padding: "22px 18px", display: "flex", alignItems: "center", gap: 16, minHeight: 132 }}>
+    <button
+      type="button"
+      onClick={onClick}
+      className="pmo-panel"
+      style={{ padding: "22px 18px", display: "flex", alignItems: "center", gap: 16, minHeight: 132, width: "100%", textAlign: "left", cursor: "pointer", border: active ? "1px solid var(--brand-line)" : "1px solid var(--line-2)", background: active ? "var(--brand-bg)" : "var(--bg-1)", boxShadow: active ? "var(--sh-card), 0 0 0 1px var(--brand-line)" : "var(--sh-card)" }}
+    >
       <span style={{ width: 56, height: 56, borderRadius: 16, background: item.tone, color: item.fg, display: "inline-flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
         <Icon name={item.icon} size={24} stroke={2} />
       </span>
       <span style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         <span style={{ fontSize: 15, color: "var(--tx-3)", fontWeight: 700 }}>{item.label}</span>
         <span style={{ fontSize: 28, lineHeight: 1, fontWeight: 800, color: "var(--tx-1)" }}>{formatNumber(item.value)}<span style={{ fontSize: 15, color: "var(--tx-4)", marginLeft: 4 }}>건</span></span>
-        {item.note ? <span style={{ fontSize: 14, color: "var(--tx-4)", fontWeight: 600 }}>{item.note}</span> : null}
+        {item.breakdown?.length ? (
+          <span style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 2 }}>
+            {item.breakdown.map((entry) => (
+              <span key={`${item.id}-${entry.label}`} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 999, background: "var(--bg-3)", border: "1px solid var(--line-2)", fontSize: 13, color: "var(--tx-3)", fontWeight: 600 }}>
+                <span>{entry.label}</span>
+                <strong style={{ color: "var(--tx-1)", fontWeight: 800 }}>{entry.value}</strong>
+              </span>
+            ))}
+          </span>
+        ) : null}
       </span>
-    </section>
+    </button>
   );
 }
 
@@ -251,7 +316,6 @@ function HolidayEditModal({
     if (!form.name.trim()) errors.name = "명칭은 필수입니다.";
     if (!form.holiday_type) errors.holiday_type = "구분은 필수입니다.";
     if (form.repeats_annually === "") errors.repeats_annually = "반복여부는 필수입니다.";
-    if (form.holiday_type === "alternative" && form.repeats_annually === true) errors.repeats_annually = "대체휴일은 해당연도 기준으로만 등록할 수 있습니다.";
     const firstKey = (Object.keys(errors)[0] as keyof HolidayForm | undefined) ?? null;
     if (firstKey) {
       setFieldErrors(errors);
@@ -378,34 +442,52 @@ function HolidayEditModal({
 export default function AdminHolidaysPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [rows, setRows] = useState<HolidayRecord[]>([]);
+  const [allRows, setAllRows] = useState<HolidayRecord[]>([]);
+  const [activeSummary, setActiveSummary] = useState<SummaryItem["id"] | null>(null);
   const [userContext, setUserContext] = useState<DevUserContext | null>(null);
   const [permission, setPermission] = useState<UserPermission>("admin");
   const [organizationRole, setOrganizationRole] = useState<OrganizationRole>("other");
   const currentYear = new Date().getFullYear();
-  const [selectedYear, setSelectedYear] = useState(currentYear);
-  const [appliedYear, setAppliedYear] = useState(currentYear);
+  const targetYears = useMemo(() => [currentYear, currentYear + 1], [currentYear]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [total, setTotal] = useState(0);
-  const [summary, setSummary] = useState<HolidayListMeta["summary"]>({
-    total_count: 0,
-    public_count: 0,
-    company_count: 0,
-    alternative_count: 0,
-    active_count: 0,
-    monthly_counts: [],
-    upcoming: [],
-  });
-  const [basisDate, setBasisDate] = useState(`${currentYear}-01-01`);
   const [modalRow, setModalRow] = useState<HolidayRecord | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [downloadHover, setDownloadHover] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<HolidaySyncSummary | null>(null);
 
   const canAccess = permission === "admin" || organizationRole === "head";
   const canMutate = permission === "admin";
 
-  const loadData = async (nextPage = page, nextPageSize = pageSize, year = appliedYear) => {
+  const basisDate = useMemo(() => {
+    const today = new Date();
+    const month = `${today.getMonth() + 1}`.padStart(2, "0");
+    const day = `${today.getDate()}`.padStart(2, "0");
+    return `${today.getFullYear()}-${month}-${day}`;
+  }, []);
+
+  const summary = useMemo(() => aggregateHolidaySummary(allRows, basisDate), [allRows, basisDate]);
+  const total = summary.total_count;
+  const rowsByYear = useMemo(
+    () =>
+      Object.fromEntries(
+        targetYears.map((year) => [year, allRows.filter((row) => Number(row.holiday_date.slice(0, 4)) === year)])
+      ) as Record<number, HolidayRecord[]>,
+    [allRows, targetYears]
+  );
+  const filteredRows = useMemo(() => {
+    if (!activeSummary || activeSummary === "total") return allRows;
+    if (activeSummary === "public") return allRows.filter((row) => row.holiday_type === "public");
+    if (activeSummary === "company") return allRows.filter((row) => row.holiday_type === "company");
+    return allRows.filter((row) => row.is_active);
+  }, [activeSummary, allRows]);
+  const rows = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return filteredRows.slice(start, start + pageSize);
+  }, [filteredRows, page, pageSize]);
+
+  const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
@@ -413,29 +495,19 @@ export default function AdminHolidaysPage() {
       setUserContext(devUser);
       setPermission(devUser.permission);
       setOrganizationRole(devUser.organizationRole);
-      const response = await listHolidays({
-        year,
-        page: nextPage,
-        page_size: nextPageSize,
-        sort: "holiday_date",
-      });
-      setRows(response.data);
-      const meta = response.meta as HolidayListMeta;
-      setTotal(meta.total ?? response.data.length);
-      setSummary(meta.summary);
-      setBasisDate(meta.basis_date);
+      const responses = await Promise.all(
+        targetYears.map((year) =>
+          listHolidays({
+            year,
+            page: 1,
+            page_size: 100,
+            sort: "holiday_date",
+          })
+        )
+      );
+      setAllRows(sortHolidayRows(responses.flatMap((response) => response.data)));
     } catch (nextError) {
-      setRows([]);
-      setTotal(0);
-      setSummary({
-        total_count: 0,
-        public_count: 0,
-        company_count: 0,
-        alternative_count: 0,
-        active_count: 0,
-        monthly_counts: [],
-        upcoming: [],
-      });
+      setAllRows([]);
       setError(nextError instanceof Error ? nextError.message : "공휴일 데이터를 불러오지 못했습니다.");
     } finally {
       setLoading(false);
@@ -443,10 +515,10 @@ export default function AdminHolidaysPage() {
   };
 
   useEffect(() => {
-    void loadData(page, pageSize, appliedYear);
-  }, [page, pageSize, appliedYear]);
+    void loadData();
+  }, [targetYears]);
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
   const safePage = Math.min(page, totalPages);
 
   useEffect(() => {
@@ -454,6 +526,10 @@ export default function AdminHolidaysPage() {
       setPage(safePage);
     }
   }, [page, safePage]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeSummary]);
 
   const pageNumbers = useMemo(() => {
     const maxVisible = 5;
@@ -465,19 +541,52 @@ export default function AdminHolidaysPage() {
   }, [safePage, totalPages]);
 
   const summaryItems = useMemo<SummaryItem[]>(() => [
-    { id: "total", label: "등록 공휴일 수", value: summary.total_count, note: `${appliedYear}년 기준`, icon: "calendar", tone: "linear-gradient(135deg, #ede9fe, #e0e7ff)", fg: "#4f46e5" },
-    { id: "public", label: "법정공휴일", value: summary.public_count, icon: "building", tone: "linear-gradient(135deg, #ffe4ea, #fff1f4)", fg: "#e11d48" },
-    { id: "company", label: "회사휴무", value: summary.company_count, icon: "calendar", tone: "linear-gradient(135deg, #dff7e7, #edfdf4)", fg: "#059669" },
-    { id: "alternative", label: "대체휴일", value: summary.alternative_count, icon: "switch", tone: "linear-gradient(135deg, #ffe8d6, #fff4ea)", fg: "#f97316" },
-    { id: "active", label: "사용중", value: summary.active_count, icon: "check", tone: "linear-gradient(135deg, #dcf7f4, #edfdfc)", fg: "#0f766e" },
-  ], [appliedYear, summary]);
+    {
+      id: "total",
+      label: "등록 공휴일 수",
+      value: summary.total_count,
+      breakdown: targetYears.map((year) => ({ label: `${year}년`, value: `${formatNumber(countRowsByMetric(rowsByYear[year] ?? [], "total"))}건` })),
+      icon: "calendar",
+      tone: "linear-gradient(135deg, #ede9fe, #e0e7ff)",
+      fg: "#4f46e5"
+    },
+    {
+      id: "public",
+      label: "법정공휴일",
+      value: summary.public_count,
+      breakdown: targetYears.map((year) => ({ label: `${year}년`, value: `${formatNumber(countRowsByMetric(rowsByYear[year] ?? [], "public"))}건` })),
+      icon: "building",
+      tone: "linear-gradient(135deg, #ffe4ea, #fff1f4)",
+      fg: "#e11d48"
+    },
+    {
+      id: "company",
+      label: "회사휴무",
+      value: summary.company_count,
+      breakdown: targetYears.map((year) => ({ label: `${year}년`, value: `${formatNumber(countRowsByMetric(rowsByYear[year] ?? [], "company"))}건` })),
+      icon: "calendar",
+      tone: "linear-gradient(135deg, #dff7e7, #edfdf4)",
+      fg: "#059669"
+    },
+    {
+      id: "active",
+      label: "사용중",
+      value: summary.active_count,
+      breakdown: targetYears.map((year) => ({ label: `${year}년`, value: `${formatNumber(countRowsByMetric(rowsByYear[year] ?? [], "active"))}건` })),
+      icon: "check",
+      tone: "linear-gradient(135deg, #dcf7f4, #edfdfc)",
+      fg: "#0f766e"
+    },
+  ], [rowsByYear, summary, targetYears]);
+  const summaryFilterLabel = useMemo(
+    () => summaryItems.find((item) => item.id === activeSummary)?.label ?? "",
+    [activeSummary, summaryItems]
+  );
 
   const monthlyCounts = useMemo(() => {
     const map = new Map(summary.monthly_counts.map((item) => [item.month, item] as const));
     return Array.from({ length: 12 }, (_, index) => map.get(index + 1) ?? { month: index + 1, count: 0, active_count: 0 } satisfies HolidayMonthlyCount);
   }, [summary.monthly_counts]);
-
-  const yearOptions = useMemo(() => makeYearOptions(currentYear), [currentYear]);
 
   const openCreateModal = () => {
     setModalRow(null);
@@ -493,7 +602,7 @@ export default function AdminHolidaysPage() {
     if (!canMutate) return;
     try {
       await updateHoliday(row.id, { is_active: !row.is_active });
-      await loadData(safePage, pageSize, appliedYear);
+      await loadData();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "사용여부를 변경하지 못했습니다.");
     }
@@ -506,7 +615,7 @@ export default function AdminHolidaysPage() {
       await deleteHoliday(row.id);
       const nextPage = safePage > 1 && rows.length === 1 ? safePage - 1 : safePage;
       setPage(nextPage);
-      await loadData(nextPage, pageSize, appliedYear);
+      await loadData();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "공휴일을 삭제하지 못했습니다.");
     }
@@ -514,14 +623,8 @@ export default function AdminHolidaysPage() {
 
   const exportWorkbook = async () => {
     try {
-      const response = await listHolidays({
-        year: appliedYear,
-        page: 1,
-        page_size: 400,
-        sort: "holiday_date",
-      });
       await downloadHolidayWorkbook(
-        response.data.map((row) => ({
+        filteredRows.map((row) => ({
           holidayDate: row.holiday_date,
           weekdayLabel: weekdayLabel(row.holiday_date),
           name: row.name,
@@ -530,11 +633,27 @@ export default function AdminHolidaysPage() {
           useStatusLabel: useStatusLabel(row),
           note: row.note ?? "-",
         })),
-        `공휴일관리_${appliedYear}`,
+        `공휴일관리_${targetYears[0]}_${targetYears[1]}`,
         "공휴일관리",
       );
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "엑셀 다운로드에 실패했습니다.");
+    }
+  };
+
+  const runHolidaySync = async () => {
+    if (!canMutate || syncing) return;
+    setSyncing(true);
+    setError(null);
+    setSyncResult(null);
+    try {
+      const response = await syncPublicHolidays();
+      setSyncResult(response.data);
+      await loadData();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "법정공휴일 동기화에 실패했습니다.");
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -550,37 +669,52 @@ export default function AdminHolidaysPage() {
       ) : (
         <div className="pmo-page-stack">
           <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
-            {summaryItems.map((item) => <SummaryCard key={item.id} item={item} />)}
+            {summaryItems.map((item) => (
+              <SummaryCard
+                key={item.id}
+                item={item}
+                active={activeSummary === item.id}
+                onClick={() => setActiveSummary(activeSummary === item.id ? null : item.id)}
+              />
+            ))}
           </section>
 
           {error ? <section className="pmo-panel pmo-error" style={{ padding: 12 }}>{error}</section> : null}
+          {syncResult ? (
+            <section className="pmo-panel" style={{ padding: 12, border: "1px solid #bfdbfe", background: "#eff6ff", color: "#1d4ed8", fontWeight: 700 }}>
+              {syncResult.years.join(", ")}년 법정공휴일 동기화 완료. 생성 {formatNumber(syncResult.created)}건 / 갱신 {formatNumber(syncResult.updated)}건 / 비활성화 {formatNumber(syncResult.deactivated)}건 / 충돌 {formatNumber(syncResult.conflicts)}건
+            </section>
+          ) : null}
 
           <section style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(240px, 400px)", gap: 16, alignItems: "start" }}>
             <section className="pmo-panel" style={{ padding: 0, overflow: "hidden" }}>
-              <div style={{ padding: "18px 20px 12px", borderBottom: "1px solid var(--line-2)", display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-                  <strong style={{ fontSize: 18 }}>공휴일 목록</strong>
-                  <span style={{ fontSize: 14, color: "var(--tx-4)", fontWeight: 700 }}>총 {formatNumber(summary.total_count)}건</span>
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10 }}>
-                  <label className="pmo-field" style={{ gap: 4 }}>
-                    <span style={{ fontSize: 13 }}>기준연도</span>
-                    <select value={selectedYear} onChange={(event) => setSelectedYear(Number(event.target.value))} style={{ height: 38, minWidth: 116 }}>
-                      {yearOptions.map((year) => <option key={year} value={year}>{year}</option>)}
-                    </select>
-                  </label>
-                  <button className="pmo-btn" style={{ height: 38, marginTop: 18 }} onClick={() => { setAppliedYear(selectedYear); setPage(1); }}>
-                    조회
-                  </button>
+              <div style={{ padding: "16px 18px", borderBottom: "1px solid var(--line-2)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <strong style={{ fontSize: 18 }}>공휴일 목록</strong>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14, color: "var(--tx-4)", flexWrap: "wrap", justifyContent: "flex-end" }}>
+                  <span>
+                    총 {formatNumber(filteredRows.length)}건
+                    {summaryFilterLabel ? <span style={{ color: "var(--brand)", fontWeight: 600 }}> · 필터: {summaryFilterLabel}</span> : null}
+                  </span>
                   {canMutate ? (
-                    <button className="pmo-btn pmo-btn-primary" style={{ height: 38, marginTop: 18, background: "var(--brand)", borderColor: "var(--brand)", color: "#fff", display: "inline-flex", alignItems: "center", gap: 8 }} onClick={openCreateModal}>
+                    <button className="pmo-btn pmo-btn-primary" style={{ height: 30, padding: "0 10px", fontSize: 13, background: "var(--brand)", borderColor: "var(--brand)", color: "#fff", display: "inline-flex", alignItems: "center", gap: 6 }} onClick={openCreateModal}>
                       <Icon name="plus" size={15} stroke={2} />
                       신규 공휴일 등록
                     </button>
                   ) : null}
+                  {canMutate ? (
+                    <button
+                      className="pmo-btn"
+                      style={{ height: 30, padding: "0 10px", fontSize: 13, color: "#fff", background: syncing ? "#94a3b8" : "#0f766e", borderColor: syncing ? "#94a3b8" : "#0f766e", display: "inline-flex", alignItems: "center", gap: 6 }}
+                      onClick={() => void runHolidaySync()}
+                      disabled={syncing}
+                    >
+                      <Icon name="switch" size={15} stroke={2} />
+                      {syncing ? "법정공휴일 동기화 중..." : "법정공휴일 동기화"}
+                    </button>
+                  ) : null}
                   <button
                     className="pmo-btn"
-                    style={{ height: 38, marginTop: 18, color: downloadHover ? "#fff" : "var(--brand)", borderColor: "var(--brand)", background: downloadHover ? "var(--brand)" : "#fff", display: "inline-flex", alignItems: "center", gap: 8 }}
+                    style={{ height: 30, padding: "0 10px", fontSize: 13, fontWeight: downloadHover ? 700 : 600, color: downloadHover ? "#fff" : "var(--tx-2)", borderColor: downloadHover ? "var(--brand)" : "var(--line-2)", background: downloadHover ? "var(--brand)" : "#fff", display: "inline-flex", alignItems: "center", gap: 6 }}
                     onMouseEnter={() => setDownloadHover(true)}
                     onMouseLeave={() => setDownloadHover(false)}
                     onClick={() => void exportWorkbook()}
@@ -595,6 +729,7 @@ export default function AdminHolidaysPage() {
                 <table className="pmo-table pmo-table--recent" style={{ minWidth: 940, textAlign: "center" }}>
                   <thead>
                     <tr>
+                      <th>연도</th>
                       <th>날짜</th>
                       <th>요일</th>
                       <th>명칭</th>
@@ -608,14 +743,14 @@ export default function AdminHolidaysPage() {
                   <tbody>
                     {rows.length === 0 ? (
                       <tr>
-                        <td colSpan={8} style={{ padding: "56px 20px", textAlign: "center", color: "var(--tx-4)", fontWeight: 700 }}>등록된 공휴일이 없습니다.</td>
+                        <td colSpan={9} style={{ padding: "56px 20px", textAlign: "center", color: "var(--tx-4)", fontWeight: 700 }}>등록된 공휴일이 없습니다.</td>
                       </tr>
                     ) : rows.map((row) => {
-                      const weekend = isWeekend(row.holiday_date);
                       const weekday = weekdayLabel(row.holiday_date);
                       const weekdayColor = weekday === "일" ? "#ef4444" : weekday === "토" ? "#2563eb" : "var(--tx-3)";
                       return (
                         <tr key={`${row.id}-${row.holiday_date}`}>
+                          <td className="num" style={{ fontWeight: 700, color: "var(--tx-3)" }}>{row.holiday_date.slice(0, 4)}</td>
                           <td className="num" style={{ fontWeight: 700, color: "var(--tx-2)" }}>{formatDate(row.holiday_date)}</td>
                           <td style={{ color: weekdayColor, fontWeight: 800 }}>{weekday}</td>
                           <td style={{ color: "var(--tx-1)", fontWeight: 700 }}>
@@ -678,7 +813,7 @@ export default function AdminHolidaysPage() {
               <section className="pmo-panel" style={{ padding: "18px 20px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 18 }}>
                   <strong style={{ fontSize: 18 }}>월별 공휴일 현황</strong>
-                  <span style={{ fontSize: 14, color: "var(--tx-4)", fontWeight: 700 }}>총 {formatNumber(summary.total_count)}건</span>
+                  <span style={{ fontSize: 14, color: "var(--tx-4)", fontWeight: 700 }}>{targetYears[0]}-{targetYears[1]}년 합산 {formatNumber(summary.total_count)}건</span>
                 </div>
                 <div style={{ display: "grid", gap: 12 }}>
                   {monthlyCounts.map((item) => (
@@ -726,7 +861,7 @@ export default function AdminHolidaysPage() {
             canMutate={canMutate}
             onClose={() => setModalOpen(false)}
             onSaved={async () => {
-              await loadData(safePage, pageSize, appliedYear);
+              await loadData();
             }}
           />
         </div>

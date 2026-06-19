@@ -12,6 +12,7 @@ from app.enums import (
     AssignmentType,
     DataScope,
     EmploymentStatus,
+    HolidaySourceKind,
     HolidayType,
     OrganizationRole,
     ProjectAssignmentRole,
@@ -191,8 +192,26 @@ class Holiday(Base, TimestampMixin):
     repeats_annually: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_counted_as_workday: Mapped[bool] = mapped_column(default=False, nullable=False)
+    source_kind: Mapped[HolidaySourceKind] = mapped_column(
+        Enum(HolidaySourceKind, **ENUM_VALUE_KWARGS),
+        nullable=False,
+        default=HolidaySourceKind.MANUAL,
+    )
+    source_provider: Mapped[str | None] = mapped_column(String(50))
+    source_external_id: Mapped[str | None] = mapped_column(String(100))
+    source_year: Mapped[int | None] = mapped_column(Integer)
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime)
     note: Mapped[str | None] = mapped_column(Text)
     # TODO: 공휴일 계산 반영 여부/회사휴일 정책은 P3 admin support DTL 확정 후 보정.
+
+
+class JobLock(Base):
+    __tablename__ = "job_locks"
+
+    job_name: Mapped[str] = mapped_column(String(100), primary_key=True)
+    locked_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    locked_by: Mapped[str] = mapped_column(String(100), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
 
 class MonthlyEmploymentMM(Base, TimestampMixin):

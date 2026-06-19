@@ -13,15 +13,16 @@ http://127.0.0.1:5500/01_%ED%99%88/PMO%20Home.html
 
 ## 신규 페이지
 
-### Windows
-```powershell
-# API 서버 실행 (터미널 2, repo root 기준)
-cd "C:\Users\mycho\Downloads\_Licentia\Coding\pmo-ops-portal"
+### 공통 실행
+```bash
+# API 서버 실행 (repo root 기준)
 npm run dev:api
 
-# WEB 서버 실행 (터미널 3, repo root에서 실행)
+# WEB 서버 실행
+# 최초 1회 또는 의존성 변경 시에만 실행
 npm install
-npm run dev -w @pmo/web -- --hostname 127.0.0.1 --port 3000
+# 평소 실행
+npm run dev:web
 
 # 브라우저 접속 (홈)
 http://127.0.0.1:3000/
@@ -33,21 +34,12 @@ http://127.0.0.1:3000/
 # 기본 개발 DB: apps/api/pmo_ops_p1_schema.db
 ```
 
-### Mac
-```bash
-# API 서버 실행 (터미널 2, macOS / repo root 기준)
-# 최초 1회만 Python 가상환경 및 의존성 설치
-cd /Users/law/Downloads/Dev/pmo-ops-portal/apps/api
-python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -U pip setuptools wheel
-python -m pip install -e .
+### OS별 예외
 
-# 이후 실행 (repo root 기준)
-cd /Users/law/Downloads/Dev/pmo-ops-portal
-source apps/api/.venv/bin/activate
-npm run dev:api
-```
+- Windows: `npm run dev:api`가 `apps/api/.venv/Scripts/python.exe`를 우선 사용합니다.
+- Mac: `npm run dev:api`가 `apps/api/.venv/bin/python`을 우선 사용합니다.
+- 최초 1회 API 환경 준비가 필요하면 `apps/api`에서 `python -m venv .venv` 후 `pip install -e .`를 실행합니다.
+- Mac에서 시스템 Python만 쓰는 경우에는 필요에 따라 `python3` 대신 `python`을 사용할 수 있습니다.
 
 ## (선택) Seed 데이터 재적재
 

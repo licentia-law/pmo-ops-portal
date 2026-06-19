@@ -12,15 +12,35 @@ from app.domain.holidays import (
     list_projected_holidays,
     month_workday_summary,
     normalize_holiday_payload,
+    require_manual_holiday_mutation,
     require_holiday_mutation,
     require_nonblank,
     validate_holiday_rules,
 )
-from app.enums import HolidayType
+from app.enums import HolidaySourceKind, HolidayType
 from app.models.core import Holiday
-from app.schemas.holidays import HolidayCreate, HolidayMonthlyBucketRead, HolidayRead, HolidayUpcomingRead, HolidayUpdate
+from app.schemas.holidays import (
+    HolidayCreate,
+    HolidayMonthlyBucketRead,
+    HolidayRead,
+    HolidaySyncRead,
+    HolidaySyncRequest,
+    HolidayUpcomingRead,
+    HolidayUpdate,
+)
+from app.core.config import settings
+from app.integrations.public_holidays import KrPublicHolidayApiAdapter, PublicHolidayProviderError
+from app.services.holiday_sync import HolidaySyncLockError, run_public_holiday_sync
 
 router = APIRouter()
+
+
+def build_public_holiday_provider() -> KrPublicHolidayApiAdapter:
+    return KrPublicHolidayApiAdapter(
+        service_key=settings.public_holiday_api_service_key,
+        base_url=settings.public_holiday_api_base_url,
+        timeout_seconds=settings.public_holiday_api_timeout_seconds,
+    )
 
 
 def serialize_holiday(item: ProjectedHoliday) -> dict[str, object]:
@@ -34,6 +54,11 @@ def serialize_holiday(item: ProjectedHoliday) -> dict[str, object]:
         repeats_annually=source.repeats_annually,
         is_active=source.is_active,
         is_counted_as_workday=source.is_counted_as_workday,
+        source_kind=source.source_kind,
+        source_provider=source.source_provider,
+        source_external_id=source.source_external_id,
+        source_year=source.source_year,
+        last_synced_at=source.last_synced_at,
         note=source.note,
         is_projected=item.is_projected,
         created_at=source.created_at,
@@ -95,7 +120,6 @@ def build_summary(items: list[ProjectedHoliday], basis_date: date) -> dict[str, 
         "total_count": len(items),
         "public_count": sum(1 for item in items if item.source.holiday_type == HolidayType.PUBLIC),
         "company_count": sum(1 for item in items if item.source.holiday_type == HolidayType.COMPANY),
-        "alternative_count": sum(1 for item in items if item.source.holiday_type == HolidayType.ALTERNATIVE),
         "active_count": sum(1 for item in items if item.source.is_active),
         "monthly_counts": monthly,
         "upcoming": upcoming,
@@ -156,13 +180,36 @@ def create_holiday(payload: HolidayCreate, session: DbSession, user: CurrentUser
         holiday_date=holiday_date,
         holiday_type=holiday_type,
         repeats_annually=repeats_annually,
+        source_kind=HolidaySourceKind.MANUAL,
     )
     values["is_counted_as_workday"] = not bool(values.get("is_active", True))
+    values["source_kind"] = HolidaySourceKind.MANUAL
+    values["source_year"] = holiday_date.year
     row = Holiday(**values)
     session.add(row)
     session.commit()
     session.refresh(row)
     return envelope(serialize_holiday_model(row))
+
+
+@router.post("/sync")
+def sync_holidays(
+    payload: HolidaySyncRequest,
+    session: DbSession,
+    user: CurrentUser,
+) -> dict[str, object]:
+    require_holiday_mutation(user, "공휴일 동기화 권한이 없습니다.")
+    try:
+        summary = run_public_holiday_sync(
+            session,
+            provider=build_public_holiday_provider(),
+            lock_owner=f"api:{user.email}",
+        )
+    except HolidaySyncLockError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except PublicHolidayProviderError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    return envelope(HolidaySyncRead(**summary.as_dict()).model_dump(mode="json"))
 
 
 @router.patch("/{holiday_id}")
@@ -176,6 +223,7 @@ def update_holiday(
     row = session.get(Holiday, holiday_id)
     if row is None:
         raise HTTPException(status_code=404, detail="공휴일을 찾을 수 없습니다.")
+    require_manual_holiday_mutation(row, "수정")
     updates = normalize_holiday_payload(payload.model_dump(exclude_unset=True))
     next_date = updates.get("holiday_date", row.holiday_date)
     next_type = updates.get("holiday_type", row.holiday_type)
@@ -191,6 +239,7 @@ def update_holiday(
         holiday_date=next_date,
         holiday_type=next_type,
         repeats_annually=next_repeats,
+        source_kind=row.source_kind,
         holiday_id=holiday_id,
     )
     if "name" in updates:
@@ -210,6 +259,7 @@ def delete_holiday(holiday_id: str, session: DbSession, user: CurrentUser) -> di
     row = session.get(Holiday, holiday_id)
     if row is None:
         raise HTTPException(status_code=404, detail="공휴일을 찾을 수 없습니다.")
+    require_manual_holiday_mutation(row, "삭제")
     session.delete(row)
     session.commit()
     return envelope({"id": holiday_id, "deleted": True})

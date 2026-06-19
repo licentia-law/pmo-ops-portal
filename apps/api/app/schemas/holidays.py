@@ -2,7 +2,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
-from app.enums import HolidayType
+from app.enums import HolidaySourceKind, HolidayType
 
 
 class HolidayBase(BaseModel):
@@ -31,6 +31,11 @@ class HolidayRead(HolidayBase):
     id: str
     source_holiday_date: date
     is_counted_as_workday: bool
+    source_kind: HolidaySourceKind
+    source_provider: str | None = None
+    source_external_id: str | None = None
+    source_year: int | None = None
+    last_synced_at: datetime | None = None
     is_projected: bool
     created_at: datetime
     updated_at: datetime
@@ -55,3 +60,18 @@ class HolidayWorkdaySummaryRead(BaseModel):
     month: int
     workdays: int
     holiday_count: int
+
+
+class HolidaySyncRequest(BaseModel):
+    mode: str | None = None
+
+
+class HolidaySyncRead(BaseModel):
+    provider: str
+    years: list[int]
+    created: int
+    updated: int
+    deactivated: int
+    skipped: int
+    conflicts: int
+    synced_at: datetime

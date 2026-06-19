@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.enums import HolidayType, OrganizationRole, UserPermission
+from app.enums import HolidaySourceKind, HolidayType, OrganizationRole, UserPermission
 from app.models.core import Holiday, User
 
 
@@ -46,10 +46,13 @@ def validate_holiday_rules(
     holiday_date: date,
     holiday_type: HolidayType,
     repeats_annually: bool,
+    source_kind: HolidaySourceKind,
     holiday_id: str | None = None,
 ) -> None:
-    if holiday_type == HolidayType.ALTERNATIVE and repeats_annually:
-        raise HTTPException(status_code=400, detail="대체휴일은 해당연도 기준으로만 등록할 수 있습니다.")
+    if source_kind == HolidaySourceKind.EXTERNAL_API and repeats_annually:
+        raise HTTPException(status_code=400, detail="외부 동기화 공휴일은 연도별 concrete row로만 저장할 수 있습니다.")
+    if holiday_type == HolidayType.COMPANY and source_kind != HolidaySourceKind.MANUAL:
+        raise HTTPException(status_code=400, detail="회사휴무는 수동 관리만 허용됩니다.")
 
     existing_rows = session.scalars(select(Holiday)).all()
     target_month_day = (holiday_date.month, holiday_date.day)
@@ -63,6 +66,14 @@ def validate_holiday_rules(
             continue
         if row.holiday_date == holiday_date:
             raise HTTPException(status_code=409, detail="같은 날짜의 공휴일이 이미 등록되어 있습니다.")
+
+
+def require_manual_holiday_mutation(row: Holiday, action: str) -> None:
+    if row.source_kind == HolidaySourceKind.EXTERNAL_API:
+        raise HTTPException(
+            status_code=409,
+            detail=f"외부 동기화 공휴일은 {action}할 수 없습니다. 동기화 작업으로 관리해 주세요.",
+        )
 
 
 def load_filtered_holidays(

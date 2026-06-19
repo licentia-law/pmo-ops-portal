@@ -18,6 +18,12 @@ class Settings(BaseSettings):
         "http://localhost:3001,http://127.0.0.1:3001,"
         "http://localhost:3002,http://127.0.0.1:3002"
     )
+    public_holiday_provider: str = "kr_public_data"
+    public_holiday_api_base_url: str = (
+        "https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo"
+    )
+    public_holiday_api_service_key: str = ""
+    public_holiday_api_timeout_seconds: int = 15
 
     @property
     def cors_origins(self) -> list[str]:

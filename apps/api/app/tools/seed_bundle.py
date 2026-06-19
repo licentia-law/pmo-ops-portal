@@ -10,6 +10,7 @@ from typing import Any
 from sqlalchemy import Boolean, Date, DateTime, Integer, JSON, Numeric, delete
 from sqlalchemy.orm import Session
 
+from app.enums import HolidaySourceKind
 from app.models.core import (
     CurrentAssignmentSnapshot,
     Holiday,
@@ -78,6 +79,10 @@ def import_seed_bundle(session: Session, seed_dir: str | Path, truncate: bool = 
                     if key is None:
                         continue
                     payload[key] = _convert(raw_value, column_map[key].type, filename, line_no, key)
+                if model is Holiday and "source_kind" not in payload:
+                    payload["source_kind"] = HolidaySourceKind.SEED
+                    holiday_date = payload.get("holiday_date")
+                    payload["source_year"] = holiday_date.year if isinstance(holiday_date, date) else None
                 rows.append(model(**payload))
 
         session.add_all(rows)

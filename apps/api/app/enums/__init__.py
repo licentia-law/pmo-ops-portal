@@ -88,4 +88,9 @@ class ReportType(StrEnum):
 class HolidayType(StrEnum):
     PUBLIC = "public"
     COMPANY = "company"
-    ALTERNATIVE = "alternative"
+
+
+class HolidaySourceKind(StrEnum):
+    MANUAL = "manual"
+    SEED = "seed"
+    EXTERNAL_API = "external_api"

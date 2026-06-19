@@ -9,11 +9,11 @@
     "packages/shared-mocks"
   ],
   "scripts": {
-    "dev:web": "npm run dev -w @pmo/web",
+    "dev:web": "npm run dev -w @pmo/web -- --hostname 127.0.0.1 --port 3000",
     "build:web": "npm run build -w @pmo/web",
     "lint:web": "npm run lint -w @pmo/web",
     "typecheck": "npm run typecheck -w @pmo/shared-types && npm run typecheck -w @pmo/shared-ui && npm run typecheck -w @pmo/shared-mocks && npm run typecheck -w @pmo/web",
-    "dev:api": "cd apps/api && uvicorn app.main:app --reload --host 127.0.0.1 --port 8001"
+    "dev:api": "node scripts/dev-api.mjs"
   },
   "devDependencies": {
     "typescript": "^5.4.5"

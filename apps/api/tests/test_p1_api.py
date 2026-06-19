@@ -1,4 +1,5 @@
 from collections.abc import Generator
+from datetime import date
 
 import pytest
 from fastapi.testclient import TestClient
@@ -7,6 +8,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base, get_session
+from app.enums import HolidaySourceKind, HolidayType
 from app.main import app
 from app.models.core import Holiday, MonthlyEmploymentMM, Personnel
 
@@ -384,30 +386,7 @@ def test_holidays_crud_projection_and_workday_summary(
     public_holiday = created_public.json()["data"]
     assert public_holiday["repeats_annually"] is True
     assert public_holiday["is_counted_as_workday"] is False
-
-    created_alternative = client.post(
-        "/api/holidays",
-        json={
-            "holiday_date": "2026-05-06",
-            "name": "어린이날 대체휴일",
-            "holiday_type": "alternative",
-            "repeats_annually": False,
-            "is_active": True,
-        },
-    )
-    assert created_alternative.status_code == 201
-
-    rejected_repeat_alternative = client.post(
-        "/api/holidays",
-        json={
-            "holiday_date": "2026-05-07",
-            "name": "잘못된 대체휴일",
-            "holiday_type": "alternative",
-            "repeats_annually": True,
-            "is_active": True,
-        },
-    )
-    assert rejected_repeat_alternative.status_code == 400
+    assert public_holiday["source_kind"] == HolidaySourceKind.MANUAL
 
     created_company = client.post(
         "/api/holidays",
@@ -424,6 +403,7 @@ def test_holidays_crud_projection_and_workday_summary(
     company_holiday = created_company.json()["data"]
     assert company_holiday["is_active"] is False
     assert company_holiday["is_counted_as_workday"] is True
+    assert company_holiday["source_kind"] == HolidaySourceKind.MANUAL
 
     duplicate_month_day = client.post(
         "/api/holidays",
@@ -448,8 +428,7 @@ def test_holidays_crud_projection_and_workday_summary(
     listed_2026 = client.get("/api/holidays", params={"year": 2026, "month": 5, "page_size": 20})
     assert listed_2026.status_code == 200
     listed_2026_payload = listed_2026.json()
-    assert listed_2026_payload["meta"]["summary"]["alternative_count"] == 1
-    assert listed_2026_payload["meta"]["summary"]["active_count"] == 1
+    assert listed_2026_payload["meta"]["summary"]["active_count"] == 0
     assert listed_2026_payload["meta"]["workday_summary"]["month"] == 5
     assert listed_2026_payload["meta"]["workday_summary"]["workdays"] >= 20
 
@@ -466,7 +445,7 @@ def test_holidays_crud_projection_and_workday_summary(
         params={"start_date": "2026-05-01", "end_date": "2026-05-31"},
     )
     assert workdays.status_code == 200
-    assert workdays.json()["data"]["workdays"] == 20
+    assert workdays.json()["data"]["workdays"] == 21
 
     denied_delete = client.delete(
         f"/api/holidays/{public_holiday['id']}",
@@ -480,3 +459,83 @@ def test_holidays_crud_projection_and_workday_summary(
     with SessionLocal() as session:
         deleted_row = session.get(Holiday, public_holiday["id"])
         assert deleted_row is None
+
+
+def test_external_api_holiday_cannot_be_mutated_manually(
+    client_and_session: tuple[TestClient, sessionmaker[Session]],
+) -> None:
+    client, SessionLocal = client_and_session
+    with SessionLocal() as session:
+        row = Holiday(
+            holiday_date=date(2026, 10, 9),
+            name="한글날",
+            holiday_type=HolidayType.PUBLIC,
+            repeats_annually=False,
+            is_active=True,
+            is_counted_as_workday=False,
+            source_kind=HolidaySourceKind.EXTERNAL_API,
+            source_provider="fake_provider",
+            source_external_id="20261009:1",
+            source_year=2026,
+        )
+        session.add(row)
+        session.commit()
+        holiday_id = row.id
+
+    updated = client.patch(
+        f"/api/holidays/{holiday_id}",
+        json={"name": "수정 시도"},
+    )
+    assert updated.status_code == 409
+
+    deleted = client.delete(
+        f"/api/holidays/{holiday_id}",
+    )
+    assert deleted.status_code == 409
+
+
+def test_admin_can_trigger_holiday_sync(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.api.routes import holidays as holidays_route
+    from app.schemas.holidays import HolidaySyncRead
+
+    class FakeProvider:
+        provider_name = "fake_provider"
+
+        def fetch_year(self, year: int):
+            return []
+
+    monkeypatch.setattr(holidays_route, "build_public_holiday_provider", lambda: FakeProvider())
+
+    response = client.post("/api/holidays/sync", json={})
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["provider"] == "fake_provider"
+    assert data["years"] == [2026, 2027]
+
+
+def test_non_admin_cannot_trigger_holiday_sync(client: TestClient) -> None:
+    response = client.post(
+        "/api/holidays/sync",
+        json={},
+        headers={"x-user-permission": "general_editor"},
+    )
+    assert response.status_code == 403
+
+
+def test_holiday_sync_returns_conflict_when_lock_is_held(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.api.routes import holidays as holidays_route
+    from app.services.holiday_sync import HolidaySyncLockError
+
+    monkeypatch.setattr(
+        holidays_route,
+        "run_public_holiday_sync",
+        lambda *args, **kwargs: (_ for _ in ()).throw(HolidaySyncLockError("공휴일 동기화가 이미 실행 중입니다.")),
+    )
+    response = client.post("/api/holidays/sync", json={})
+    assert response.status_code == 409

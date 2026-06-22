@@ -9,21 +9,19 @@ import {
   syncPublicHolidays,
   updateHoliday,
   type DevUserContext,
+  type HolidayCreatePayload,
   type HolidayListMeta,
-  type HolidayMonthlyCount,
   type HolidayRecord,
   type HolidaySyncSummary,
+  type HolidayUpdatePayload,
   type HolidayUpcomingRecord,
   type OrganizationRole,
   type UserPermission,
 } from "../../app/lib/api";
 import { PmoShell } from "../components/PmoShell";
 import LightweightLoading from "../components/LightweightLoading";
-import { downloadHolidayWorkbook } from "./holidayWorkbookExport";
 
 type HolidayTypeCode = HolidayRecord["holiday_type"];
-type HolidayTypeFormValue = HolidayTypeCode | "";
-type RepeatFormValue = boolean | "";
 
 type SummaryItem = {
   id: string;
@@ -38,13 +36,10 @@ type SummaryItem = {
 type HolidayForm = {
   holiday_date: string;
   name: string;
-  holiday_type: HolidayTypeFormValue;
-  repeats_annually: RepeatFormValue;
   is_active: boolean;
-  note: string;
 };
 
-type IconName = "calendar" | "building" | "switch" | "check" | "plus" | "download" | "edit" | "trash" | "chevronLeft" | "chevronRight";
+type IconName = "calendar" | "building" | "switch" | "check" | "plus" | "edit" | "trash" | "chevronLeft" | "chevronRight";
 
 const FORM_INPUT_STYLE: CSSProperties = { height: 40, minWidth: 0, width: "100%", borderRadius: 8 };
 const GROUP_SECTION_STYLE: CSSProperties = { padding: 14, marginBottom: 12, border: "1.5px solid #cfd8e7", background: "#f8fbff", boxShadow: "inset 0 0 0 1px rgba(255,255,255,.7)" };
@@ -56,7 +51,6 @@ const ICONS: Record<IconName, string> = {
   switch: "M7 7h10M7 17h10M17 7l-3-3m3 3-3 3M7 17l3-3m-3 3 3 3",
   check: "M20 6 9 17l-5-5",
   plus: "M12 5v14M5 12h14",
-  download: "M12 4v10M8 10l4 4 4-4M5 18h14",
   edit: "M4 20h4l10-10-4-4L4 16v4zm11-13 4 4",
   trash: "M4 7h16M9 7V4h6v3M8 11v6M12 11v6M16 11v6M6 7l1 13a1 1 0 0 0 1 .9h8a1 1 0 0 0 1-.9L18 7",
   chevronLeft: "M15 18l-6-6 6-6",
@@ -78,10 +72,7 @@ const WEEKDAY_LABEL = ["일", "월", "화", "수", "목", "금", "토"] as const
 const DEFAULT_FORM: HolidayForm = {
   holiday_date: "",
   name: "",
-  holiday_type: "",
-  repeats_annually: "",
   is_active: true,
-  note: "",
 };
 
 function Icon({ name, size = 16, stroke = 1.8, style }: { name: IconName; size?: number; stroke?: number; style?: CSSProperties }) {
@@ -115,10 +106,6 @@ function weekdayLabel(dateText: string) {
 function isWeekend(dateText: string) {
   const day = new Date(`${dateText}T00:00:00`).getDay();
   return day === 0 || day === 6;
-}
-
-function repeatLabel(row: Pick<HolidayRecord, "repeats_annually">) {
-  return row.repeats_annually ? "매년" : "해당연도";
 }
 
 function useStatusLabel(row: Pick<HolidayRecord, "is_active">) {
@@ -181,6 +168,10 @@ function countRowsByMetric(items: HolidayRecord[], metric: SummaryItem["id"]) {
   if (metric === "public") return items.filter((item) => item.holiday_type === "public").length;
   if (metric === "company") return items.filter((item) => item.holiday_type === "company").length;
   return items.filter((item) => item.is_active).length;
+}
+
+function canManageHoliday(row: HolidayRecord, canMutate: boolean) {
+  return canMutate && row.source_kind === "manual" && row.holiday_type === "company";
 }
 
 function SummaryCard({ item, active, onClick }: { item: SummaryItem; active: boolean; onClick: () => void }) {
@@ -280,10 +271,7 @@ function HolidayEditModal({
     setForm(row ? {
       holiday_date: row.source_holiday_date,
       name: row.name,
-      holiday_type: row.holiday_type,
-      repeats_annually: row.repeats_annually,
       is_active: row.is_active,
-      note: row.note ?? "",
     } : DEFAULT_FORM);
     setSaving(false);
     setError(null);
@@ -314,8 +302,6 @@ function HolidayEditModal({
     const errors: FieldErrorMap = {};
     if (!form.holiday_date.trim()) errors.holiday_date = "날짜는 필수입니다.";
     if (!form.name.trim()) errors.name = "명칭은 필수입니다.";
-    if (!form.holiday_type) errors.holiday_type = "구분은 필수입니다.";
-    if (form.repeats_annually === "") errors.repeats_annually = "반복여부는 필수입니다.";
     const firstKey = (Object.keys(errors)[0] as keyof HolidayForm | undefined) ?? null;
     if (firstKey) {
       setFieldErrors(errors);
@@ -326,17 +312,19 @@ function HolidayEditModal({
     setSaving(true);
     setError(null);
     try {
-      const payload = {
-        holiday_date: form.holiday_date,
-        name: form.name.trim(),
-        holiday_type: form.holiday_type as HolidayTypeCode,
-        repeats_annually: form.repeats_annually === true,
-        is_active: form.is_active,
-        note: form.note.trim() || null,
-      };
       if (row) {
+        const payload: HolidayUpdatePayload = {
+          holiday_date: form.holiday_date,
+          name: form.name.trim(),
+          is_active: form.is_active,
+        };
         await updateHoliday(row.id, payload);
       } else {
+        const payload: HolidayCreatePayload = {
+          holiday_date: form.holiday_date,
+          name: form.name.trim(),
+          is_active: form.is_active,
+        };
         await createHoliday(payload);
       }
       await onSaved();
@@ -352,7 +340,7 @@ function HolidayEditModal({
     <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.4)", zIndex: 50, display: "flex", justifyContent: "center", alignItems: "center", padding: 20 }}>
       <aside className="pmo-panel" style={{ width: "min(980px, 92vw)", height: "84vh", borderRadius: 12, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <div style={{ flex: "0 0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", background: "#fff", padding: "14px 20px 10px", borderBottom: "1px solid var(--line-2)", boxShadow: "0 2px 10px rgba(15,23,42,.06)", zIndex: 5 }}>
-          <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{row ? "공휴일 수정" : "신규 공휴일 등록"}</h3>
+          <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{row ? "회사휴무 수정" : "회사휴무 등록"}</h3>
           <button onClick={onClose} style={{ border: 0, background: "transparent", fontSize: 24, color: "var(--tx-4)", cursor: "pointer" }}>×</button>
         </div>
         <div style={{ flex: "1 1 auto", overflowY: "auto", padding: "16px 20px 12px" }}>
@@ -369,28 +357,13 @@ function HolidayEditModal({
           {error ? <div style={{ fontSize: 13, color: "var(--crit)", fontWeight: 700, marginBottom: 12 }}>{error}</div> : null}
 
           <section className="pmo-panel" style={GROUP_SECTION_STYLE}>
-            <h4 style={GROUP_TITLE_STYLE}>공휴일 기본정보</h4>
+            <h4 style={GROUP_TITLE_STYLE}>회사휴무 기본정보</h4>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 }}>
               <label className="pmo-field" data-holiday-field="holiday_date" style={{ gridColumn: "span 1" }}>
                 <span style={labelStyle("holiday_date")}>{requiredMark("날짜")}</span>
                 <input type="date" value={form.holiday_date} onChange={(event) => setField("holiday_date", event.target.value)} disabled={!canMutate || saving} style={{ ...FORM_INPUT_STYLE, ...errorStyle("holiday_date") }} />
               </label>
-              <label className="pmo-field" data-holiday-field="holiday_type" style={{ gridColumn: "span 1" }}>
-                <span style={labelStyle("holiday_type")}>{requiredMark("구분")}</span>
-                <select value={form.holiday_type} onChange={(event) => {
-                  const nextType = event.target.value as HolidayTypeFormValue;
-                  clearFieldError("holiday_type");
-                  setForm((prev) => ({
-                    ...prev,
-                    holiday_type: nextType,
-                    repeats_annually: "",
-                  }));
-                }} disabled={!canMutate || saving} style={{ ...FORM_INPUT_STYLE, ...errorStyle("holiday_type") }}>
-                  <option value="">선택 안함</option>
-                  {Object.entries(HOLIDAY_TYPE_LABEL).map(([code, label]) => <option key={code} value={code}>{label}</option>)}
-                </select>
-              </label>
-              <label className="pmo-field" data-holiday-field="name" style={{ gridColumn: "span 2" }}>
+              <label className="pmo-field" data-holiday-field="name" style={{ gridColumn: "span 3" }}>
                 <span style={labelStyle("name")}>{requiredMark("명칭")}</span>
                 <input value={form.name} onChange={(event) => setField("name", event.target.value)} placeholder="예: 어린이날, 종무일" disabled={!canMutate || saving} style={{ ...FORM_INPUT_STYLE, ...errorStyle("name") }} />
               </label>
@@ -398,21 +371,7 @@ function HolidayEditModal({
           </section>
 
           <section className="pmo-panel" style={GROUP_SECTION_STYLE}>
-            <h4 style={GROUP_TITLE_STYLE}>반복</h4>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 }}>
-              <label className="pmo-field" data-holiday-field="repeats_annually" style={{ gridColumn: "span 1" }}>
-                <span style={labelStyle("repeats_annually")}>{requiredMark("반복여부")}</span>
-                <select value={form.repeats_annually === true ? "annual" : form.repeats_annually === false ? "year" : ""} onChange={(event) => setField("repeats_annually", event.target.value === "" ? "" : event.target.value === "annual")} disabled={!canMutate || saving} style={{ ...FORM_INPUT_STYLE, ...errorStyle("repeats_annually") }}>
-                  <option value="">선택 안함</option>
-                  <option value="annual">매년 반복</option>
-                  <option value="year">해당연도만 적용</option>
-                </select>
-              </label>
-            </div>
-          </section>
-
-          <section className="pmo-panel" style={GROUP_SECTION_STYLE}>
-            <h4 style={GROUP_TITLE_STYLE}>기타</h4>
+            <h4 style={GROUP_TITLE_STYLE}>운영 상태</h4>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 }}>
               <label className="pmo-field" data-holiday-field="is_active" style={{ gridColumn: "span 1" }}>
                 <span>사용여부</span>
@@ -420,10 +379,6 @@ function HolidayEditModal({
                   <option value="active">사용중</option>
                   <option value="inactive">제외</option>
                 </select>
-              </label>
-              <label className="pmo-field" data-holiday-field="note" style={{ gridColumn: "2 / 5" }}>
-                <span>비고</span>
-                <input value={form.note} onChange={(event) => setField("note", event.target.value)} placeholder="예: 어린이날 대체 (5/5)" disabled={!canMutate || saving} style={FORM_INPUT_STYLE} />
               </label>
             </div>
           </section>
@@ -444,6 +399,7 @@ export default function AdminHolidaysPage() {
   const [error, setError] = useState<string | null>(null);
   const [allRows, setAllRows] = useState<HolidayRecord[]>([]);
   const [activeSummary, setActiveSummary] = useState<SummaryItem["id"] | null>(null);
+  const [activeMonth, setActiveMonth] = useState<number | null>(null);
   const [userContext, setUserContext] = useState<DevUserContext | null>(null);
   const [permission, setPermission] = useState<UserPermission>("admin");
   const [organizationRole, setOrganizationRole] = useState<OrganizationRole>("other");
@@ -453,7 +409,6 @@ export default function AdminHolidaysPage() {
   const [pageSize, setPageSize] = useState(10);
   const [modalRow, setModalRow] = useState<HolidayRecord | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [downloadHover, setDownloadHover] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<HolidaySyncSummary | null>(null);
 
@@ -468,7 +423,6 @@ export default function AdminHolidaysPage() {
   }, []);
 
   const summary = useMemo(() => aggregateHolidaySummary(allRows, basisDate), [allRows, basisDate]);
-  const total = summary.total_count;
   const rowsByYear = useMemo(
     () =>
       Object.fromEntries(
@@ -476,12 +430,32 @@ export default function AdminHolidaysPage() {
       ) as Record<number, HolidayRecord[]>,
     [allRows, targetYears]
   );
+  const currentYearRows = rowsByYear[currentYear] ?? [];
+  const currentYearMonthlyCounts = useMemo(
+    () =>
+      Array.from({ length: 12 }, (_, index) => {
+        const month = index + 1;
+        const monthRows = currentYearRows.filter((row) => Number(row.holiday_date.slice(5, 7)) === month);
+        return {
+          month,
+          count: monthRows.length,
+          active_count: monthRows.filter((row) => row.is_active).length,
+        };
+      }),
+    [currentYearRows]
+  );
   const filteredRows = useMemo(() => {
-    if (!activeSummary || activeSummary === "total") return allRows;
-    if (activeSummary === "public") return allRows.filter((row) => row.holiday_type === "public");
-    if (activeSummary === "company") return allRows.filter((row) => row.holiday_type === "company");
-    return allRows.filter((row) => row.is_active);
-  }, [activeSummary, allRows]);
+    let nextRows = allRows;
+    if (activeSummary && activeSummary !== "total") {
+      if (activeSummary === "public") nextRows = nextRows.filter((row) => row.holiday_type === "public");
+      else if (activeSummary === "company") nextRows = nextRows.filter((row) => row.holiday_type === "company");
+      else nextRows = nextRows.filter((row) => row.is_active);
+    }
+    if (activeMonth !== null) {
+      nextRows = nextRows.filter((row) => Number(row.holiday_date.slice(0, 4)) === currentYear && Number(row.holiday_date.slice(5, 7)) === activeMonth);
+    }
+    return nextRows;
+  }, [activeMonth, activeSummary, allRows, currentYear]);
   const rows = useMemo(() => {
     const start = (page - 1) * pageSize;
     return filteredRows.slice(start, start + pageSize);
@@ -529,7 +503,7 @@ export default function AdminHolidaysPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [activeSummary]);
+  }, [activeMonth, activeSummary]);
 
   const pageNumbers = useMemo(() => {
     const maxVisible = 5;
@@ -582,11 +556,9 @@ export default function AdminHolidaysPage() {
     () => summaryItems.find((item) => item.id === activeSummary)?.label ?? "",
     [activeSummary, summaryItems]
   );
-
-  const monthlyCounts = useMemo(() => {
-    const map = new Map(summary.monthly_counts.map((item) => [item.month, item] as const));
-    return Array.from({ length: 12 }, (_, index) => map.get(index + 1) ?? { month: index + 1, count: 0, active_count: 0 } satisfies HolidayMonthlyCount);
-  }, [summary.monthly_counts]);
+  const monthlyCounts = useMemo(() => currentYearMonthlyCounts, [currentYearMonthlyCounts]);
+  const monthFilterLabel = activeMonth ? `${currentYear}년 ${activeMonth}월` : "";
+  const filterLabels = [summaryFilterLabel, monthFilterLabel].filter(Boolean);
 
   const openCreateModal = () => {
     setModalRow(null);
@@ -594,12 +566,13 @@ export default function AdminHolidaysPage() {
   };
 
   const openEditModal = (row: HolidayRecord) => {
+    if (!canManageHoliday(row, canMutate)) return;
     setModalRow(row);
     setModalOpen(true);
   };
 
   const toggleActive = async (row: HolidayRecord) => {
-    if (!canMutate) return;
+    if (!canManageHoliday(row, canMutate)) return;
     try {
       await updateHoliday(row.id, { is_active: !row.is_active });
       await loadData();
@@ -609,7 +582,7 @@ export default function AdminHolidaysPage() {
   };
 
   const removeRow = async (row: HolidayRecord) => {
-    if (!canMutate) return;
+    if (!canManageHoliday(row, canMutate)) return;
     if (!window.confirm(`${row.name} 공휴일을 삭제하시겠습니까?`)) return;
     try {
       await deleteHoliday(row.id);
@@ -618,26 +591,6 @@ export default function AdminHolidaysPage() {
       await loadData();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "공휴일을 삭제하지 못했습니다.");
-    }
-  };
-
-  const exportWorkbook = async () => {
-    try {
-      await downloadHolidayWorkbook(
-        filteredRows.map((row) => ({
-          holidayDate: row.holiday_date,
-          weekdayLabel: weekdayLabel(row.holiday_date),
-          name: row.name,
-          holidayTypeLabel: HOLIDAY_TYPE_LABEL[row.holiday_type],
-          repeatLabel: repeatLabel(row),
-          useStatusLabel: useStatusLabel(row),
-          note: row.note ?? "-",
-        })),
-        `공휴일관리_${targetYears[0]}_${targetYears[1]}`,
-        "공휴일관리",
-      );
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "엑셀 다운로드에 실패했습니다.");
     }
   };
 
@@ -693,12 +646,12 @@ export default function AdminHolidaysPage() {
                 <div style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 14, color: "var(--tx-4)", flexWrap: "wrap", justifyContent: "flex-end" }}>
                   <span>
                     총 {formatNumber(filteredRows.length)}건
-                    {summaryFilterLabel ? <span style={{ color: "var(--brand)", fontWeight: 600 }}> · 필터: {summaryFilterLabel}</span> : null}
+                    {filterLabels.length > 0 ? <span style={{ color: "var(--brand)", fontWeight: 600 }}> · 필터: {filterLabels.join(" / ")}</span> : null}
                   </span>
                   {canMutate ? (
                     <button className="pmo-btn pmo-btn-primary" style={{ height: 30, padding: "0 10px", fontSize: 13, background: "var(--brand)", borderColor: "var(--brand)", color: "#fff", display: "inline-flex", alignItems: "center", gap: 6 }} onClick={openCreateModal}>
                       <Icon name="plus" size={15} stroke={2} />
-                      신규 공휴일 등록
+                      회사휴무 등록
                     </button>
                   ) : null}
                   {canMutate ? (
@@ -712,21 +665,11 @@ export default function AdminHolidaysPage() {
                       {syncing ? "법정공휴일 동기화 중..." : "법정공휴일 동기화"}
                     </button>
                   ) : null}
-                  <button
-                    className="pmo-btn"
-                    style={{ height: 30, padding: "0 10px", fontSize: 13, fontWeight: downloadHover ? 700 : 600, color: downloadHover ? "#fff" : "var(--tx-2)", borderColor: downloadHover ? "var(--brand)" : "var(--line-2)", background: downloadHover ? "var(--brand)" : "#fff", display: "inline-flex", alignItems: "center", gap: 6 }}
-                    onMouseEnter={() => setDownloadHover(true)}
-                    onMouseLeave={() => setDownloadHover(false)}
-                    onClick={() => void exportWorkbook()}
-                  >
-                    <Icon name="download" size={15} stroke={2} />
-                    엑셀 다운로드
-                  </button>
                 </div>
               </div>
 
               <div style={{ overflowX: "auto", borderBottom: "1px solid var(--line-2)" }}>
-                <table className="pmo-table pmo-table--recent" style={{ minWidth: 940, textAlign: "center" }}>
+                <table className="pmo-table pmo-table--recent" style={{ minWidth: 860, textAlign: "center" }}>
                   <thead>
                     <tr>
                       <th>연도</th>
@@ -734,18 +677,17 @@ export default function AdminHolidaysPage() {
                       <th>요일</th>
                       <th>명칭</th>
                       <th>구분</th>
-                      <th>반복여부</th>
                       <th>사용여부</th>
-                      <th>비고</th>
                       <th>작업</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.length === 0 ? (
                       <tr>
-                        <td colSpan={9} style={{ padding: "56px 20px", textAlign: "center", color: "var(--tx-4)", fontWeight: 700 }}>등록된 공휴일이 없습니다.</td>
+                        <td colSpan={7} style={{ padding: "56px 20px", textAlign: "center", color: "var(--tx-4)", fontWeight: 700 }}>등록된 공휴일이 없습니다.</td>
                       </tr>
                     ) : rows.map((row) => {
+                      const canManageRow = canManageHoliday(row, canMutate);
                       const weekday = weekdayLabel(row.holiday_date);
                       const weekdayColor = weekday === "일" ? "#ef4444" : weekday === "토" ? "#2563eb" : "var(--tx-3)";
                       return (
@@ -756,27 +698,34 @@ export default function AdminHolidaysPage() {
                           <td style={{ color: "var(--tx-1)", fontWeight: 700 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
                               <span>{row.name}</span>
-                              {row.is_projected ? <span style={{ fontSize: 11, color: "var(--tx-5)", fontWeight: 700 }}>반복 적용</span> : null}
                             </div>
                           </td>
                           <td><TypeBadge type={row.holiday_type} /></td>
-                          <td style={{ color: "var(--tx-2)", fontWeight: 700 }}>{repeatLabel(row)}</td>
                           <td>
-                            <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                              <ActiveSwitch checked={row.is_active} disabled={!canMutate} onToggle={() => void toggleActive(row)} />
-                              <span style={{ fontSize: 13, fontWeight: 700, color: row.is_active ? "var(--brand)" : "var(--tx-4)" }}>{useStatusLabel(row)}</span>
-                            </div>
+                            {canManageRow ? (
+                              <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                                <ActiveSwitch checked={row.is_active} disabled={false} onToggle={() => void toggleActive(row)} />
+                                <span style={{ fontSize: 13, fontWeight: 700, color: row.is_active ? "var(--brand)" : "var(--tx-4)" }}>{useStatusLabel(row)}</span>
+                              </div>
+                            ) : (
+                              <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", minWidth: 72, padding: "3px 10px", borderRadius: 10, background: "#eef6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", fontSize: 13, fontWeight: 700 }}>
+                                자동관리
+                              </span>
+                            )}
                           </td>
-                          <td style={{ color: "var(--tx-3)", fontWeight: 600 }}>{row.note ?? "-"}</td>
                           <td>
-                            <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                              <button className="pmo-btn" style={{ width: 28, minWidth: 28, height: 28, padding: 0, justifyContent: "center" }} onClick={() => openEditModal(row)} disabled={!canMutate} aria-label={`${row.name} 수정`}>
-                                <Icon name="edit" size={13} stroke={2} />
-                              </button>
-                              <button className="pmo-btn" style={{ width: 28, minWidth: 28, height: 28, padding: 0, justifyContent: "center", color: "#ef4444" }} onClick={() => void removeRow(row)} disabled={!canMutate} aria-label={`${row.name} 삭제`}>
-                                <Icon name="trash" size={13} stroke={2} />
-                              </button>
-                            </div>
+                            {canManageRow ? (
+                              <div style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                                <button className="pmo-btn" style={{ width: 28, minWidth: 28, height: 28, padding: 0, justifyContent: "center" }} onClick={() => openEditModal(row)} aria-label={`${row.name} 수정`}>
+                                  <Icon name="edit" size={13} stroke={2} />
+                                </button>
+                                <button className="pmo-btn" style={{ width: 28, minWidth: 28, height: 28, padding: 0, justifyContent: "center", color: "#ef4444" }} onClick={() => void removeRow(row)} aria-label={`${row.name} 삭제`}>
+                                  <Icon name="trash" size={13} stroke={2} />
+                                </button>
+                              </div>
+                            ) : (
+                              <span style={{ color: "var(--tx-4)", fontWeight: 700 }}>자동관리</span>
+                            )}
                           </td>
                         </tr>
                       );
@@ -810,22 +759,38 @@ export default function AdminHolidaysPage() {
             </section>
 
             <div className="pmo-page-stack">
-              <section className="pmo-panel" style={{ padding: "18px 20px" }}>
+              <section className="pmo-panel" style={{ padding: "16px 18px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 18 }}>
-                  <strong style={{ fontSize: 18 }}>월별 공휴일 현황</strong>
-                  <span style={{ fontSize: 14, color: "var(--tx-4)", fontWeight: 700 }}>{targetYears[0]}-{targetYears[1]}년 합산 {formatNumber(summary.total_count)}건</span>
+                <strong style={{ fontSize: 18 }}>{currentYear}년 월별 공휴일 현황</strong>
+                  <span style={{ fontSize: 14, color: "var(--tx-4)", fontWeight: 700 }}>{currentYear}년 {formatNumber(currentYearRows.length)}건</span>
                 </div>
-                <div style={{ display: "grid", gap: 12 }}>
+                <div style={{ display: "grid", gap: 8 }}>
                   {monthlyCounts.map((item) => (
-                    <div key={item.month} style={{ display: "grid", gridTemplateColumns: "52px 42px 1fr", alignItems: "center", gap: 10 }}>
-                      <span style={{ fontSize: 14, color: "var(--tx-3)", fontWeight: 700 }}>{item.month}월</span>
-                      <span style={{ fontSize: 14, color: "var(--tx-2)", fontWeight: 700 }}>{item.count}건</span>
-                      <span style={{ display: "grid", gridTemplateColumns: "repeat(10, 10px)", gap: 6, alignItems: "center" }}>
+                    <button
+                      key={item.month}
+                      type="button"
+                      onClick={() => setActiveMonth((prev) => (prev === item.month ? null : item.month))}
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "46px 38px 1fr",
+                        alignItems: "center",
+                        gap: 8,
+                        border: `1px solid ${activeMonth === item.month ? "var(--brand-line)" : "transparent"}`,
+                        background: activeMonth === item.month ? "var(--brand-bg)" : "transparent",
+                        borderRadius: 8,
+                        padding: "2px 6px",
+                        cursor: "pointer",
+                        textAlign: "left",
+                      }}
+                    >
+                      <span style={{ fontSize: 13, color: activeMonth === item.month ? "var(--brand)" : "var(--tx-3)", fontWeight: 700 }}>{item.month}월</span>
+                      <span style={{ fontSize: 13, color: "var(--tx-2)", fontWeight: 700 }}>{item.count}건</span>
+                      <span style={{ display: "grid", gridTemplateColumns: "repeat(10, 9px)", gap: 5, alignItems: "center" }}>
                         {Array.from({ length: 10 }, (_, index) => (
-                          <span key={index} style={{ width: 10, height: 10, borderRadius: "50%", background: index < Math.min(item.count, 10) ? "var(--brand)" : "#e7ebf3", opacity: index < Math.min(item.active_count, 10) ? 1 : 0.6 }} />
+                          <span key={index} style={{ width: 9, height: 9, borderRadius: "50%", background: index < Math.min(item.count, 10) ? "var(--brand)" : "#e7ebf3", opacity: index < Math.min(item.active_count, 10) ? 1 : 0.6 }} />
                         ))}
                       </span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </section>

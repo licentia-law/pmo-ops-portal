@@ -8,13 +8,7 @@ from typing import TextIO
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.integrations.public_holidays import KrPublicHolidayApiAdapter, PublicHolidayProviderError
-from app.services.holiday_sync import (
-    HolidaySyncLockError,
-    audit_seed_public_holidays,
-    cleanup_seed_public_holidays,
-    resolve_default_sync_years,
-    run_public_holiday_sync,
-)
+from app.services.holiday_sync import HolidaySyncLockError, resolve_default_sync_years, run_public_holiday_sync
 
 
 def build_provider() -> KrPublicHolidayApiAdapter:
@@ -35,22 +29,16 @@ def main(
 ) -> int:
     stdout = stdout or sys.stdout
     stderr = stderr or sys.stderr
-    audit_summary = None
-    cleanup_summary = None
 
     parser = argparse.ArgumentParser(description="Sync public holidays from external API into holidays table.")
     parser.add_argument("--year", type=int, help="Sync one year.")
     parser.add_argument("--from-year", dest="from_year", type=int, help="Sync start year.")
     parser.add_argument("--to-year", dest="to_year", type=int, help="Sync end year.")
     parser.add_argument("--dry-run", action="store_true", help="Preview sync without DB changes.")
-    parser.add_argument("--audit-seed-public", action="store_true", help="Audit seed public rows for target years after sync.")
-    parser.add_argument("--cleanup-seed-public", action="store_true", help="Deactivate seed public rows missing from provider after sync.")
     args = parser.parse_args(argv)
 
     try:
         years = _resolve_years(year=args.year, from_year=args.from_year, to_year=args.to_year)
-        if args.cleanup_seed_public and args.dry_run:
-            raise ValueError("--cleanup-seed-public cannot be used with --dry-run.")
         provider = provider_factory()
         with session_factory() as session:
             summary = run_public_holiday_sync(
@@ -60,23 +48,6 @@ def main(
                 dry_run=args.dry_run,
                 lock_owner="cli",
             )
-            audit_summary = None
-            cleanup_summary = None
-            if args.audit_seed_public:
-                audit_summary = audit_seed_public_holidays(
-                    session,
-                    provider_name=provider.provider_name,
-                    years=years,
-                    include_items=True,
-                )
-            if args.cleanup_seed_public:
-                cleanup_summary = cleanup_seed_public_holidays(
-                    session,
-                    provider_name=provider.provider_name,
-                    years=years,
-                    synced_at=summary.synced_at,
-                    dry_run=False,
-                )
     except (HolidaySyncLockError, PublicHolidayProviderError, ValueError) as error:
         print(f"SYNC_FAILED: {error}", file=stderr)
         return 1
@@ -87,14 +58,6 @@ def main(
     print("SYNC_OK", file=stdout)
     for key, value in summary.as_dict().items():
         print(f"{key}: {value}", file=stdout)
-    if audit_summary is not None:
-        print("SEED_PUBLIC_AUDIT", file=stdout)
-        for key, value in audit_summary.as_dict().items():
-            print(f"{key}: {value}", file=stdout)
-    if cleanup_summary is not None:
-        print("SEED_PUBLIC_CLEANUP", file=stdout)
-        for key, value in cleanup_summary.as_dict().items():
-            print(f"{key}: {value}", file=stdout)
     return 0
 
 

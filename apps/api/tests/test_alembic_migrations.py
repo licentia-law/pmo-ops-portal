@@ -78,12 +78,13 @@ def test_alembic_upgrade_head_reaches_current_personnel_schema(tmp_path: Path) -
             "source_year",
             "last_synced_at",
         }.issubset(holiday_columns)
+        assert {"repeats_annually", "note"}.isdisjoint(holiday_columns)
 
         cur.execute("PRAGMA table_info(job_locks)")
         job_lock_columns = {row[1] for row in cur.fetchall()}
         assert {"job_name", "locked_at", "locked_by", "expires_at"}.issubset(job_lock_columns)
 
         cur.execute("SELECT version_num FROM alembic_version")
-        assert cur.fetchone() == ("260619_0015",)
+        assert cur.fetchone() == ("260622_0016",)
     finally:
         conn.close()

@@ -5,35 +5,38 @@ from pydantic import BaseModel, Field
 from app.enums import HolidaySourceKind, HolidayType
 
 
-class HolidayCreate(BaseModel):
-    model_config = {"extra": "forbid"}
-
+class HolidayBase(BaseModel):
     holiday_date: date
     name: str = Field(min_length=1, max_length=100)
+    holiday_type: HolidayType
+    repeats_annually: bool = False
     is_active: bool = True
+    note: str | None = None
+
+
+class HolidayCreate(HolidayBase):
+    pass
 
 
 class HolidayUpdate(BaseModel):
-    model_config = {"extra": "forbid"}
-
     holiday_date: date | None = None
     name: str | None = Field(default=None, min_length=1, max_length=100)
+    holiday_type: HolidayType | None = None
+    repeats_annually: bool | None = None
     is_active: bool | None = None
+    note: str | None = None
 
 
-class HolidayRead(BaseModel):
+class HolidayRead(HolidayBase):
     id: str
-    holiday_date: date
-    holiday_type: HolidayType
     source_holiday_date: date
-    name: str
-    is_active: bool
     is_counted_as_workday: bool
     source_kind: HolidaySourceKind
     source_provider: str | None = None
     source_external_id: str | None = None
     source_year: int | None = None
     last_synced_at: datetime | None = None
+    is_projected: bool
     created_at: datetime
     updated_at: datetime
 

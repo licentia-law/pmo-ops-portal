@@ -182,7 +182,6 @@ export type HolidayRecord = {
   source_holiday_date: string;
   name: string;
   holiday_type: "public" | "company";
-  repeats_annually: boolean;
   is_active: boolean;
   is_counted_as_workday: boolean;
   source_kind: "manual" | "seed" | "external_api";
@@ -190,10 +189,20 @@ export type HolidayRecord = {
   source_external_id: string | null;
   source_year: number | null;
   last_synced_at: string | null;
-  note: string | null;
-  is_projected: boolean;
   created_at: string;
   updated_at: string;
+};
+
+export type HolidayCreatePayload = {
+  holiday_date: string;
+  name: string;
+  is_active: boolean;
+};
+
+export type HolidayUpdatePayload = {
+  holiday_date?: string;
+  name?: string;
+  is_active?: boolean;
 };
 
 export type HolidayMonthlyCount = {
@@ -266,7 +275,6 @@ export type ListQuery = {
   month?: number;
   personnel_id?: string;
   holiday_type?: string;
-  repeats_annually?: boolean;
   start_date?: string;
   end_date?: string;
 };
@@ -410,11 +418,11 @@ export function listHolidays(query?: ListQuery) {
   return request<HolidayRecord[]>(`/holidays${qs(query)}`);
 }
 
-export function createHoliday(payload: Partial<HolidayRecord>) {
+export function createHoliday(payload: HolidayCreatePayload) {
   return request<HolidayRecord>("/holidays", { method: "POST", body: JSON.stringify(payload) });
 }
 
-export function updateHoliday(holidayId: string, payload: Partial<HolidayRecord>) {
+export function updateHoliday(holidayId: string, payload: HolidayUpdatePayload) {
   return request<HolidayRecord>(`/holidays/${holidayId}`, { method: "PATCH", body: JSON.stringify(payload) });
 }
 

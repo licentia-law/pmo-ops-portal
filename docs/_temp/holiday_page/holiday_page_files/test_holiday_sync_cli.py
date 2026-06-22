@@ -6,7 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.database import Base
-from app.enums import HolidaySourceKind, HolidayType
+from app.enums import HolidayType
 from app.integrations.public_holidays import ExternalHolidayRecord
 from app.models.core import Holiday
 from app.tools.sync_public_holidays import main
@@ -94,76 +94,3 @@ def test_sync_public_holidays_cli_returns_nonzero_for_invalid_args() -> None:
     )
     assert exit_code == 1
     assert "SYNC_FAILED" in stderr.getvalue()
-
-
-def test_sync_public_holidays_cli_supports_seed_public_audit() -> None:
-    SessionLocal = make_session_factory()
-    with SessionLocal() as session:
-        session.add(
-            Holiday(
-                holiday_date=date(2026, 3, 1),
-                name="삼일절",
-                holiday_type=HolidayType.PUBLIC,
-                is_active=True,
-                is_counted_as_workday=False,
-                source_kind=HolidaySourceKind.SEED,
-                source_year=2026,
-            )
-        )
-        session.commit()
-
-    stdout = StringIO()
-    exit_code = main(
-        ["--year", "2026", "--audit-seed-public"],
-        session_factory=SessionLocal,
-        provider_factory=FakeProvider,
-        stdout=stdout,
-        stderr=StringIO(),
-    )
-    assert exit_code == 0
-    assert "SEED_PUBLIC_AUDIT" in stdout.getvalue()
-    assert "missing_from_provider: 1" in stdout.getvalue()
-
-
-def test_sync_public_holidays_cli_supports_seed_public_cleanup() -> None:
-    SessionLocal = make_session_factory()
-    with SessionLocal() as session:
-        session.add(
-            Holiday(
-                holiday_date=date(2026, 3, 1),
-                name="삼일절",
-                holiday_type=HolidayType.PUBLIC,
-                is_active=True,
-                is_counted_as_workday=False,
-                source_kind=HolidaySourceKind.SEED,
-                source_year=2026,
-            )
-        )
-        session.commit()
-
-    stdout = StringIO()
-    exit_code = main(
-        ["--year", "2026", "--cleanup-seed-public"],
-        session_factory=SessionLocal,
-        provider_factory=FakeProvider,
-        stdout=stdout,
-        stderr=StringIO(),
-    )
-    assert exit_code == 0
-    assert "SEED_PUBLIC_CLEANUP" in stdout.getvalue()
-
-    with SessionLocal() as session:
-        row = session.query(Holiday).filter(Holiday.source_kind == HolidaySourceKind.SEED).one()
-        assert row.is_active is False
-        assert row.is_counted_as_workday is True
-
-
-def test_sync_public_holidays_cli_rejects_cleanup_seed_public_with_dry_run() -> None:
-    exit_code = main(
-        ["--year", "2026", "--dry-run", "--cleanup-seed-public"],
-        session_factory=make_session_factory(),
-        provider_factory=FakeProvider,
-        stdout=StringIO(),
-        stderr=StringIO(),
-    )
-    assert exit_code == 1

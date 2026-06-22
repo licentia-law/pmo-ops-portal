@@ -44,48 +44,6 @@ class HolidaySyncSummary:
         }
 
 
-@dataclass(slots=True)
-class SeedPublicAuditItem:
-    holiday_id: str
-    holiday_date: date
-    name: str
-    source_year: int | None
-    status: str
-    external_name: str | None = None
-    external_id: str | None = None
-
-    def as_dict(self) -> dict[str, object]:
-        return {
-            "holiday_id": self.holiday_id,
-            "holiday_date": self.holiday_date.isoformat(),
-            "name": self.name,
-            "source_year": self.source_year,
-            "status": self.status,
-            "external_name": self.external_name,
-            "external_id": self.external_id,
-        }
-
-
-@dataclass(slots=True)
-class SeedPublicAuditSummary:
-    years: list[int]
-    audited: int = 0
-    matched_external: int = 0
-    missing_from_provider: int = 0
-    deactivated: int = 0
-    items: list[SeedPublicAuditItem] | None = None
-
-    def as_dict(self) -> dict[str, object]:
-        return {
-            "years": self.years,
-            "audited": self.audited,
-            "matched_external": self.matched_external,
-            "missing_from_provider": self.missing_from_provider,
-            "deactivated": self.deactivated,
-            "items": [item.as_dict() for item in self.items or []],
-        }
-
-
 def resolve_default_sync_years(today: date | None = None) -> list[int]:
     basis = today or datetime.now(UTC).date()
     return [basis.year, basis.year + 1]
@@ -150,12 +108,14 @@ def sync_public_holidays(
                     session,
                     holiday_date=record.holiday_date,
                     holiday_type=stored_type,
+                    repeats_annually=False,
                     source_kind=HolidaySourceKind.EXTERNAL_API,
                 )
                 row = Holiday(
                     holiday_date=record.holiday_date,
                     name=record.name,
                     holiday_type=stored_type,
+                    repeats_annually=False,
                     is_active=True,
                     is_counted_as_workday=False,
                     source_kind=HolidaySourceKind.EXTERNAL_API,
@@ -194,93 +154,6 @@ def sync_public_holidays(
             row.is_counted_as_workday = True
             row.last_synced_at = synced_at
             summary.deactivated += 1
-
-    if dry_run:
-        session.rollback()
-    else:
-        session.commit()
-    return summary
-
-
-def audit_seed_public_holidays(
-    session: Session,
-    *,
-    provider_name: str,
-    years: list[int],
-    include_items: bool = True,
-) -> SeedPublicAuditSummary:
-    years = sorted(set(years))
-    rows = session.scalars(
-        select(Holiday).where(
-            Holiday.source_kind == HolidaySourceKind.SEED,
-            Holiday.holiday_type == HolidayType.PUBLIC,
-            Holiday.source_year.in_(years),
-        )
-    ).all()
-    external_by_date = {
-        row.holiday_date: row
-        for row in session.scalars(
-            select(Holiday).where(
-                Holiday.source_kind == HolidaySourceKind.EXTERNAL_API,
-                Holiday.source_provider == provider_name,
-                Holiday.source_year.in_(years),
-            )
-        ).all()
-    }
-
-    summary = SeedPublicAuditSummary(years=years, items=[] if include_items else None)
-    for row in rows:
-        external = external_by_date.get(row.holiday_date)
-        matched = external is not None
-        summary.audited += 1
-        if matched:
-            summary.matched_external += 1
-        else:
-            summary.missing_from_provider += 1
-        if include_items:
-            summary.items.append(
-                SeedPublicAuditItem(
-                    holiday_id=row.id,
-                    holiday_date=row.holiday_date,
-                    name=row.name,
-                    source_year=row.source_year,
-                    status="matched_external" if matched else "missing_from_provider",
-                    external_name=external.name if external is not None else None,
-                    external_id=external.source_external_id if external is not None else None,
-                )
-            )
-    return summary
-
-
-def cleanup_seed_public_holidays(
-    session: Session,
-    *,
-    provider_name: str,
-    years: list[int],
-    synced_at: datetime | None = None,
-    dry_run: bool = False,
-) -> SeedPublicAuditSummary:
-    summary = audit_seed_public_holidays(
-        session,
-        provider_name=provider_name,
-        years=years,
-        include_items=True,
-    )
-    cleanup_at = synced_at or datetime.now(UTC)
-
-    if summary.items is None:
-        return summary
-
-    for item in summary.items:
-        if item.status != "missing_from_provider":
-            continue
-        row = session.get(Holiday, item.holiday_id)
-        if row is None or not row.is_active:
-            continue
-        row.is_active = False
-        row.is_counted_as_workday = True
-        row.last_synced_at = cleanup_at
-        summary.deactivated += 1
 
     if dry_run:
         session.rollback()
@@ -373,6 +246,7 @@ def _apply_external_record(
         "holiday_date": record.holiday_date,
         "name": record.name,
         "holiday_type": stored_type,
+        "repeats_annually": False,
         "is_active": True,
         "is_counted_as_workday": False,
         "source_kind": HolidaySourceKind.EXTERNAL_API,

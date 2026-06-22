@@ -9,8 +9,6 @@ from app.enums import HolidaySourceKind, HolidayType
 from app.integrations.public_holidays import ExternalHolidayRecord
 from app.models.core import Holiday, JobLock
 from app.services.holiday_sync import (
-    audit_seed_public_holidays,
-    cleanup_seed_public_holidays,
     normalize_external_holiday_type,
     resolve_default_sync_years,
     run_public_holiday_sync,
@@ -47,6 +45,7 @@ def test_sync_public_holidays_upserts_and_preserves_manual_company_rows() -> Non
                     holiday_date=date(2026, 1, 1),
                     name="구 시드 신정",
                     holiday_type=HolidayType.PUBLIC,
+                    repeats_annually=False,
                     is_active=True,
                     is_counted_as_workday=False,
                     source_kind=HolidaySourceKind.SEED,
@@ -56,6 +55,7 @@ def test_sync_public_holidays_upserts_and_preserves_manual_company_rows() -> Non
                     holiday_date=date(2026, 5, 1),
                     name="창립기념 휴무",
                     holiday_type=HolidayType.COMPANY,
+                    repeats_annually=False,
                     is_active=True,
                     is_counted_as_workday=False,
                     source_kind=HolidaySourceKind.MANUAL,
@@ -65,6 +65,7 @@ def test_sync_public_holidays_upserts_and_preserves_manual_company_rows() -> Non
                     holiday_date=date(2026, 3, 1),
                     name="예전 외부 데이터",
                     holiday_type=HolidayType.PUBLIC,
+                    repeats_annually=False,
                     is_active=True,
                     is_counted_as_workday=False,
                     source_kind=HolidaySourceKind.EXTERNAL_API,
@@ -180,6 +181,7 @@ def test_sync_public_holidays_keeps_seed_row_when_provider_omits_date() -> None:
                 holiday_date=date(2026, 1, 30),
                 name="설날연휴",
                 holiday_type=HolidayType.PUBLIC,
+                repeats_annually=False,
                 is_active=True,
                 is_counted_as_workday=False,
                 source_kind=HolidaySourceKind.SEED,
@@ -193,136 +195,6 @@ def test_sync_public_holidays_keeps_seed_row_when_provider_omits_date() -> None:
         row = session.query(Holiday).filter(Holiday.holiday_date == date(2026, 1, 30)).one()
         assert row.source_kind == HolidaySourceKind.SEED
         assert row.is_active is True
-
-
-def test_audit_seed_public_holidays_reports_matches_and_missing_rows() -> None:
-    provider = FakeProvider(
-        {
-            2026: [
-                ExternalHolidayRecord(
-                    holiday_date=date(2026, 1, 1),
-                    name="신정",
-                    holiday_type=HolidayType.PUBLIC,
-                    source_external_id="20260101:1",
-                    source_year=2026,
-                )
-            ]
-        }
-    )
-
-    with make_session() as session:
-        session.add_all(
-            [
-                Holiday(
-                    holiday_date=date(2026, 1, 1),
-                    name="구 시드 신정",
-                    holiday_type=HolidayType.PUBLIC,
-                    is_active=True,
-                    is_counted_as_workday=False,
-                    source_kind=HolidaySourceKind.SEED,
-                    source_year=2026,
-                ),
-                Holiday(
-                    holiday_date=date(2026, 3, 1),
-                    name="삼일절",
-                    holiday_type=HolidayType.PUBLIC,
-                    is_active=True,
-                    is_counted_as_workday=False,
-                    source_kind=HolidaySourceKind.SEED,
-                    source_year=2026,
-                ),
-            ]
-        )
-        session.commit()
-        sync_public_holidays(session, provider=provider, years=[2026])
-
-        summary = audit_seed_public_holidays(
-            session,
-            provider_name="fake_provider",
-            years=[2026],
-            include_items=True,
-        )
-
-        assert summary.audited == 1
-        assert summary.matched_external == 0
-        assert summary.missing_from_provider == 1
-        assert summary.deactivated == 0
-        assert summary.items is not None
-        assert [item.status for item in summary.items] == ["missing_from_provider"]
-
-
-def test_cleanup_seed_public_holidays_deactivates_only_missing_seed_public_rows() -> None:
-    provider = FakeProvider(
-        {
-            2026: [
-                ExternalHolidayRecord(
-                    holiday_date=date(2026, 1, 1),
-                    name="신정",
-                    holiday_type=HolidayType.PUBLIC,
-                    source_external_id="20260101:1",
-                    source_year=2026,
-                )
-            ]
-        }
-    )
-
-    with make_session() as session:
-        session.add_all(
-            [
-                Holiday(
-                    holiday_date=date(2026, 1, 1),
-                    name="구 시드 신정",
-                    holiday_type=HolidayType.PUBLIC,
-                    is_active=True,
-                    is_counted_as_workday=False,
-                    source_kind=HolidaySourceKind.SEED,
-                    source_year=2026,
-                ),
-                Holiday(
-                    holiday_date=date(2026, 3, 1),
-                    name="삼일절",
-                    holiday_type=HolidayType.PUBLIC,
-                    is_active=True,
-                    is_counted_as_workday=False,
-                    source_kind=HolidaySourceKind.SEED,
-                    source_year=2026,
-                ),
-                Holiday(
-                    holiday_date=date(2026, 5, 1),
-                    name="창립기념 휴무",
-                    holiday_type=HolidayType.COMPANY,
-                    is_active=True,
-                    is_counted_as_workday=False,
-                    source_kind=HolidaySourceKind.MANUAL,
-                    source_year=2026,
-                ),
-            ]
-        )
-        session.commit()
-        sync_public_holidays(session, provider=provider, years=[2026])
-
-        summary = cleanup_seed_public_holidays(
-            session,
-            provider_name="fake_provider",
-            years=[2026],
-            synced_at=datetime(2026, 6, 22, 1, 0, tzinfo=UTC),
-            dry_run=False,
-        )
-
-        assert summary.audited == 1
-        assert summary.matched_external == 0
-        assert summary.missing_from_provider == 1
-        assert summary.deactivated == 1
-
-        external_row = session.query(Holiday).filter(Holiday.holiday_date == date(2026, 1, 1), Holiday.source_kind == HolidaySourceKind.EXTERNAL_API).one()
-        assert external_row.is_active is True
-
-        missing_seed = session.query(Holiday).filter(Holiday.holiday_date == date(2026, 3, 1), Holiday.source_kind == HolidaySourceKind.SEED).one()
-        assert missing_seed.is_active is False
-        assert missing_seed.is_counted_as_workday is True
-
-        company_row = session.query(Holiday).filter(Holiday.holiday_date == date(2026, 5, 1)).one()
-        assert company_row.is_active is True
 
 
 def test_normalize_external_holiday_type_keeps_public() -> None:

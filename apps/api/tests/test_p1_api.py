@@ -362,16 +362,14 @@ def test_holidays_crud_projection_and_workday_summary(
         "/api/holidays",
         headers={"x-user-permission": "general_editor"},
         json={
-            "holiday_date": "2026-01-01",
-            "name": "신정",
-            "holiday_type": "public",
-            "repeats_annually": True,
+            "holiday_date": "2026-12-31",
+            "name": "종무일",
             "is_active": True,
         },
     )
     assert denied_create.status_code == 403
 
-    created_public = client.post(
+    rejected_public = client.post(
         "/api/holidays",
         json={
             "holiday_date": "2026-01-01",
@@ -379,24 +377,16 @@ def test_holidays_crud_projection_and_workday_summary(
             "holiday_type": "public",
             "repeats_annually": True,
             "is_active": True,
-            "note": "연간 반복",
         },
     )
-    assert created_public.status_code == 201
-    public_holiday = created_public.json()["data"]
-    assert public_holiday["repeats_annually"] is True
-    assert public_holiday["is_counted_as_workday"] is False
-    assert public_holiday["source_kind"] == HolidaySourceKind.MANUAL
+    assert rejected_public.status_code == 422
 
     created_company = client.post(
         "/api/holidays",
         json={
             "holiday_date": "2026-12-31",
             "name": "종무일",
-            "holiday_type": "company",
-            "repeats_annually": False,
             "is_active": False,
-            "note": "사용 제외",
         },
     )
     assert created_company.status_code == 201
@@ -404,26 +394,28 @@ def test_holidays_crud_projection_and_workday_summary(
     assert company_holiday["is_active"] is False
     assert company_holiday["is_counted_as_workday"] is True
     assert company_holiday["source_kind"] == HolidaySourceKind.MANUAL
+    assert company_holiday["holiday_type"] == HolidayType.COMPANY
 
-    duplicate_month_day = client.post(
-        "/api/holidays",
-        json={
-            "holiday_date": "2027-01-01",
-            "name": "중복 신정",
-            "holiday_type": "public",
-            "repeats_annually": True,
-            "is_active": True,
-        },
-    )
-    assert duplicate_month_day.status_code == 409
+    with SessionLocal() as session:
+        manual_public = Holiday(
+            holiday_date=date(2026, 1, 1),
+            name="신정",
+            holiday_type=HolidayType.PUBLIC,
+            is_active=True,
+            is_counted_as_workday=False,
+            source_kind=HolidaySourceKind.MANUAL,
+            source_year=2026,
+        )
+        session.add(manual_public)
+        session.commit()
+        manual_public_id = manual_public.id
 
     projected = client.get("/api/holidays", params={"year": 2027, "page_size": 20})
     assert projected.status_code == 200
     projected_payload = projected.json()
     projected_rows = projected_payload["data"]
-    assert projected_payload["meta"]["summary"]["total_count"] == 1
-    assert projected_rows[0]["holiday_date"] == "2027-01-01"
-    assert projected_rows[0]["is_projected"] is True
+    assert projected_payload["meta"]["summary"]["total_count"] == 0
+    assert projected_rows == []
 
     listed_2026 = client.get("/api/holidays", params={"year": 2026, "month": 5, "page_size": 20})
     assert listed_2026.status_code == 200
@@ -434,11 +426,11 @@ def test_holidays_crud_projection_and_workday_summary(
 
     patched = client.patch(
         f"/api/holidays/{company_holiday['id']}",
-        json={"is_active": True, "note": "사용 전환"},
+        json={"is_active": True, "name": "종무일 조정"},
     )
     assert patched.status_code == 200
     assert patched.json()["data"]["is_counted_as_workday"] is False
-    assert patched.json()["data"]["note"] == "사용 전환"
+    assert patched.json()["data"]["name"] == "종무일 조정"
 
     workdays = client.get(
         "/api/holidays/workdays",
@@ -448,16 +440,25 @@ def test_holidays_crud_projection_and_workday_summary(
     assert workdays.json()["data"]["workdays"] == 21
 
     denied_delete = client.delete(
-        f"/api/holidays/{public_holiday['id']}",
+        f"/api/holidays/{company_holiday['id']}",
         headers={"x-user-permission": "project_editor"},
     )
     assert denied_delete.status_code == 403
 
-    deleted = client.delete(f"/api/holidays/{public_holiday['id']}")
+    rejected_manual_public_patch = client.patch(
+        f"/api/holidays/{manual_public_id}",
+        json={"name": "수정 시도"},
+    )
+    assert rejected_manual_public_patch.status_code == 409
+
+    rejected_manual_public_delete = client.delete(f"/api/holidays/{manual_public_id}")
+    assert rejected_manual_public_delete.status_code == 409
+
+    deleted = client.delete(f"/api/holidays/{company_holiday['id']}")
     assert deleted.status_code == 200
 
     with SessionLocal() as session:
-        deleted_row = session.get(Holiday, public_holiday["id"])
+        deleted_row = session.get(Holiday, company_holiday["id"])
         assert deleted_row is None
 
 
@@ -470,12 +471,41 @@ def test_external_api_holiday_cannot_be_mutated_manually(
             holiday_date=date(2026, 10, 9),
             name="한글날",
             holiday_type=HolidayType.PUBLIC,
-            repeats_annually=False,
             is_active=True,
             is_counted_as_workday=False,
             source_kind=HolidaySourceKind.EXTERNAL_API,
             source_provider="fake_provider",
             source_external_id="20261009:1",
+            source_year=2026,
+        )
+        session.add(row)
+        session.commit()
+        holiday_id = row.id
+
+    updated = client.patch(
+        f"/api/holidays/{holiday_id}",
+        json={"name": "수정 시도"},
+    )
+    assert updated.status_code == 409
+
+    deleted = client.delete(
+        f"/api/holidays/{holiday_id}",
+    )
+    assert deleted.status_code == 409
+
+
+def test_seed_holiday_cannot_be_mutated_manually(
+    client_and_session: tuple[TestClient, sessionmaker[Session]],
+) -> None:
+    client, SessionLocal = client_and_session
+    with SessionLocal() as session:
+        row = Holiday(
+            holiday_date=date(2026, 3, 1),
+            name="삼일절",
+            holiday_type=HolidayType.PUBLIC,
+            is_active=True,
+            is_counted_as_workday=False,
+            source_kind=HolidaySourceKind.SEED,
             source_year=2026,
         )
         session.add(row)

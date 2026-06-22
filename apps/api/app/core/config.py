@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=str(REPO_ROOT / ".env"),
         env_file_encoding="utf-8",
+        extra="ignore",
     )
 
     database_url: str = f"sqlite:///{DEFAULT_SQLITE_DB.as_posix()}"

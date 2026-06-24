@@ -234,27 +234,11 @@ function BasicInfoCard({ project, projectMaster, assignments }: { project: any; 
         <CompactField label="종료일" value={<DisplayValue value={pickDisplay(m.toDate, project.endDate)} />} />
         <CompactField
           label="제안 제출"
-          value={
-            <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 6 }}>
-              <DisplayValue value={m.proposalSubmissionAt} />
-              <span style={{ color: "var(--tx-5)" }}>/</span>
-              <DisplayValue value={m.submissionFormat} />
-              <span style={{ color: "var(--tx-5)" }}>/</span>
-              <DisplayValue value={m.submissionNote} />
-            </span>
-          }
+          value={<DisplayValue value={joinVisibleValues([m.proposalSubmissionAt, m.submissionFormat, m.submissionNote])} />}
         />
         <CompactField
           label="제안 발표"
-          value={
-            <span style={{ display: "inline-flex", flexWrap: "wrap", gap: 6 }}>
-              <DisplayValue value={m.proposalPresentationAt} />
-              <span style={{ color: "var(--tx-5)" }}>/</span>
-              <DisplayValue value={m.presentationFormat} />
-              <span style={{ color: "var(--tx-5)" }}>/</span>
-              <DisplayValue value={m.presentationNote} />
-            </span>
-          }
+          value={<DisplayValue value={joinVisibleValues([m.proposalPresentationAt, m.presentationFormat, m.presentationNote])} />}
         />
       </div>
     </GroupSection>
@@ -276,6 +260,14 @@ function ScheduleTimelineItem({ item, last }: { item: any; last: boolean }) {
     <span style={{ fontSize: 14, color: "var(--tx-1)", fontWeight: 700, paddingTop: 1 }}>{item.date}</span>
   </div>;
 }
+
+function joinVisibleValues(values: Array<string | null | undefined>): string {
+  const filtered = values
+    .map((value) => String(value ?? "").trim())
+    .filter((value) => value && value !== "-");
+  return filtered.length > 0 ? filtered.join(" / ") : "-";
+}
+
 function ScheduleCard({ schedule }: { schedule: any }) {
   return <section className="pmo-panel" style={{ padding: "20px 22px" }}><CardTitle icon="calendar">일정 정보</CardTitle><div>{schedule.items.map((it: any, i: number) => <ScheduleTimelineItem key={i} item={it} last={i === schedule.items.length - 1} />)}</div></section>;
 }

@@ -13,7 +13,8 @@ export const ROUTES = {
   adminUsers: "/admin/users",
   adminMasterData: "/admin/master-data",
   adminHolidays: "/admin/holidays",
-  adminMonthlyClosing: "/admin/monthly-closing"
+  adminMonthlyClosing: "/admin/monthly-closing",
+  adminDataBackup: "/admin/data-backup"
 } as const;
 
 export type RoutePath = (typeof ROUTES)[keyof typeof ROUTES];

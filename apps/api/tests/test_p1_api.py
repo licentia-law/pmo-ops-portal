@@ -71,6 +71,8 @@ def create_project_payload(project_code_id: str, **overrides: object) -> dict[st
         "end_date": "2026-03-31",
         "submission_at": "2026-01-10T09:00:00",
         "submission_format": "온라인",
+        "presentation_at": "2026-01-15T10:00:00",
+        "presentation_format": "대면",
         "project_code_id": project_code_id,
     }
     payload.update(overrides)
@@ -105,6 +107,58 @@ def test_project_lifecycle_and_invalid_transition(client: TestClient) -> None:
     logs = client.get("/api/project-logs", params={"project_id": project["id"]})
     assert logs.status_code == 200
     assert logs.json()["meta"]["total"] == 2
+
+
+def test_project_master_create_is_atomic_and_keeps_code_and_project_in_sync(client: TestClient) -> None:
+    invalid = client.post(
+        "/api/projects/master",
+        json={
+            "project_code": {"name": "통합 등록 실패", "project_type": "main", "status": "proposing", "certainty": "우세"},
+            "project": {
+                "name": "통합 등록 실패",
+                "client_name": "내부",
+                "project_type": "main",
+                "status": "proposing",
+                "certainty": "우세",
+                "total_amount": 10,
+                "company_amount": 5,
+                "sales_owner": "영업대표",
+                "sales_department": "공공영업팀",
+                "start_date": "2026-01-01",
+                "end_date": "2026-03-31",
+            },
+        },
+    )
+    assert invalid.status_code == 400
+    assert client.get("/api/project-codes").json()["meta"]["total"] == 0
+    assert client.get("/api/projects").json()["meta"]["total"] == 0
+
+    created = client.post(
+        "/api/projects/master",
+        json={
+            "project_code": {"name": "통합 등록", "project_type": "main", "status": "proposing", "certainty": "우세"},
+            "project": create_project_payload("ignored", name="통합 등록", project_code_id=None),
+        },
+    )
+    assert created.status_code == 201
+    project = created.json()["data"]["project"]
+
+    updated = client.patch(
+        f"/api/projects/{project['id']}/master",
+        json={
+            "project_code": {"name": "통합 등록 수정", "status": "proposing", "certainty": "우세"},
+            "project": {"client_name": "외부"},
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()["data"]["project"]["name"] == "통합 등록 수정"
+    assert updated.json()["data"]["project"]["client_name"] == "외부"
+
+    direct_update = client.patch(
+        f"/api/project-codes/{created.json()['data']['project_code']}",
+        json={"name": "분리 수정"},
+    )
+    assert direct_update.status_code == 409
 
 
 def test_read_only_user_cannot_mutate(client: TestClient) -> None:
@@ -569,3 +623,18 @@ def test_holiday_sync_returns_conflict_when_lock_is_held(
     )
     response = client.post("/api/holidays/sync", json={})
     assert response.status_code == 409
+
+
+def test_sales_owner_candidates_and_role_guards(client: TestClient) -> None:
+    sales_role = client.post("/api/roles", json={"code": "SALES_OWNER", "name": "영업대표", "is_active": True}).json()["data"]
+    pm_role = client.post("/api/roles", json={"code": "PM", "name": "PM", "is_active": True}).json()["data"]
+    sales = client.post("/api/personnel", json={"name": "영업후보", "group_name": "전략사업본부", "team_name": "공공영업팀", "position_name": "책임", "role_id": sales_role["id"]})
+    assert sales.status_code == 201
+    assert sales.json()["data"]["employment_status"] == "active"
+    assert sales.json()["data"]["mm_start_date"] is None
+    assert client.post("/api/personnel", json={"name": "PM인력", "group_name": "PMO본부", "team_name": "PMO1팀", "position_name": "책임", "role_id": pm_role["id"]}).status_code == 201
+    candidates = client.get("/api/personnel/sales-owner-candidates")
+    assert candidates.status_code == 200
+    assert [row["name"] for row in candidates.json()["data"]] == ["영업후보"]
+    assert client.get("/api/personnel", params={"scope": "pmo"}).json()["meta"]["total"] == 1
+    assert client.patch(f"/api/roles/{sales_role['id']}", json={"is_active": False}).status_code == 409

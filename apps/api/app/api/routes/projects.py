@@ -2,15 +2,28 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.api.common import ListParams, apply_text_search, envelope, paginate, parse_sort
 from app.api.deps import CurrentUser, DbSession
 from app.domain.project_code_policy import generate_project_code
-from app.domain.projects import allowed_next_statuses, can_mutate_project, is_valid_status_transition
+from app.domain.projects import (
+    allowed_next_statuses,
+    can_mutate_project,
+    get_missing_project_fields,
+    is_valid_status_transition,
+)
 from app.domain.personnel import person_name_with_title, user_display_name
 from app.enums import ProjectLogStatus, ProjectStatus, ProjectType
 from app.models.core import Project, ProjectCode, ProjectLog
-from app.schemas.projects import ProjectCreate, ProjectRead, ProjectUpdate
+from app.schemas.projects import ProjectCreate, ProjectMasterCreate, ProjectMasterUpdate, ProjectRead, ProjectUpdate
+from app.services.project_master import (
+    PROJECT_MASTER_SYNC_FIELDS,
+    ProjectMasterConflictError,
+    ProjectMasterValidationError,
+    create_project_master,
+    update_project_master,
+)
 
 router = APIRouter()
 
@@ -60,26 +73,7 @@ def list_projects(session: DbSession, params: ListParams = Depends()) -> dict[st
 def create_project(payload: ProjectCreate, session: DbSession, user: CurrentUser) -> dict[str, object]:
     if not can_mutate_project(user):
         raise HTTPException(status_code=403, detail="프로젝트 등록 권한이 없습니다.")
-    required_checks: list[tuple[str, object]] = [
-        ("프로젝트명", payload.name),
-        ("고객사", payload.client_name),
-        ("사업유형", payload.project_type),
-        ("상태", payload.status),
-        ("확도", payload.certainty),
-        ("총 사업금액", payload.total_amount),
-        ("당사 사업금액", payload.company_amount),
-        ("영업대표", payload.sales_owner),
-        ("영업부서", payload.sales_department),
-        ("제안PM", payload.proposal_pm_name),
-        ("발표PM", payload.presentation_pm_name),
-        ("수행PM", payload.delivery_pm_name),
-        ("시작일", payload.start_date),
-        ("종료일", payload.end_date),
-        ("제안 제출일", payload.submission_at),
-        ("제출 형식", payload.submission_format),
-        ("프로젝트 코드 연결값", payload.project_code_id),
-    ]
-    missing_required = [label for label, value in required_checks if value is None or (isinstance(value, str) and not value.strip())]
+    missing_required = get_missing_project_fields(payload)
     if missing_required:
         raise HTTPException(status_code=400, detail=f"필수 항목 누락: {', '.join(missing_required)}")
     project_code = session.get(ProjectCode, payload.project_code_id) if payload.project_code_id else None
@@ -91,6 +85,8 @@ def create_project(payload: ProjectCreate, session: DbSession, user: CurrentUser
         code = project_code.code
     else:
         code = generate_project_code(session)
+    if project_code and any(getattr(payload, field) != getattr(project_code, field) for field in ("name", "project_type", "status", "certainty")):
+        raise HTTPException(status_code=409, detail="연결된 프로젝트코드의 공통 항목은 통합 마스터 API로 수정해야 합니다.")
     if session.scalar(select(Project).where(Project.code == code)):
         raise HTTPException(status_code=409, detail="이미 사용 중인 프로젝트 코드입니다.")
 
@@ -111,6 +107,31 @@ def create_project(payload: ProjectCreate, session: DbSession, user: CurrentUser
     session.commit()
     session.refresh(project)
     return envelope(serialize_project(session, project))
+
+
+@router.post("/master", status_code=201)
+def create_project_master_route(
+    payload: ProjectMasterCreate,
+    session: DbSession,
+    user: CurrentUser,
+) -> dict[str, object]:
+    if not can_mutate_project(user):
+        raise HTTPException(status_code=403, detail="프로젝트 등록 권한이 없습니다.")
+    try:
+        project_code, project = create_project_master(session, user, payload)
+        session.commit()
+    except ProjectMasterValidationError as exc:
+        session.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ProjectMasterConflictError as exc:
+        session.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="프로젝트코드 또는 연결값이 이미 사용 중입니다.") from exc
+    session.refresh(project_code)
+    session.refresh(project)
+    return envelope({"project_code": project_code.id, "project": serialize_project(session, project)})
 
 
 @router.get("/{project_id}")
@@ -135,10 +156,25 @@ def update_project(
         raise HTTPException(status_code=403, detail="프로젝트 수정 권한이 없습니다.")
 
     updates = payload.model_dump(exclude_unset=True)
+    if project.project_code_id and set(updates).intersection(PROJECT_MASTER_SYNC_FIELDS):
+        raise HTTPException(status_code=409, detail="연결된 프로젝트의 공통 항목은 통합 마스터 API로 수정해야 합니다.")
     next_status = updates.get("status")
     if next_status is not None and not is_valid_status_transition(project.status, next_status):
         raise HTTPException(status_code=400, detail="허용되지 않는 상태 전환입니다.")
 
+    if "project_code_id" in updates and updates["project_code_id"] != project.project_code_id:
+        next_project_code_id = updates["project_code_id"]
+        if next_project_code_id and session.get(ProjectCode, next_project_code_id) is None:
+            raise HTTPException(status_code=404, detail="프로젝트코드를 찾을 수 없습니다.")
+        if next_project_code_id and session.scalar(
+            select(Project).where(Project.project_code_id == next_project_code_id, Project.id != project.id)
+        ):
+            raise HTTPException(status_code=409, detail="이미 다른 프로젝트에 연결된 프로젝트코드입니다.")
+    candidate_values = {column.name: getattr(project, column.name) for column in Project.__table__.columns}
+    candidate_values.update(updates)
+    missing_required = get_missing_project_fields(candidate_values)
+    if missing_required:
+        raise HTTPException(status_code=400, detail=f"필수 항목 누락: {', '.join(missing_required)}")
     previous_status = project.status
     for field, value in updates.items():
         setattr(project, field, value)
@@ -159,3 +195,32 @@ def update_project(
     session.commit()
     session.refresh(project)
     return envelope(serialize_project(session, project))
+
+
+@router.patch("/{project_id}/master")
+def update_project_master_route(
+    project_id: str,
+    payload: ProjectMasterUpdate,
+    session: DbSession,
+    user: CurrentUser,
+) -> dict[str, object]:
+    project = session.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="프로젝트를 찾을 수 없습니다.")
+    if not can_mutate_project(user, project):
+        raise HTTPException(status_code=403, detail="프로젝트 수정 권한이 없습니다.")
+    try:
+        project_code = update_project_master(session, user, project, payload)
+        session.commit()
+    except ProjectMasterValidationError as exc:
+        session.rollback()
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ProjectMasterConflictError as exc:
+        session.rollback()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(status_code=409, detail="프로젝트코드 또는 연결값이 이미 사용 중입니다.") from exc
+    session.refresh(project_code)
+    session.refresh(project)
+    return envelope({"project_code": project_code.id, "project": serialize_project(session, project)})

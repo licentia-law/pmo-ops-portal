@@ -20,6 +20,7 @@ import { downloadPersonnelWorkbook } from "./personnelWorkbookExport";
 type EmploymentStatus = PersonnelRecord["employment_status"];
 type SummaryKey = "all" | "active" | "leave" | "transferred" | "retired";
 type UseStatus = "전체" | "사용" | "미사용";
+type PeopleViewMode = "pmo" | "sales_owner";
 
 type FilterForm = {
   q: string;
@@ -261,6 +262,7 @@ function PersonnelEditModal({
   positionOptions,
   canEditFull,
   canChangeStatus,
+  viewMode,
   onClose,
   onSaved,
 }: {
@@ -273,6 +275,7 @@ function PersonnelEditModal({
   positionOptions: string[];
   canEditFull: boolean;
   canChangeStatus: boolean;
+  viewMode: PeopleViewMode;
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
@@ -296,11 +299,16 @@ function PersonnelEditModal({
 
   useEffect(() => {
     if (!open) return;
-    setForm(mode === "create" ? makeCreateForm() : row ? formFromRecord(row) : null);
+    const initial = mode === "create" ? makeCreateForm() : row ? formFromRecord(row) : null;
+    if (initial && mode === "create" && viewMode === "sales_owner") {
+      initial.group_name = "";
+      initial.role_id = roles.find((role) => role.code === "SALES_OWNER")?.id ?? "";
+    }
+    setForm(initial);
     setSaving(false);
     setSaveError(null);
     setFieldErrors({});
-  }, [open, mode, row]);
+  }, [open, mode, row, roles, viewMode]);
 
   if (!open || !form) return null;
 
@@ -329,15 +337,20 @@ function PersonnelEditModal({
 
   const validate = () => {
     const errors: FieldErrorMap = {};
-    if (!form.employee_no.trim()) errors.employee_no = "사번은(는) 필수입니다.";
+    const isSalesOwner = roles.find((role) => role.id === form.role_id)?.code === "SALES_OWNER";
     if (!form.name.trim()) errors.name = "성명은(는) 필수입니다.";
-    if (!form.email.trim()) errors.email = "이메일은(는) 필수입니다.";
     if (!form.group_name.trim()) errors.group_name = "본부는(는) 필수입니다.";
     if (!form.team_name.trim()) errors.team_name = "팀은(는) 필수입니다.";
     if (!form.position_name.trim()) errors.position_name = "직위는(는) 필수입니다.";
     if (!form.role_id.trim()) errors.role_id = "역할은 필수입니다.";
-    if (!form.employment_status.trim()) errors.employment_status = "재직 상태는 필수입니다.";
-    if (!form.mm_start_date.trim()) errors.mm_start_date = "MM 시작일은(는) 필수입니다.";
+    if (isSalesOwner) {
+      if (form.group_name.trim() === "PMO본부") errors.group_name = "영업대표의 본부는 PMO본부로 지정할 수 없습니다.";
+    } else {
+      if (!form.employee_no.trim()) errors.employee_no = "사번은(는) 필수입니다.";
+      if (!form.email.trim()) errors.email = "이메일은(는) 필수입니다.";
+      if (!form.employment_status.trim()) errors.employment_status = "재직 상태는 필수입니다.";
+      if (!form.mm_start_date.trim()) errors.mm_start_date = "MM 시작일은(는) 필수입니다.";
+    }
     const firstKey = (Object.keys(errors)[0] as keyof PersonnelForm | undefined) ?? null;
     return { errors, firstKey };
   };
@@ -352,6 +365,7 @@ function PersonnelEditModal({
     setSaving(true);
     setSaveError(null);
     try {
+      const isSalesOwner = roles.find((role) => role.id === form.role_id)?.code === "SALES_OWNER";
       const fullPayload: Partial<PersonnelRecord> = {
         employee_no: optional(form.employee_no),
         name: form.name.trim(),
@@ -360,9 +374,10 @@ function PersonnelEditModal({
         team_name: optional(form.team_name),
         position_name: optional(form.position_name),
         role_id: optional(form.role_id),
-        employment_status: form.employment_status,
-        mm_start_date: optional(form.mm_start_date),
-        mm_end_date: optional(form.mm_end_date),
+        employment_status: isSalesOwner ? "active" : form.employment_status,
+        mm_start_date: isSalesOwner ? null : optional(form.mm_start_date),
+        mm_end_date: isSalesOwner ? null : optional(form.mm_end_date),
+        yearly_mm: null,
         is_active: form.is_active,
         note: optional(form.note),
       };
@@ -467,6 +482,7 @@ function PersonnelEditModal({
 
 export default function PeopleEmploymentPage() {
   const [allRows, setAllRows] = useState<PersonnelRecord[]>([]);
+  const [viewMode, setViewMode] = useState<PeopleViewMode>("pmo");
   const [roles, setRoles] = useState<RoleRecord[]>([]);
   const [filterForm, setFilterForm] = useState<FilterForm>(DEFAULT_FILTER);
   const [appliedFilter, setAppliedFilter] = useState<FilterForm>(DEFAULT_FILTER);
@@ -517,6 +533,7 @@ export default function PeopleEmploymentPage() {
             page: nextPage,
             page_size: 100,
             sort: "name",
+            scope: viewMode,
             q: appliedFilter.q.trim() || undefined,
             team_name: appliedFilter.teamName === "전체" ? undefined : appliedFilter.teamName,
             is_active:
@@ -552,7 +569,7 @@ export default function PeopleEmploymentPage() {
   useEffect(() => {
     void loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appliedFilter, userContext]);
+  }, [appliedFilter, userContext, viewMode]);
 
   const teamOptions = useMemo(() => toOptionValues(allRows.map((row) => row.team_name)).filter((option) => option !== "기술지원팀"), [allRows]);
   const groupOptions = useMemo(() => toChoiceValues(allRows.map((row) => row.group_name)), [allRows]);
@@ -603,6 +620,11 @@ export default function PeopleEmploymentPage() {
 
   const summaryItems = useMemo<SummaryItem[]>(() => {
     const baseRows = allRows;
+    if (viewMode === "sales_owner") return [
+      { id: "all", label: "전체 후보", value: formatNumber(baseRows.length, 0), unit: "명", icon: "users", tone: "#e7f0ff", fg: "#2563eb" },
+      { id: "all", label: "사용", value: formatNumber(baseRows.filter((row) => row.is_active !== false).length, 0), unit: "명", icon: "userCheck", tone: "#e7f8ee", fg: "#16a34a" },
+      { id: "all", label: "미사용", value: formatNumber(baseRows.filter((row) => row.is_active === false).length, 0), unit: "명", icon: "userX", tone: "#eef1f6", fg: "#64748b" },
+    ];
     const totalAnnualMm = baseRows.reduce((sum, row) => sum + Number(row.yearly_mm ?? 0), 0);
     return [
       { id: "all", label: "전체 인력", value: formatNumber(baseRows.length, 0), unit: "명", icon: "users", tone: "#e7f0ff", fg: "#2563eb" },
@@ -612,7 +634,7 @@ export default function PeopleEmploymentPage() {
       { id: "retired", label: "퇴직", value: formatNumber(baseRows.filter((row) => row.employment_status === "retired").length, 0), unit: "명", icon: "userX", tone: "#ffe8ea", fg: "#ef4444" },
       { id: "all", label: "연간 재직 MM", value: formatNumber(totalAnnualMm, 1), unit: "", icon: "calculator", tone: "#e7f0ff", fg: "#2563eb" },
     ];
-  }, [allRows, appliedFilter.useStatus]);
+  }, [allRows, appliedFilter.useStatus, viewMode]);
 
   const summaryFilterLabel = useMemo(() => {
     const labels: string[] = [];
@@ -671,6 +693,9 @@ export default function PeopleEmploymentPage() {
       ) : (
         <div className="pmo-page-stack">
           <section className="pmo-panel" style={{ padding: 18 }}>
+            <div style={{ display: "inline-flex", gap: 4, padding: 4, marginBottom: 14, border: "1px solid var(--line-2)", borderRadius: 8 }}>
+              {([ ["pmo", "PMO본부 인력"], ["sales_owner", "영업대표 후보"] ] as const).map(([mode, label]) => <button key={mode} type="button" className="pmo-btn" onClick={() => { setViewMode(mode); setPage(1); setActiveSummary("all"); setFilterForm((prev) => ({ ...prev, teamName: "전체" })); setAppliedFilter((prev) => ({ ...prev, teamName: "전체" })); }} style={{ background: viewMode === mode ? "var(--brand)" : "#fff", color: viewMode === mode ? "#fff" : "var(--tx-2)", borderColor: viewMode === mode ? "var(--brand)" : "transparent" }}>{label}</button>)}
+            </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr)) 1.45fr", gap: 12 }}>
               <label className="pmo-field">
                 <span style={{ fontSize: 14 }}>팀</span>
@@ -814,10 +839,10 @@ export default function PeopleEmploymentPage() {
                       <td style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{row.team_name ?? "-"}</td>
                       <td style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{row.position_name ?? "-"}</td>
                       <td style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{row.role_name ?? "-"}</td>
-                      <td style={{ textAlign: "center", fontSize: 14 }}><StatusBadge status={row.employment_status} /></td>
-                      <td className="num" style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{row.mm_start_date ?? "-"}</td>
-                      <td className="num" style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{row.mm_end_date ?? "-"}</td>
-                      <td className="num" style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{formatNumber(row.yearly_mm, 1)}</td>
+                      <td style={{ textAlign: "center", fontSize: 14 }}>{viewMode === "sales_owner" ? "-" : <StatusBadge status={row.employment_status} />}</td>
+                      <td className="num" style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{viewMode === "sales_owner" ? "-" : row.mm_start_date ?? "-"}</td>
+                      <td className="num" style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{viewMode === "sales_owner" ? "-" : row.mm_end_date ?? "-"}</td>
+                      <td className="num" style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{viewMode === "sales_owner" ? "-" : formatNumber(row.yearly_mm, 1)}</td>
                       <td><UseBadge useStatus={deriveUseStatus(row)} /></td>
                     </tr>
                   ))}
@@ -857,6 +882,7 @@ export default function PeopleEmploymentPage() {
             positionOptions={positionOptions}
             canEditFull={canEditFull}
             canChangeStatus={canChangeStatus}
+            viewMode={viewMode}
             onClose={() => setModal(null)}
             onSaved={async () => {
               await loadData();

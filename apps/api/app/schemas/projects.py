@@ -102,6 +102,16 @@ class ProjectUpdate(BaseModel):
     project_code_id: str | None = None
 
 
+class ProjectMasterCreate(BaseModel):
+    project_code: ProjectCodeCreate
+    project: ProjectCreate
+
+
+class ProjectMasterUpdate(BaseModel):
+    project_code: ProjectCodeUpdate
+    project: ProjectUpdate
+
+
 class ProjectRead(ProjectBase):
     id: str
     code: str

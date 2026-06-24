@@ -35,6 +35,10 @@ type FastApiErrorBody = {
   }> | string;
 };
 
+type RequestOptions = {
+  authMode?: "auto" | "always";
+};
+
 const USER_PERMISSION_VALUES = new Set(["read_only", "general_editor", "project_editor", "admin"]);
 const ORGANIZATION_ROLE_VALUES = new Set(["head", "team_lead", "member", "pm", "pl", "other"]);
 
@@ -148,6 +152,17 @@ export type PersonnelRecord = {
   updated_at: string;
 };
 
+export type SalesOwnerCandidate = {
+  id: string;
+  name: string;
+  display_name: string;
+  group_name: string | null;
+  team_name: string | null;
+  position_name: string | null;
+  role_id: string | null;
+  role_name: string | null;
+};
+
 export type RoleRecord = {
   id: string;
   code: string;
@@ -237,6 +252,79 @@ export type HolidaySyncSummary = {
   synced_at: string;
 };
 
+export type DataBackupRecord = {
+  id: string;
+  created_at: string;
+  kind: string;
+  status: "success" | "failed";
+  backup_id: string | null;
+  source_file_name?: string | null;
+  actor_name?: string | null;
+  memo?: string | null;
+  counts?: Record<string, number> | null;
+  included_tables?: string[] | null;
+  file_name?: string | null;
+  file_size?: number | null;
+  file_hash?: string | null;
+  message?: string | null;
+  source_backup_id?: string | null;
+  pre_backup_id?: string | null;
+  validation_id?: string | null;
+  file_sha256?: string | null;
+};
+
+export type DataBackupOverview = {
+  summary: {
+    projects: number;
+    personnel: number;
+    assignments: number;
+    monthly_mm: number;
+    snapshots: number;
+    latest_backup_at: string | null;
+  };
+  backups: DataBackupRecord[];
+  restore_history: DataBackupRecord[];
+  upload_history: DataBackupRecord[];
+};
+
+export type DataBackupDetail = {
+  backup_id: string;
+  created_at: string;
+  actor_name: string | null;
+  kind: string;
+  memo: string | null;
+  source_file_name: string | null;
+  included_tables: string[];
+  counts: Record<string, number>;
+  file_name: string;
+  file_size: number;
+  file_hash: string;
+};
+
+export type DataBackupValidationIssue = {
+  sheet: string;
+  row_number: number;
+  column: string;
+  input_value: string;
+  level: "error" | "warning";
+  message: string;
+};
+
+export type DataBackupValidationResult = {
+  validation_id: string;
+  file_name: string;
+  file_sha256: string;
+  summary: {
+    sheet_count: number;
+    total_rows: number;
+    valid_rows: number;
+    error_rows: number;
+    warning_rows: number;
+    expected_counts: Record<string, number>;
+  };
+  issues: DataBackupValidationIssue[];
+};
+
 export type HolidayListMeta = {
   page?: number;
   page_size?: number;
@@ -269,6 +357,7 @@ export type ListQuery = {
   position_name?: string;
   employment_status?: string;
   role_id?: string;
+  scope?: "pmo" | "sales_owner";
   is_active?: boolean;
   job_group?: string;
   year?: number;
@@ -290,16 +379,17 @@ function qs(query?: ListQuery): string {
   return value ? `?${value}` : "";
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<ApiEnvelope<T>> {
+async function request<T>(path: string, init?: RequestInit, options?: RequestOptions): Promise<ApiEnvelope<T>> {
   const hasBody = init?.body !== undefined;
   const method = String(init?.method ?? "GET").toUpperCase();
-  const shouldSendAuthHeaders = hasBody || method !== "GET";
+  const isFormData = typeof FormData !== "undefined" && init?.body instanceof FormData;
+  const shouldSendAuthHeaders = options?.authMode === "always" || hasBody || method !== "GET";
   let response: Response;
   try {
     response = await fetch(`${API_BASE_URL}${path}`, {
       ...init,
       headers: {
-        ...(hasBody ? { "Content-Type": "application/json" } : {}),
+        ...(hasBody && !isFormData ? { "Content-Type": "application/json" } : {}),
         ...(shouldSendAuthHeaders ? authHeaders() : {}),
         ...(init?.headers ?? {})
       }
@@ -340,12 +430,31 @@ export function createProject(payload: Partial<ProjectRecord>) {
   return request<ProjectRecord>("/projects", { method: "POST", body: JSON.stringify(payload) });
 }
 
+export type ProjectMasterPayload = {
+  project_code: Partial<ProjectCodeRecord>;
+  project: Partial<ProjectRecord>;
+};
+
+export function createProjectMaster(payload: ProjectMasterPayload) {
+  return request<{ project_code: string; project: ProjectRecord }>("/projects/master", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
 export function getProject(projectId: string) {
   return request<ProjectRecord>(`/projects/${projectId}`);
 }
 
 export function updateProject(projectId: string, payload: Partial<ProjectRecord>) {
   return request<ProjectRecord>(`/projects/${projectId}`, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
+export function updateProjectMaster(projectId: string, payload: ProjectMasterPayload) {
+  return request<{ project_code: string; project: ProjectRecord }>(`/projects/${projectId}/master`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
 }
 
 export function listProjectCodes(query?: ListQuery) {
@@ -381,6 +490,10 @@ export function updateProjectLog(logId: string, payload: Partial<ProjectLogRecor
 
 export function listPersonnel(query?: ListQuery) {
   return request<PersonnelRecord[]>(`/personnel${qs(query)}`);
+}
+
+export function listSalesOwnerCandidates() {
+  return request<SalesOwnerCandidate[]>("/personnel/sales-owner-candidates");
 }
 
 export function createPersonnel(payload: Partial<PersonnelRecord>) {
@@ -449,4 +562,51 @@ export function getP1ScreenWithQuery<T = unknown>(screen: string, query?: Record
   });
   const suffix = params.toString() ? `?${params.toString()}` : "";
   return request<T>(`/p1-screens/${screen}${suffix}`);
+}
+
+export function getDataBackupOverview() {
+  return request<DataBackupOverview>("/data-backup/overview", undefined, { authMode: "always" });
+}
+
+export function createDataBackup(memo?: string) {
+  return request<DataBackupRecord>(
+    "/data-backup/backups",
+    { method: "POST", body: JSON.stringify({ memo }) },
+    { authMode: "always" }
+  );
+}
+
+export function getDataBackupDetail(backupId: string) {
+  return request<DataBackupDetail>(`/data-backup/backups/${backupId}`, undefined, { authMode: "always" });
+}
+
+export function validateDataBackupWorkbook(file: File) {
+  return request<DataBackupValidationResult>(
+    "/data-backup/validate",
+    {
+      method: "POST",
+      body: file,
+      headers: {
+        "Content-Type": file.type || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "x-upload-filename": file.name
+      }
+    },
+    { authMode: "always" }
+  );
+}
+
+export function applyDataBackupWorkbook(validation_id: string, memo?: string) {
+  return request<DataBackupRecord>(
+    "/data-backup/apply",
+    { method: "POST", body: JSON.stringify({ validation_id, memo }) },
+    { authMode: "always" }
+  );
+}
+
+export function restoreDataBackup(backup_id: string, memo?: string) {
+  return request<DataBackupRecord>(
+    "/data-backup/restore",
+    { method: "POST", body: JSON.stringify({ backup_id, memo }) },
+    { authMode: "always" }
+  );
 }

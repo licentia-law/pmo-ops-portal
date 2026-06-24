@@ -127,7 +127,8 @@ def code_screen(session: DbSession) -> dict[str, object]:
                 projects_by_code_id[project.project_code_id] = project
         _prefetch_person_titles(session, _project_people_names(linked_projects))
         team_members_by_project_id = _code_team_members(session, [project.id for project in linked_projects])
-    counts = Counter(project.status for project in projects_by_code_id.values())
+    unlinked_project_code_count = sum(1 for code in codes if code.id not in projects_by_code_id)
+    counts = Counter((projects_by_code_id.get(code.id).status if projects_by_code_id.get(code.id) else code.status) for code in codes)
     status_order = [
         ProjectStatus.PROPOSING,
         ProjectStatus.PRESENTED,
@@ -139,22 +140,19 @@ def code_screen(session: DbSession) -> dict[str, object]:
         ProjectStatus.DONE,
     ]
 
-    missing_links = [code.code for code in codes if code.id not in projects_by_code_id]
-    if missing_links:
-        raise RuntimeError(f"Project link missing for project_code(s): {', '.join(missing_links)}")
-
     return envelope({
         "meta": _meta(session, _latest_snapshot_date(session)),
         "summary": [
             {"id": status.value, "code": status.value, "label": STATUS_LABELS[status], "value": counts[status], "unit": "건"}
             for status in status_order
         ],
+        "integrity": {"unlinkedProjectCodeCount": unlinked_project_code_count},
         "rows": [
             _code_row(
                 session,
                 code,
-                projects_by_code_id[code.id],
-                team_members_by_project_id.get(projects_by_code_id[code.id].id, []),
+                projects_by_code_id.get(code.id),
+                team_members_by_project_id.get(projects_by_code_id[code.id].id, []) if code.id in projects_by_code_id else [],
             )
             for code in codes
         ],
@@ -472,7 +470,11 @@ def _execution_filters(session: DbSession, projects: list[Project]) -> dict[str,
         for pm_name in (p.proposal_pm_name, p.presentation_pm_name, p.delivery_pm_name)
         if pm_name
     }
-    sales_owners = {_person_name_with_title(session, p.sales_owner) for p in projects if p.sales_owner}
+    sales_owners = {
+        _person_name_with_title(session, p.sales_owner, fallback_to_raw=True)
+        for p in projects
+        if p.sales_owner
+    }
     return {
         "headquarters": ["전체", *sorted({p.sales_department for p in projects if p.sales_department})],
         "teams": ["전체", "PMO1팀", "PMO2팀", "기술지원팀"],
@@ -511,7 +513,7 @@ def _execution_row(session: DbSession, project: Project, team_members: list[str]
         "presentPm": _person_name_with_title(session, project.presentation_pm_name),
         "deliveryPm": _person_name_with_title(session, project.delivery_pm_name),
         "proposalDeliveryTeam": team_text,
-        "salesOwner": _person_name_with_title(session, project.sales_owner),
+        "salesOwner": _person_name_with_title(session, project.sales_owner, fallback_to_raw=True),
         "leadDept": project.sales_department or "-",
         "startDate": _date(project.start_date),
         "endDate": _date(project.end_date) or "-",
@@ -596,7 +598,38 @@ def _code_team_members(session: DbSession, project_ids: list[str]) -> dict[str, 
 
 def _code_row(session: DbSession, code: ProjectCode, project: Project | None = None, team_members: list[str] | None = None) -> dict[str, Any]:
     if project is None:
-        raise RuntimeError(f"Project not found for project_code {code.code}")
+        return {
+            "id": code.id,
+            "projectId": None,
+            "code": code.code,
+            "name": code.name,
+            "clientName": "-",
+            "status": code.status.value,
+            "projectType": PROJECT_TYPE_LABELS[code.project_type],
+            "amountText": "-",
+            "totalAmount": None,
+            "companyAmount": None,
+            "certainty": code.certainty or "-",
+            "salesDept": "-",
+            "salesOwner": "-",
+            "proposalPm": "-",
+            "presentPm": "-",
+            "deliveryPm": "-",
+            "proposalDeliveryTeam": "-",
+            "fromDate": "-",
+            "toDate": "-",
+            "bidNoticeNo": "-",
+            "bidNoticeDate": "-",
+            "proposalSubmissionAt": "-",
+            "submissionFormat": "-",
+            "submissionNote": "-",
+            "proposalPresentationAt": "-",
+            "presentationFormat": "-",
+            "presentationNote": "-",
+            "recentActivityAt": "-",
+            "memo": "-",
+            "useStatus": "사용" if code.is_active else "미사용",
+        }
     pm_exclusions = {
         (project.proposal_pm_name or "").strip(),
         (project.presentation_pm_name or "").strip(),
@@ -623,7 +656,7 @@ def _code_row(session: DbSession, code: ProjectCode, project: Project | None = N
         "companyAmount": _num(project.company_amount) if project.company_amount is not None else None,
         "certainty": project.certainty or "-",
         "salesDept": project.sales_department or "-",
-        "salesOwner": _person_name_with_title(session, project.sales_owner),
+        "salesOwner": _person_name_with_title(session, project.sales_owner, fallback_to_raw=True),
         "proposalPm": _person_name_with_title(session, project.proposal_pm_name),
         "presentPm": _person_name_with_title(session, project.presentation_pm_name),
         "deliveryPm": _person_name_with_title(session, project.delivery_pm_name),
@@ -674,7 +707,7 @@ def _project_detail_header(session: DbSession, project: Project) -> dict[str, An
         "businessType": PROJECT_TYPE_LABELS[project.project_type],
         "amountTotal": project.amount_text or _amount_text(project),
         "salesDept": project.sales_department or "-",
-        "salesOwner": _person_name_with_title(session, project.sales_owner),
+        "salesOwner": _person_name_with_title(session, project.sales_owner, fallback_to_raw=True),
         "proposalPm": _person_name_with_title(session, project.proposal_pm_name),
         "presentPm": _person_name_with_title(session, project.presentation_pm_name),
         "deliveryPm": _person_name_with_title(session, project.delivery_pm_name),
@@ -705,7 +738,7 @@ def _project_detail_master_row(session: DbSession, project: Project) -> dict[str
         "companyAmount": _num(project.company_amount) if project.company_amount is not None else None,
         "certainty": "-",
         "salesDept": project.sales_department or "-",
-        "salesOwner": _person_name_with_title(session, project.sales_owner),
+        "salesOwner": _person_name_with_title(session, project.sales_owner, fallback_to_raw=True),
         "proposalPm": _person_name_with_title(session, project.proposal_pm_name),
         "presentPm": _person_name_with_title(session, project.presentation_pm_name),
         "deliveryPm": _person_name_with_title(session, project.delivery_pm_name),
@@ -760,7 +793,7 @@ def _normalize_person_name(value: str | None) -> str:
     return (value or "").strip()
 
 
-def _person_name_with_title(session: DbSession | None, raw_name: str | None) -> str:
+def _person_name_with_title(session: DbSession | None, raw_name: str | None, *, fallback_to_raw: bool = False) -> str:
     name = _normalize_person_name(raw_name)
     if not name or name == "-":
         return "-"
@@ -777,8 +810,9 @@ def _person_name_with_title(session: DbSession | None, raw_name: str | None) -> 
         .order_by(desc(Personnel.updated_at))
     )
     if not person:
-        cache[name] = "-"
-        return "-"
+        resolved = name if fallback_to_raw else "-"
+        cache[name] = resolved
+        return resolved
     title = _normalize_person_name(existing_title or person.position_name)
     resolved = f"{person.name} {title}".strip() if title else person.name
     cache[name] = resolved

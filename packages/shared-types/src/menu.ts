@@ -50,7 +50,8 @@ export const MENU_CONFIG: MenuGroup[] = [
       { id: "project-codes", label: "프로젝트 관리", href: ROUTES.projectCodes },
       { id: "people-employment", label: "인력 관리", href: ROUTES.peopleEmployment },
       { id: "admin-holidays", label: "공휴일 관리", href: ROUTES.adminHolidays },
-      { id: "admin-monthly-closing", label: "월마감/스냅샷", href: ROUTES.adminMonthlyClosing }
+      { id: "admin-monthly-closing", label: "월마감/스냅샷", href: ROUTES.adminMonthlyClosing },
+      { id: "admin-data-backup", label: "데이터 백업/업로드/복원", href: ROUTES.adminDataBackup }
     ]
   }
 ];

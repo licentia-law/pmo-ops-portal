@@ -5,7 +5,9 @@ from sqlalchemy.orm import joinedload
 from app.api.common import ListParams, apply_text_search, envelope, paginate, parse_sort
 from app.api.deps import CurrentUser, DbSession
 from app.domain.people import (
+    apply_personnel_scope,
     ensure_unique_personnel_fields,
+    normalize_sales_owner_personnel,
     normalize_payload,
     require_nonblank,
     require_active_role,
@@ -38,8 +40,12 @@ def list_personnel(
     employment_status: EmploymentStatus | None = None,
     role_id: str | None = None,
     is_active: bool | None = None,
+    scope: str | None = None,
 ) -> dict[str, object]:
+    if scope not in (None, "pmo", "sales_owner"):
+        raise HTTPException(status_code=400, detail="지원하지 않는 인력 보기 범위입니다.")
     statement = select(Personnel).outerjoin(Role, Personnel.role_id == Role.id).options(joinedload(Personnel.role))
+    statement = apply_personnel_scope(statement, scope)
     statement = apply_text_search(
         statement,
         params.q,
@@ -91,6 +97,27 @@ def list_personnel(
     )
 
 
+@router.get("/sales-owner-candidates")
+def list_sales_owner_candidates(session: DbSession) -> dict[str, object]:
+    statement = select(Personnel).join(Role, Personnel.role_id == Role.id).options(joinedload(Personnel.role))
+    rows = session.scalars(
+        apply_personnel_scope(statement, "sales_owner").order_by(Personnel.group_name, Personnel.team_name, Personnel.name)
+    ).all()
+    return envelope([
+        {
+            "id": person.id,
+            "name": person.name,
+            "display_name": f"{person.name} {person.position_name or ''}".strip(),
+            "group_name": person.group_name,
+            "team_name": person.team_name,
+            "position_name": person.position_name,
+            "role_id": person.role_id,
+            "role_name": person.role.name if person.role else person.role_name,
+        }
+        for person in rows
+    ])
+
+
 @router.post("", status_code=201)
 def create_personnel(
     payload: PersonnelCreate,
@@ -101,7 +128,7 @@ def create_personnel(
     values = normalize_payload(payload.model_dump())
     values["name"] = require_nonblank(values.get("name"), "성명")
     values["group_name"] = require_nonblank(values.get("group_name"), "본부")
-    require_active_role(session, values.get("role_id") if isinstance(values.get("role_id"), str) else None)
+    normalize_sales_owner_personnel(session, values)
     ensure_unique_personnel_fields(
         session,
         employee_no=values.get("employee_no") if isinstance(values.get("employee_no"), str) else None,
@@ -132,9 +159,7 @@ def update_personnel(
         updates["name"] = require_nonblank(updates["name"], "성명")
     if "group_name" in updates:
         updates["group_name"] = require_nonblank(updates["group_name"], "본부")
-    if "role_id" in updates:
-        role_id = updates.get("role_id")
-        require_active_role(session, role_id if isinstance(role_id, str) else None)
+    normalize_sales_owner_personnel(session, updates, person)
     ensure_unique_personnel_fields(
         session,
         employee_no=updates.get("employee_no") if isinstance(updates.get("employee_no"), str) else None,

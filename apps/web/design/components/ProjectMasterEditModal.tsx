@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
-import { createProject, createProjectCode, updateProject, updateProjectCode } from "../../app/lib/api";
+import { createProjectMaster, listSalesOwnerCandidates, updateProjectCode, updateProjectMaster, type SalesOwnerCandidate } from "../../app/lib/api";
+import { getProjectPmValidationErrors, mapProjectSaveErrorToFieldErrors } from "../../app/lib/projectRules";
 import { SUBMISSION_FORMAT_OPTIONS } from "../constants/projectFormOptions";
 
 type EditForm = {
@@ -160,11 +161,21 @@ export default function ProjectMasterEditModal({
   const [memoLengthError, setMemoLengthError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrorMap>({});
+  const [salesOwnerCandidates, setSalesOwnerCandidates] = useState<SalesOwnerCandidate[]>([]);
+  const [salesOwnerLoading, setSalesOwnerLoading] = useState(false);
+  const [salesOwnerError, setSalesOwnerError] = useState<string | null>(null);
 
-  const salesOwnersForEdit = useMemo<string[]>(() => Array.from(new Set<string>((rows ?? []).map((r: any) => String(r.salesOwner ?? "").trim()).filter((v: string) => v && v !== "-"))).sort((a, b) => a.localeCompare(b, "ko-KR")), [rows]);
-  const ownerDeptBySalesOwner = useMemo<Record<string, string>>(() => (rows ?? []).reduce((acc: Record<string, string>, r: any) => { const owner = String(r.salesOwner ?? "").trim(); const dept = String(r.salesDept ?? "").trim(); if (owner && owner !== "-" && dept && dept !== "-" && !acc[owner]) acc[owner] = dept; return acc; }, {}), [rows]);
   const leadPmsForEdit = useMemo<string[]>(() => Array.from(new Set<string>((rows ?? []).map((r: any) => String(r.proposalPm ?? "").trim()).filter((v: string) => v && v !== "-"))).sort((a, b) => a.localeCompare(b, "ko-KR")), [rows]);
   const certainties = useMemo<string[]>(() => Array.from(new Set<string>((rows ?? []).map((r: any) => String(r.certainty ?? "").trim()).filter((v: string) => v && v !== "-"))).sort((a, b) => a.localeCompare(b, "ko-KR")), [rows]);
+
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setSalesOwnerLoading(true);
+    setSalesOwnerError(null);
+    listSalesOwnerCandidates().then((result) => { if (!cancelled) setSalesOwnerCandidates(result.data ?? []); }).catch(() => { if (!cancelled) { setSalesOwnerCandidates([]); setSalesOwnerError("영업대표 후보를 불러오지 못했습니다."); } }).finally(() => { if (!cancelled) setSalesOwnerLoading(false); });
+    return () => { cancelled = true; };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -287,28 +298,18 @@ export default function ProjectMasterEditModal({
       { key: "toDate", label: "종료일", valid: !!editForm.toDate.trim() },
     ];
     for (const check of requiredChecks) if (!check.valid) errors[check.key] = `${check.label}은(는) 필수입니다.`;
-    if (!editForm.proposalPm.trim() && !editForm.deliveryPm.trim()) {
-      const message = "제안PM 또는 수행PM 중 1명 이상 선택하세요.";
-      errors.proposalPm = message;
-      errors.deliveryPm = message;
-    }
-    if (editForm.proposalPm.trim() && !editForm.presentPm.trim()) {
-      errors.presentPm = "제안PM 선택 시 발표PM을 선택하세요.";
-    }
-    if (editForm.proposalPm.trim()) {
-      if (!editForm.proposalSubmissionDate.trim()) {
-        errors.proposalSubmissionDate = "제안PM 선택 시 제출일을 입력하세요.";
-      }
-      if (!editForm.proposalPresentationDate.trim()) {
-        errors.proposalPresentationDate = "제안PM 선택 시 발표일을 입력하세요.";
-      }
-      if (!editForm.submissionFormat.trim()) {
-        errors.submissionFormat = "제안PM 선택 시 제출 형식을 선택하세요.";
-      }
-      if (!editForm.presentationFormat.trim()) {
-        errors.presentationFormat = "제안PM 선택 시 발표 형식을 선택하세요.";
-      }
-    }
+    Object.assign(
+      errors,
+      getProjectPmValidationErrors({
+        proposalPm: editForm.proposalPm,
+        presentPm: editForm.presentPm,
+        deliveryPm: editForm.deliveryPm,
+        proposalSubmissionDate: editForm.proposalSubmissionDate,
+        proposalPresentationDate: editForm.proposalPresentationDate,
+        submissionFormat: editForm.submissionFormat,
+        presentationFormat: editForm.presentationFormat,
+      })
+    );
     if (!editForm.salesDept.trim()) errors.salesOwner = errors.salesOwner ?? "영업대표를 선택하면 영업부서가 자동 반영됩니다.";
     if (editForm.useProposalSubmissionTime && !editForm.proposalSubmissionTime.trim()) errors.proposalSubmissionTime = "제안 제출시간을 입력하세요.";
     if (editForm.useProposalPresentationTime && !editForm.proposalPresentationTime.trim()) errors.proposalPresentationTime = "제안 발표시간을 입력하세요.";
@@ -344,8 +345,7 @@ export default function ProjectMasterEditModal({
       const submissionAtValue = joinDateTime(editForm.proposalSubmissionDate, editForm.proposalSubmissionTime, editForm.useProposalSubmissionTime);
       const presentationAtValue = joinDateTime(editForm.proposalPresentationDate, editForm.proposalPresentationTime, editForm.useProposalPresentationTime);
       if (mode === "create") {
-        const createdCode = await createProjectCode(payload);
-        await createProject({
+        await createProjectMaster({ project_code: payload, project: {
           name: editForm.name.trim() || undefined,
           client_name: editForm.clientName.trim() || null,
           project_type: mappedProjectType as any,
@@ -370,15 +370,11 @@ export default function ProjectMasterEditModal({
           memo: editForm.memo.trim() || null,
           start_date: editForm.fromDate || null,
           end_date: editForm.toDate || null,
-          project_code_id: createdCode.data.id,
-        } as any);
+        } as any });
       } else {
         payload.code = editForm.code.trim() || undefined;
-        if (row?.id) {
-          await updateProjectCode(row.id, payload);
-        }
         if (row?.projectId) {
-          await updateProject(row.projectId, {
+          await updateProjectMaster(row.projectId, { project_code: payload, project: {
             code: editForm.code.trim() || undefined,
             name: editForm.name.trim() || undefined,
             client_name: editForm.clientName.trim() || null,
@@ -403,13 +399,21 @@ export default function ProjectMasterEditModal({
             memo: editForm.memo.trim() || null,
             start_date: editForm.fromDate || null,
             end_date: editForm.toDate || null,
-          } as any);
+          } as any });
+        } else if (row?.id) {
+          await updateProjectCode(row.id, payload);
         }
       }
       await onSaved();
       onClose();
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "저장에 실패했습니다.");
+      const message = error instanceof Error ? error.message : "저장에 실패했습니다.";
+      const mappedErrors = mapProjectSaveErrorToFieldErrors(message);
+      if (Object.keys(mappedErrors).length > 0) {
+        setFieldErrors(mappedErrors as FieldErrorMap);
+        setValidationError(`입력 확인 필요 ${Object.keys(mappedErrors).length}건`);
+      }
+      setSaveError(message);
     } finally {
       setSaving(false);
     }
@@ -456,7 +460,7 @@ export default function ProjectMasterEditModal({
           <section className="pmo-panel" style={GROUP_SECTION_STYLE}>
             <h4 style={GROUP_TITLE_STYLE}>인력 목록</h4>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
-              <label className="pmo-field" data-field="salesOwner" style={{ gridRow: 1, gridColumn: 1 }}><span style={fieldLabelErrorStyle("salesOwner")}>영업대표</span><select value={editForm.salesOwner} onChange={(e) => { clearFieldError("salesOwner"); const nextOwner = e.target.value; const nextDept = ownerDeptBySalesOwner[nextOwner] ?? editForm.salesDept; setEditForm({ ...editForm, salesOwner: nextOwner, salesDept: nextDept }); }} style={errorInputStyle("salesOwner")}><option value="">선택 안함</option>{salesOwnersForEdit.map((owner) => <option key={owner} value={owner}>{owner}</option>)}</select></label>
+              <label className="pmo-field" data-field="salesOwner" style={{ gridRow: 1, gridColumn: 1 }}><span style={fieldLabelErrorStyle("salesOwner")}>영업대표</span><select disabled={salesOwnerLoading || !!salesOwnerError} value={editForm.salesOwner} onChange={(e) => { clearFieldError("salesOwner"); const nextOwner = e.target.value; const selected = salesOwnerCandidates.find((candidate) => candidate.name === nextOwner); setEditForm({ ...editForm, salesOwner: nextOwner, salesDept: selected?.group_name || editForm.salesDept }); }} style={errorInputStyle("salesOwner")}><option value="">{salesOwnerLoading ? "후보 불러오는 중..." : "선택 안함"}</option>{editForm.salesOwner && !salesOwnerCandidates.some((candidate) => candidate.name === editForm.salesOwner) ? <option value={editForm.salesOwner}>{editForm.salesOwner} (기존 값)</option> : null}{salesOwnerCandidates.map((candidate) => <option key={candidate.id} value={candidate.name}>{candidate.display_name}{candidate.group_name ? ` · ${candidate.group_name}` : ""}{candidate.team_name ? ` / ${candidate.team_name}` : ""}</option>)}</select>{salesOwnerError ? <span style={{ color: "var(--crit)", fontSize: 12, fontWeight: 700 }}>{salesOwnerError}</span> : null}</label>
               <div style={{ gridRow: 1, gridColumn: 2 }} /><div style={{ gridRow: 1, gridColumn: 3 }} />
               <label className="pmo-field" data-field="proposalPm" style={{ gridRow: 2, gridColumn: 1 }}><span style={fieldLabelErrorStyle("proposalPm")}>제안PM</span><select value={editForm.proposalPm} onChange={(e) => { clearFieldError("proposalPm"); clearFieldError("deliveryPm"); clearFieldError("presentPm"); setEditForm({ ...editForm, proposalPm: e.target.value }); }} style={errorInputStyle("proposalPm")}><option value="">선택 안함</option>{leadPmsForEdit.map((pm) => <option key={pm} value={pm}>{pm}</option>)}</select></label>
               <label className="pmo-field" data-field="presentPm" style={{ gridRow: 2, gridColumn: 2 }}><span style={fieldLabelErrorStyle("presentPm")}>발표PM</span><select value={editForm.presentPm} onChange={(e) => { clearFieldError("presentPm"); setEditForm({ ...editForm, presentPm: e.target.value }); }} style={errorInputStyle("presentPm")}><option value="">선택 안함</option>{leadPmsForEdit.map((pm) => <option key={pm} value={pm}>{pm}</option>)}</select></label>

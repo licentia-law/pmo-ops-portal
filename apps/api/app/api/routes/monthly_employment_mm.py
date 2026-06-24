@@ -3,8 +3,8 @@ from sqlalchemy import func, select
 
 from app.api.common import ListParams, apply_text_search, envelope, parse_sort
 from app.api.deps import CurrentUser, DbSession
-from app.domain.people import require_admin
-from app.models.core import MonthlyEmploymentMM, Personnel
+from app.domain.people import apply_personnel_scope, require_admin
+from app.models.core import MonthlyEmploymentMM, Personnel, Role
 from app.schemas.people import MonthlyEmploymentMMRead, MonthlyEmploymentMMUpdate
 
 router = APIRouter()
@@ -40,7 +40,11 @@ def list_monthly_employment_mm(
     team_name: str | None = None,
     is_active: bool | None = True,
 ) -> dict[str, object]:
-    statement = select(MonthlyEmploymentMM).join(Personnel, MonthlyEmploymentMM.personnel_id == Personnel.id, isouter=True)
+    statement = (
+        select(MonthlyEmploymentMM).join(Personnel, MonthlyEmploymentMM.personnel_id == Personnel.id, isouter=True)
+        .outerjoin(Role, Personnel.role_id == Role.id)
+    )
+    statement = apply_personnel_scope(statement, "pmo")
     statement = apply_text_search(
         statement,
         params.q,

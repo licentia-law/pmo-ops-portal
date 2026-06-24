@@ -8,6 +8,7 @@ from app.domain.projects import can_mutate_master
 from app.enums import ProjectStatus, ProjectType
 from app.models.core import ProjectCode
 from app.schemas.projects import ProjectCodeCreate, ProjectCodeRead, ProjectCodeUpdate
+from app.services.project_master import PROJECT_MASTER_SYNC_FIELDS
 
 router = APIRouter()
 
@@ -82,6 +83,8 @@ def update_project_code(
     if project_code is None:
         raise HTTPException(status_code=404, detail="프로젝트코드를 찾을 수 없습니다.")
     updates = payload.model_dump(exclude_unset=True)
+    if project_code.project and set(updates).intersection(PROJECT_MASTER_SYNC_FIELDS):
+        raise HTTPException(status_code=409, detail="연결된 프로젝트코드의 공통 항목은 통합 마스터 API로 수정해야 합니다.")
     code = updates.get("code")
     if code and session.scalar(select(ProjectCode).where(ProjectCode.code == code, ProjectCode.id != project_code_id)):
         raise HTTPException(status_code=409, detail="이미 사용 중인 프로젝트 코드입니다.")

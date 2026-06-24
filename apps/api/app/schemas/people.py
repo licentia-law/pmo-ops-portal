@@ -43,7 +43,7 @@ class PersonnelBase(BaseModel):
     team_name: str | None = Field(default=None, max_length=100)
     position_name: str | None = Field(default=None, max_length=100)
     role_id: str | None = None
-    employment_status: EmploymentStatus
+    employment_status: EmploymentStatus = EmploymentStatus.ACTIVE
     mm_start_date: date | None = None
     mm_end_date: date | None = None
     yearly_mm: float | None = None

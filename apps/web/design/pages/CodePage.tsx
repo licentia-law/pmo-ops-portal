@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { createProject, createProjectCode, getP1Screen, updateProject, updateProjectCode } from "../../app/lib/api";
+import { createProjectMaster, getP1Screen, updateProjectCode, updateProjectMaster } from "../../app/lib/api";
+import { getProjectPmValidationErrors, mapProjectSaveErrorToFieldErrors } from "../../app/lib/projectRules";
 import { PmoShell } from "../components/PmoShell";
 import { CommonPeriodPicker } from "../components/CommonPeriodPicker";
 import { SUBMISSION_FORMAT_OPTIONS } from "../constants/projectFormOptions";
@@ -863,17 +864,24 @@ function CodePageImpl({ initialCreate = false, initialEditCode = null }: CodePag
       { key: "totalAmount", label: "총 사업금액", valid: !!editForm.totalAmount.trim() },
       { key: "companyAmount", label: "당사 사업금액", valid: !!editForm.companyAmount.trim() },
       { key: "salesOwner", label: "영업대표", valid: !!editForm.salesOwner.trim() },
-      { key: "proposalPm", label: "제안PM", valid: !!editForm.proposalPm.trim() },
-      { key: "presentPm", label: "발표PM", valid: !!editForm.presentPm.trim() },
-      { key: "deliveryPm", label: "수행PM", valid: !!editForm.deliveryPm.trim() },
       { key: "fromDate", label: "시작일", valid: !!editForm.fromDate.trim() },
       { key: "toDate", label: "종료일", valid: !!editForm.toDate.trim() },
-      { key: "proposalSubmissionDate", label: "제안 제출일", valid: !!editForm.proposalSubmissionDate.trim() },
-      { key: "submissionFormat", label: "제출 형식", valid: !!editForm.submissionFormat.trim() },
     ];
     for (const check of requiredChecks) {
       if (!check.valid) errors[check.key] = `${check.label}은(는) 필수입니다.`;
     }
+    Object.assign(
+      errors,
+      getProjectPmValidationErrors({
+        proposalPm: editForm.proposalPm,
+        presentPm: editForm.presentPm,
+        deliveryPm: editForm.deliveryPm,
+        proposalSubmissionDate: editForm.proposalSubmissionDate,
+        proposalPresentationDate: editForm.proposalPresentationDate,
+        submissionFormat: editForm.submissionFormat,
+        presentationFormat: editForm.presentationFormat,
+      })
+    );
     if (!editForm.salesDept.trim()) {
       errors.salesOwner = errors.salesOwner ?? "영업대표를 선택하면 영업부서가 자동 반영됩니다.";
     }
@@ -915,8 +923,7 @@ function CodePageImpl({ initialCreate = false, initialEditCode = null }: CodePag
       const submissionAtValue = joinDateTime(editForm.proposalSubmissionDate, editForm.proposalSubmissionTime, editForm.useProposalSubmissionTime);
       const presentationAtValue = joinDateTime(editForm.proposalPresentationDate, editForm.proposalPresentationTime, editForm.useProposalPresentationTime);
       if (modalMode === "create") {
-        const createdCode = await createProjectCode(payload);
-        await createProject({
+        await createProjectMaster({ project_code: payload, project: {
           name: editForm.name.trim() || undefined,
           client_name: editForm.clientName.trim() || null,
           project_type: mappedProjectType as any,
@@ -941,15 +948,12 @@ function CodePageImpl({ initialCreate = false, initialEditCode = null }: CodePag
           memo: editForm.memo.trim() || null,
           start_date: editForm.fromDate || null,
           end_date: editForm.toDate || null,
-          project_code_id: createdCode.data.id,
-        } as any);
+        } as any });
       } else {
         if (!editingRow) return;
         payload.code = editForm.code.trim() || undefined;
-        const updated = await updateProjectCode(editingRow.id, payload);
-        const updatedData = updated.data as any;
         if (editingRow.projectId) {
-          await updateProject(editingRow.projectId, {
+          const updated = await updateProjectMaster(editingRow.projectId, { project_code: payload, project: {
             code: editForm.code.trim() || undefined,
             name: editForm.name.trim() || undefined,
             client_name: editForm.clientName.trim() || null,
@@ -974,53 +978,38 @@ function CodePageImpl({ initialCreate = false, initialEditCode = null }: CodePag
             memo: editForm.memo.trim() || null,
             start_date: editForm.fromDate || null,
             end_date: editForm.toDate || null,
-          } as any);
+          } as any });
+          const updatedData = { ...updated.data.project, is_active: payload.is_active } as any;
+          setData((prev: any) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              rows: prev.rows.map((row: any) => row.id === editingRow.id ? { ...row, code: updatedData.code, name: updatedData.name } : row)
+            };
+          });
+        } else {
+          const updated = await updateProjectCode(editingRow.id, payload);
+          const updatedData = updated.data as any;
+          setData((prev: any) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              rows: prev.rows.map((row: any) => row.id === editingRow.id ? { ...row, code: updatedData.code, name: updatedData.name } : row)
+            };
+          });
         }
-        setData((prev: any) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            rows: prev.rows.map((row: any) =>
-              row.id === editingRow.id
-                ? {
-                  ...row,
-                  code: updatedData.code,
-                  name: updatedData.name,
-                  clientName: editForm.clientName || "-",
-                  status: updatedData.status,
-                  projectType: PROJECT_TYPE_LABEL[String(updatedData.project_type ?? "").toLowerCase()] ?? row.projectType ?? "-",
-                  certainty: updatedData.certainty ?? "-",
-                  amountText: amountTextValue ?? row.amountText ?? "-",
-                  totalAmount: totalAmountValue,
-                  companyAmount: companyAmountValue,
-                  salesDept: editForm.salesDept || "-",
-                  salesOwner: editForm.salesOwner || "-",
-                  proposalPm: editForm.proposalPm || row.proposalPm || "-",
-                  presentPm: editForm.presentPm || "-",
-                  deliveryPm: editForm.deliveryPm || "-",
-                  fromDate: editForm.fromDate || "-",
-                  toDate: editForm.toDate || "-",
-                  bidNoticeNo: editForm.bidNoticeNo || "-",
-                  bidNoticeDate: editForm.bidNoticeDate || "-",
-                  proposalSubmissionAt: submissionAtValue || "-",
-                  submissionFormat: editForm.submissionFormat || "-",
-                  submissionNote: editForm.submissionNote || "-",
-                  proposalPresentationAt: presentationAtValue || "-",
-                  presentationFormat: editForm.presentationFormat || "-",
-                  presentationNote: editForm.presentationNote || "-",
-                  memo: editForm.memo || "-",
-                  useStatus: updatedData.is_active ? "사용" : "미사용",
-                }
-                : row
-            )
-          };
-        });
       }
       const refreshed = await getP1Screen("code");
       setData(refreshed.data);
       closeEdit();
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : "저장에 실패했습니다.");
+      const message = error instanceof Error ? error.message : "저장에 실패했습니다.";
+      const mappedErrors = mapProjectSaveErrorToFieldErrors(message);
+      if (Object.keys(mappedErrors).length > 0) {
+        setFieldErrors(mappedErrors as FieldErrorMap);
+        setValidationError(`필수 입력 누락 ${Object.keys(mappedErrors).length}건`);
+      }
+      setSaveError(message);
     } finally {
       setSaving(false);
     }

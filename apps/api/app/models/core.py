@@ -97,15 +97,15 @@ class ProjectCode(Base, TimestampMixin):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     source_sheet: Mapped[str | None] = mapped_column(String(100))
 
-    projects: Mapped[list["Project"]] = relationship(back_populates="project_code")
+    project: Mapped["Project | None"] = relationship(back_populates="project_code", uselist=False)
 
 
 class Project(Base, TimestampMixin):
     __tablename__ = "projects"
 
     id: Mapped[str] = uuid_pk()
-    project_code_id: Mapped[str | None] = mapped_column(ForeignKey("project_codes.id"))
-    code: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    project_code_id: Mapped[str | None] = mapped_column(ForeignKey("project_codes.id"), unique=True)
+    code: Mapped[str] = mapped_column(String(50), nullable=False, unique=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     client_name: Mapped[str | None] = mapped_column(String(255))
     sales_department: Mapped[str | None] = mapped_column(String(100))
@@ -132,7 +132,7 @@ class Project(Base, TimestampMixin):
     recent_activity_at: Mapped[datetime | None] = mapped_column(DateTime)
     memo: Mapped[str | None] = mapped_column(Text)
 
-    project_code: Mapped[ProjectCode | None] = relationship(back_populates="projects")
+    project_code: Mapped[ProjectCode | None] = relationship(back_populates="project")
     assignments: Mapped[list["ProjectAssignment"]] = relationship(back_populates="project")
     logs: Mapped[list["ProjectLog"]] = relationship(back_populates="project")
 

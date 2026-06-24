@@ -3,7 +3,7 @@ from sqlalchemy import select
 
 from app.api.common import ListParams, apply_text_search, envelope, paginate, parse_sort
 from app.api.deps import CurrentUser, DbSession
-from app.domain.people import ensure_unique_role_code, normalize_payload, require_nonblank, require_role_mutation
+from app.domain.people import ensure_unique_role_code, normalize_payload, protect_sales_owner_role, require_nonblank, require_role_mutation
 from app.models.core import Role
 from app.schemas.people import RoleCreate, RoleRead, RoleUpdate
 
@@ -73,6 +73,7 @@ def update_role(
     if role is None:
         raise HTTPException(status_code=404, detail="역할/직무 기준값을 찾을 수 없습니다.")
     updates = normalize_payload(payload.model_dump(exclude_unset=True))
+    protect_sales_owner_role(session, role, updates)
     if "code" in updates:
         code = updates.get("code")
         updates["code"] = require_nonblank(code, "역할 코드")

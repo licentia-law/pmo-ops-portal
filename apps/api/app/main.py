@@ -4,6 +4,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.common import error_envelope
 from app.api.routes import (
+    data_backup,
     health,
     holidays,
     monthly_employment_mm,
@@ -35,6 +36,7 @@ app.include_router(roles.router, prefix="/api/roles", tags=["roles"])
 app.include_router(monthly_employment_mm.router, prefix="/api/monthly-employment-mm", tags=["monthly-employment-mm"])
 app.include_router(holidays.router, prefix="/api/holidays", tags=["holidays"])
 app.include_router(p1_screens.router, prefix="/api/p1-screens", tags=["p1-screens"])
+app.include_router(data_backup.router, prefix="/api/data-backup", tags=["data-backup"])
 
 
 @app.exception_handler(HTTPException)

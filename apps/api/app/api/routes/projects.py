@@ -73,12 +73,11 @@ def list_projects(session: DbSession, params: ListParams = Depends()) -> dict[st
 def create_project(payload: ProjectCreate, session: DbSession, user: CurrentUser) -> dict[str, object]:
     if not can_mutate_project(user):
         raise HTTPException(status_code=403, detail="프로젝트 등록 권한이 없습니다.")
-    missing_required = get_missing_project_fields(payload)
-    if missing_required:
-        raise HTTPException(status_code=400, detail=f"필수 항목 누락: {', '.join(missing_required)}")
     project_code = session.get(ProjectCode, payload.project_code_id) if payload.project_code_id else None
     if payload.project_code_id and project_code is None:
         raise HTTPException(status_code=404, detail="프로젝트코드를 찾을 수 없습니다.")
+    if project_code and session.scalar(select(Project).where(Project.project_code_id == project_code.id)):
+        raise HTTPException(status_code=409, detail="이미 다른 프로젝트에 연결된 프로젝트코드입니다.")
     if payload.code:
         code = payload.code
     elif project_code:
@@ -89,8 +88,28 @@ def create_project(payload: ProjectCreate, session: DbSession, user: CurrentUser
         raise HTTPException(status_code=409, detail="연결된 프로젝트코드의 공통 항목은 통합 마스터 API로 수정해야 합니다.")
     if session.scalar(select(Project).where(Project.code == code)):
         raise HTTPException(status_code=409, detail="이미 사용 중인 프로젝트 코드입니다.")
+    if project_code is None:
+        if session.scalar(select(ProjectCode).where(ProjectCode.code == code)):
+            raise HTTPException(status_code=409, detail="이미 사용 중인 프로젝트 코드입니다.")
+        project_code = ProjectCode(
+            code=code,
+            name=payload.name,
+            project_type=payload.project_type,
+            status=payload.status,
+            certainty=payload.certainty,
+            is_active=True,
+            source_sheet=None,
+        )
+        session.add(project_code)
+        session.flush()
+    candidate_values = payload.model_dump()
+    candidate_values["code"] = code
+    candidate_values["project_code_id"] = project_code.id
+    missing_required = get_missing_project_fields(candidate_values)
+    if missing_required:
+        raise HTTPException(status_code=400, detail=f"필수 항목 누락: {', '.join(missing_required)}")
 
-    project = Project(**payload.model_dump(exclude={"code"}), code=code)
+    project = Project(**payload.model_dump(exclude={"code", "project_code_id"}), code=code, project_code_id=project_code.id)
     session.add(project)
     session.flush()
     actor_name = user_display_name(session, user)

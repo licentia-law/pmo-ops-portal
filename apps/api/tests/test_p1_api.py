@@ -11,6 +11,7 @@ from app.core.database import Base, get_session
 from app.enums import HolidaySourceKind, HolidayType
 from app.main import app
 from app.models.core import Holiday, MonthlyEmploymentMM, Personnel
+import app.services.data_backup as data_backup_service
 
 
 @pytest.fixture()
@@ -53,7 +54,7 @@ def client_and_session() -> Generator[tuple[TestClient, sessionmaker[Session]], 
     app.dependency_overrides.clear()
 
 
-def create_project_payload(project_code_id: str, **overrides: object) -> dict[str, object]:
+def create_project_payload(project_code_id: str | None, **overrides: object) -> dict[str, object]:
     payload: dict[str, object] = {
         "name": "차세대 PMO 구축",
         "client_name": "내부",
@@ -80,33 +81,35 @@ def create_project_payload(project_code_id: str, **overrides: object) -> dict[st
 
 
 def test_project_lifecycle_and_invalid_transition(client: TestClient) -> None:
-    created_code = client.post(
-        "/api/project-codes",
-        json={"name": "차세대 PMO 구축", "project_type": "main", "status": "proposing", "certainty": "우세"},
-    )
-    assert created_code.status_code == 201
-    project_code = created_code.json()["data"]
-    assert project_code["code"] == "P2026001"
-
     created = client.post(
         "/api/projects",
-        json=create_project_payload(project_code["id"]),
+        json=create_project_payload(None),
     )
     assert created.status_code == 201
     project = created.json()["data"]
     assert project["code"] == "P2026001"
 
-    invalid = client.patch(f"/api/projects/{project['id']}", json={"status": "running"})
+    invalid = client.patch(
+        f"/api/projects/{project['id']}/master",
+        json={"project_code": {"status": "running"}, "project": {}},
+    )
     assert invalid.status_code == 400
     assert invalid.json()["error"]["code"] == "HTTP_400"
 
-    presented = client.patch(f"/api/projects/{project['id']}", json={"status": "presented"})
+    presented = client.patch(
+        f"/api/projects/{project['id']}/master",
+        json={"project_code": {"status": "presented"}, "project": {}},
+    )
     assert presented.status_code == 200
-    assert presented.json()["data"]["status"] == "presented"
+    assert presented.json()["data"]["project"]["status"] == "presented"
 
     logs = client.get("/api/project-logs", params={"project_id": project["id"]})
     assert logs.status_code == 200
     assert logs.json()["meta"]["total"] == 2
+
+    project_codes = client.get("/api/project-codes")
+    assert project_codes.status_code == 200
+    assert project_codes.json()["meta"]["total"] == 1
 
 
 def test_project_master_create_is_atomic_and_keeps_code_and_project_in_sync(client: TestClient) -> None:
@@ -137,7 +140,7 @@ def test_project_master_create_is_atomic_and_keeps_code_and_project_in_sync(clie
         "/api/projects/master",
         json={
             "project_code": {"name": "통합 등록", "project_type": "main", "status": "proposing", "certainty": "우세"},
-            "project": create_project_payload("ignored", name="통합 등록", project_code_id=None),
+            "project": create_project_payload(None, name="통합 등록"),
         },
     )
     assert created.status_code == 201
@@ -170,18 +173,19 @@ def test_read_only_user_cannot_mutate(client: TestClient) -> None:
     assert response.status_code == 403
 
 
-def test_project_editor_can_update_own_presented_project_only(client: TestClient) -> None:
-    created_code = client.post(
+def test_project_code_direct_create_is_blocked(client: TestClient) -> None:
+    response = client.post(
         "/api/project-codes",
-        json={"name": "담당자 검증", "project_type": "main", "status": "presented", "certainty": "우세"},
+        json={"name": "직접 생성 차단", "project_type": "main", "status": "proposing", "certainty": "우세"},
     )
-    assert created_code.status_code == 201
-    project_code = created_code.json()["data"]
+    assert response.status_code == 409
 
+
+def test_project_editor_can_update_own_presented_project_only(client: TestClient) -> None:
     created = client.post(
         "/api/projects",
         json=create_project_payload(
-            project_code["id"],
+            None,
             name="담당자 검증",
             status="presented",
             proposal_pm_name="pm1",
@@ -200,12 +204,63 @@ def test_project_editor_can_update_own_presented_project_only(client: TestClient
     assert denied.status_code == 403
 
     allowed = client.patch(
-        f"/api/projects/{project['id']}",
+        f"/api/projects/{project['id']}/master",
         headers={"x-user-permission": "project_editor", "x-user-name": "pm1"},
-        json={"name": "수정 성공"},
+        json={"project_code": {"name": "수정 성공"}, "project": {}},
     )
     assert allowed.status_code == 200
-    assert allowed.json()["data"]["name"] == "수정 성공"
+    assert allowed.json()["data"]["project"]["name"] == "수정 성공"
+
+
+def test_data_backup_delete_removes_file_and_manifest_entry(client: TestClient, monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    monkeypatch.setattr(data_backup_service, "BACKUP_DIR", tmp_path / "backups")
+    monkeypatch.setattr(data_backup_service, "MANIFEST_PATH", tmp_path / "manifest.json")
+
+    created = client.post("/api/data-backup/backups", json={"memo": "삭제 테스트"})
+    assert created.status_code == 200
+    backup_id = created.json()["data"]["backup_id"]
+
+    data_backup_service._append_manifest(
+        {
+            "id": "OPR_UPLOAD",
+            "created_at": "2026-06-25T00:00:00",
+            "kind": "upload_complete",
+            "status": "success",
+            "backup_id": None,
+            "source_file_name": "upload.xlsx",
+            "actor_name": "관리자",
+            "memo": "업로드 이력",
+            "pre_backup_id": backup_id,
+        }
+    )
+    data_backup_service._append_manifest(
+        {
+            "id": "OPR_RESTORE",
+            "created_at": "2026-06-25T00:00:01",
+            "kind": "restore_complete",
+            "status": "success",
+            "backup_id": None,
+            "actor_name": "관리자",
+            "memo": "복원 이력",
+            "source_backup_id": backup_id,
+        }
+    )
+
+    backup_path = data_backup_service.BACKUP_DIR / f"{backup_id}.json"
+    assert backup_path.exists()
+
+    deleted = client.delete(f"/api/data-backup/backups/{backup_id}")
+    assert deleted.status_code == 200
+    assert deleted.json()["data"] == {
+        "backup_id": backup_id,
+        "deleted": True,
+        "manifest_removed": True,
+        "manifest_removed_count": 3,
+        "file_deleted": True,
+    }
+    assert not backup_path.exists()
+    assert backup_id not in [record.get("backup_id") for record in data_backup_service._read_manifest()]
+    assert data_backup_service._read_manifest() == []
 
 
 def test_people_reference_apis_validate_roles_and_permissions(client: TestClient) -> None:

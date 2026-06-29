@@ -9,6 +9,7 @@ from app.api.common import envelope
 from app.api.deps import CurrentUser, DbSession
 from app.services.data_backup import (
     _require_admin,
+    delete_backup,
     apply_validated_upload,
     backup_detail,
     create_backup as create_backup_service,
@@ -51,6 +52,12 @@ def create_backup(payload: BackupCreatePayload, session: DbSession, user: Curren
 def get_backup_detail(backup_id: str, user: CurrentUser) -> dict[str, object]:
     _require_admin(user)
     return envelope(backup_detail(backup_id))
+
+
+@router.delete("/backups/{backup_id}")
+def remove_backup(backup_id: str, user: CurrentUser) -> dict[str, object]:
+    _require_admin(user)
+    return envelope(delete_backup(backup_id))
 
 
 @router.post("/validate")

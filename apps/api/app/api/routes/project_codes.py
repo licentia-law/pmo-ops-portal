@@ -3,7 +3,6 @@ from sqlalchemy import select
 
 from app.api.common import ListParams, apply_text_search, envelope, paginate, parse_sort
 from app.api.deps import CurrentUser, DbSession
-from app.domain.project_code_policy import generate_project_code
 from app.domain.projects import can_mutate_master
 from app.enums import ProjectStatus, ProjectType
 from app.models.core import ProjectCode
@@ -51,23 +50,7 @@ def create_project_code(
 ) -> dict[str, object]:
     if not can_mutate_master(user):
         raise HTTPException(status_code=403, detail="프로젝트코드 등록 권한이 없습니다.")
-    required_checks: list[tuple[str, object]] = [
-        ("코드명", payload.name),
-        ("사업유형", payload.project_type),
-        ("상태", payload.status),
-        ("확도", payload.certainty),
-    ]
-    missing_required = [label for label, value in required_checks if value is None or (isinstance(value, str) and not value.strip())]
-    if missing_required:
-        raise HTTPException(status_code=400, detail=f"필수 항목 누락: {', '.join(missing_required)}")
-    code = payload.code or generate_project_code(session)
-    if session.scalar(select(ProjectCode).where(ProjectCode.code == code)):
-        raise HTTPException(status_code=409, detail="이미 사용 중인 프로젝트 코드입니다.")
-    project_code = ProjectCode(**payload.model_dump(exclude={"code"}), code=code)
-    session.add(project_code)
-    session.commit()
-    session.refresh(project_code)
-    return envelope(ProjectCodeRead.model_validate(project_code).model_dump(mode="json"))
+    raise HTTPException(status_code=409, detail="프로젝트코드 단독 생성은 허용되지 않습니다. 통합 마스터 생성 API를 사용해 주세요.")
 
 
 @router.patch("/{project_code_id}")

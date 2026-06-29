@@ -886,6 +886,38 @@ def backup_detail(backup_id: str) -> dict[str, object]:
     }
 
 
+def delete_backup(backup_id: str) -> dict[str, object]:
+    _ensure_runtime_dirs()
+    path = BACKUP_DIR / f"{backup_id}.json"
+    records = _read_manifest()
+    def _references_backup(record: dict[str, Any]) -> bool:
+        return any(
+            record.get(field) == backup_id
+            for field in ("backup_id", "source_backup_id", "pre_backup_id")
+        )
+
+    matched_records = [record for record in records if _references_backup(record)]
+    if not matched_records and not path.exists():
+        raise HTTPException(status_code=404, detail="삭제할 백업 파일을 찾을 수 없습니다.")
+
+    remaining_records = [record for record in records if not _references_backup(record)]
+    if len(remaining_records) != len(records):
+        _write_manifest(remaining_records)
+
+    file_deleted = False
+    if path.exists():
+        path.unlink()
+        file_deleted = True
+
+    return {
+        "backup_id": backup_id,
+        "deleted": True,
+        "manifest_removed": bool(matched_records),
+        "manifest_removed_count": len(records) - len(remaining_records),
+        "file_deleted": file_deleted,
+    }
+
+
 def _delete_dataset(session: Session) -> None:
     for model in DELETE_ORDER:
         session.execute(delete(model))

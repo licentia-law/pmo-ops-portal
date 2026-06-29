@@ -580,6 +580,20 @@ export function getDataBackupDetail(backupId: string) {
   return request<DataBackupDetail>(`/data-backup/backups/${backupId}`, undefined, { authMode: "always" });
 }
 
+export function deleteDataBackup(backupId: string) {
+  return request<{
+    backup_id: string;
+    deleted: boolean;
+    manifest_removed: boolean;
+    manifest_removed_count: number;
+    file_deleted: boolean;
+  }>(
+    `/data-backup/backups/${backupId}`,
+    { method: "DELETE" },
+    { authMode: "always" }
+  );
+}
+
 export function validateDataBackupWorkbook(file: File) {
   return request<DataBackupValidationResult>(
     "/data-backup/validate",

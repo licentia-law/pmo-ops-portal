@@ -3,6 +3,7 @@
 - 문서 목적: Codex 구현 지시용 DTL
 - 대상 시스템: PMO 업무수행 관리시스템 `pmo-ops-portal`
 - 작성일시: 2026-06-24 13:59 KST
+- 정책 업데이트: 2026-10-07 KST
 - 파일명: `DTL_sales_owner_role_personnel_scope_260624_1359.md`
 
 ---
@@ -29,9 +30,14 @@ PMO본부 인력:
 - 프로젝트 등록/수정 모달의 영업대표 드롭다운 후보로 사용
 
 인력 관리 페이지 보기 범위:
+- [전체 인력]
 - [PMO본부 인력]
 - [영업대표 후보]
-- [전체 인력]은 만들지 않음
+- [기술본부 인력]
+- [기타/외부 인력]
+
+인력 유형 SSOT:
+- pmo / sales / technical / external
 
 프로젝트 관리 테이블:
 - 기존처럼 Project.sales_owner 기반 표시 유지
@@ -43,7 +49,7 @@ PMO본부 인력:
 
 ### 목표
 
-`영업대표`를 본부명이나 기존 프로젝트 등장 여부가 아니라, 인력의 `역할` 값으로 판정하도록 기준을 확정한다. PMO본부 인력과 영업대표 후보의 관리 목적이 다르다는 점을 코드와 UI에 반영할 수 있도록 최소 정책을 세운다.
+`영업대표`를 기존 프로젝트 등장 여부가 아니라 인력 마스터에서 판정하고, 전체 인력은 명시적인 `personnel_type`으로 구분한다. PMO본부·영업대표·기술본부·기타/외부 인력의 관리 목적과 필수정보가 다르다는 점을 코드와 UI에 반영한다.
 
 ### 작업내용
 
@@ -53,29 +59,39 @@ PMO본부 인력:
    - `SALES_OWNER` / `영업대표`
    - 영업대표 판정의 SSOT는 역할명이 아닌 `Role.code = "SALES_OWNER"`이다. 역할명은 화면 표시용으로만 사용한다.
    - `SALES_OWNER` 역할에 연결된 인력이 존재하면 역할 코드 변경 또는 비활성화는 차단한다. 역할명 변경은 허용하되, 후보 판정에는 영향을 주지 않는다.
-2. 영업대표 후보 판정 기준을 다음으로 정의한다.
+2. 인력 유형은 `Personnel.personnel_type`을 SSOT로 사용한다.
+   - `pmo`: PMO본부 인력
+   - `sales`: 영업대표
+   - `technical`: 기술본부 인력
+   - `external`: 기타/회사 외부 인력
+   - `group_name`, `team_name`, `role_id`는 유형을 대신하는 값이 아니라 소속·조직·역할 정보로 유지한다.
+   - 기존 데이터 마이그레이션 동안만 `group_name`과 `Role.code` 기반 판정을 호환 로직으로 사용한다.
+3. 영업대표 후보 판정 기준을 다음으로 정의한다.
+   - `Personnel.personnel_type = "sales"`
    - `Personnel.is_active = true`
    - `Role.is_active = true`
    - 연결된 `Role.code = "SALES_OWNER"`
    - `employment_status`는 후보 판정 기준으로 사용하지 않는다. 영업대표의 재직/MM 상태는 PMO 인력 관리 대상이 아니며, API 저장값은 아래 기본값 규칙만 따른다.
-3. PMO본부 인력 목록 판정 기준을 다음으로 정의한다.
-   - 기본 기준: `Personnel.group_name = "PMO본부"` AND `Role.code != "SALES_OWNER"` (role 미연결 기존 데이터는 PMO본부 인력으로 유지)
+4. PMO본부 인력 목록 판정 기준을 다음으로 정의한다.
+   - 기본 기준: `Personnel.personnel_type = "pmo"`
+   - 마이그레이션 전 호환 기준: `Personnel.group_name = "PMO본부"` AND `Role.code != "SALES_OWNER"` (role 미연결 기존 데이터 포함)
    - 역할은 PM/PL을 표시·분류하는 보조 정보로 사용한다.
-4. 영업대표 후보는 재직/MM 관리 대상이 아니므로, 인력 등록/수정 시 역할이 `SALES_OWNER`인 경우 아래 값은 필수로 강제하지 않는다.
+5. PMO본부 외 인력은 확보 가능한 정보가 제한될 수 있으므로 아래 값은 필수로 강제하지 않는다.
    - `employee_no`
    - `email`
    - `mm_start_date`
    - `mm_end_date`
    - `yearly_mm`
-5. 역할이 `SALES_OWNER`인 인력 등록/수정 시 필수값은 아래로 한정한다.
-   - 필수: `name`, `group_name`, `team_name`, `position_name`, `role_id`
+6. PMO본부 외 인력 등록/수정 시 공통 필수값은 아래로 한정한다.
+   - 필수: `personnel_type`, `name`, `group_name`, `position_name`
+   - `team_name`은 확보 가능한 경우 입력하며 필수로 강제하지 않는다.
+   - 영업대표는 추가로 `role_id`가 `Role.code = "SALES_OWNER"` 역할이어야 한다.
    - `group_name`은 `PMO본부`를 허용하지 않는다. 영업부서 자동 반영에 사용하는 실제 영업 조직명을 입력한다.
-   - `role_id`는 `Role.code = "SALES_OWNER"` 역할이어야 한다.
-6. 백엔드 `PersonnelCreate` 스키마상 `employment_status`가 필수이므로, 영업대표 후보 등록/수정 시 서버에는 항상 `active`를 저장한다. 단, 영업대표 후보 화면에서는 재직상태를 주요 관리 항목으로 보이지 않게 하거나 `-` 처리한다.
-7. `Project.sales_owner`는 현재처럼 문자열 필드를 유지한다. 이번 작업에서는 `sales_owner_personnel_id` 같은 FK 컬럼을 추가하지 않는다.
+7. 백엔드 `PersonnelCreate` 스키마상 `employment_status`가 필수인 동안 PMO본부 외 인력의 미입력값은 서버 기본값 `active`로 정규화한다. 이 값은 PMO 재직/MM 집계에는 사용하지 않는다.
+8. `Project.sales_owner`는 현재처럼 문자열 필드를 유지한다. 이번 작업에서는 `sales_owner_personnel_id` 같은 FK 컬럼을 추가하지 않는다.
    - 따라서 활성 영업대표 후보의 `name`은 전체 활성 인력 내에서 중복될 수 없다. 등록/수정 API가 이를 검증한다.
    - 저장값은 후보의 순수 `name`이며, 동일 이름 문제를 해결하는 FK 전환은 장기 TODO로 남긴다.
-8. 역할 기준값은 이미 생성된 개발 DB에도 반영해야 하므로 seed만으로 처리하지 않는다. idempotent Alembic migration에서 `PM`, `PL`, `SALES_OWNER` 역할을 보정하고, 기존 `Personnel.role_id`/`role_name` 매핑을 보존한다.
+9. 역할 기준값과 `personnel_type`은 이미 생성된 개발 DB에도 반영해야 하므로 seed만으로 처리하지 않는다. idempotent Alembic migration에서 유형과 `PM`, `PL`, `SALES_OWNER` 역할을 보정하고, 기존 `Personnel.role_id`/`role_name` 매핑을 보존한다.
 
 ### 산출물
 
@@ -114,12 +130,14 @@ DEFAULT_ROLES = [
 ### 백업/업로드 및 MM 집계 범위
 
 1. 영업대표 후보는 화면에서만 MM을 숨기는 것이 아니라, 월별 재직 MM 생성·재계산·KPI·PMO 인력 집계 대상에서 제외한다.
-   - PMO 재직/MM 집계 대상: `group_name = "PMO본부"` AND `Role.code != "SALES_OWNER"` (role 미연결 기존 데이터 포함)
+   - PMO 재직/MM 집계 대상: `personnel_type = "pmo"`
    - 영업대표 후보는 `MonthlyEmploymentMM` 생성 및 PMO MM 합계에 포함하지 않는다.
+   - 기술본부 및 기타/외부 인력도 PMO본부 가동률·가득률의 분모와 PMO 재직 MM에 포함하지 않는다.
 2. 백업/업로드 엑셀은 화면의 `-` 표시값을 원본 데이터로 사용하지 않는다.
    - 영업대표 행도 `employment_status = active`, `is_active`의 실제 저장값을 내보내고 다시 읽는다.
    - 영업대표 행의 `employee_no`, `email`, `mm_start_date`, `mm_end_date`, `yearly_mm`은 빈 값 허용이다.
-   - 영업대표 행의 `name`, `group_name`, `team_name`, `position_name`, `role_name`은 필수 검증한다.
+   - PMO본부 외 인력 행의 `personnel_type`, `name`, `group_name`, `position_name`은 필수 검증한다. `team_name`은 선택값이다.
+   - 영업대표 행은 `role_name = 영업대표` 또는 대응 `role_id`를 추가 필수 검증한다.
    - 업로드 검증과 인력 등록/수정 API의 역할별 필수 규칙은 같은 공통 함수로 관리한다.
 
 ---
@@ -408,23 +426,30 @@ function handleSalesOwnerChange(nextName: string) {
 
 ### 목표
 
-인력 관리 페이지에서 PMO본부 인력과 영업대표 후보를 섞어 보여주지 않고, 두 보기 범위를 명확히 분리한다. `[전체 인력]` 보기 범위는 만들지 않는다.
+인력 관리 페이지에서 전체 인력을 함께 확인할 수 있고, PMO본부·영업대표·기술본부·기타/외부 유형별로 명확히 필터링할 수 있게 한다. 기존 PMO/영업대표 2개 보기만 제공한다는 정책은 폐기한다.
 
 ### 작업내용
 
 1. `apps/web/design/pages/PeopleEmploymentPage.tsx`에 보기 범위 state를 추가한다.
+   - `all`: 전체 인력
    - `pmo`: PMO본부 인력
    - `sales_owner`: 영업대표 후보
-2. 기본값은 `pmo`로 한다.
+   - `technical`: 기술본부 인력
+   - `external`: 기타/외부 인력
+2. 기본값은 운영 목적상 `pmo`로 유지하되 관리자는 `all`에서 전체 등록 인력을 확인할 수 있다.
 3. 상단 필터 영역 또는 페이지 제목 부근에 segment 버튼을 추가한다.
+   - `[전체 인력]`
    - `[PMO본부 인력]`
    - `[영업대표 후보]`
+   - `[기술본부 인력]`
+   - `[기타/외부 인력]`
 4. `PMO본부 인력` 모드에서는 PMO 범위로 조회한다.
-   - `group_name = "PMO본부"` 기준 조회 및 `SALES_OWNER` 역할 제외
+   - `personnel_type = "pmo"` 기준 조회
    - 기존 재직상태/MM/사용여부/팀/검색 필터 유지
    - 기존 KPI 카드 유지
 5. `영업대표 후보` 모드에서는 `role = "영업대표"` 기준으로 조회한다.
-   - `listPersonnel({ scope: "sales_owner", ... })`를 사용한다.
+   - `personnel_type = "sales"`와 `Role.code = "SALES_OWNER"`를 함께 검증한다.
+   - `listPersonnel({ scope: "sales_owner", ... })`는 마이그레이션 후 같은 predicate를 사용한다.
    - 프론트에서 역할명으로 role_id를 찾거나, 화면별로 다른 영업대표 판정 조건을 만들지 않는다.
 6. `영업대표 후보` 모드에서는 재직/MM 관리 대상이 아닌 필드는 `-`로 표시한다.
    - `employment_status`: `-` 또는 단순 `사용` 중심 표시
@@ -438,10 +463,13 @@ function handleSalesOwnerChange(nextName: string) {
 9. `PMO본부 인력` 모드에서 신규 등록을 누르면 기존과 동일하게 PM/PL 역할을 선택할 수 있게 한다.
 10. 보기 범위를 전환하면 페이지 번호, 상태 요약 선택값 및 모드에 맞지 않는 팀 필터를 초기화한다. 검색어와 사용여부 필터는 유지할 수 있다.
 11. PMO 화면의 MM/KPI는 P0의 서버 집계 대상과 같은 predicate를 사용한다. 화면에서만 영업대표를 숨기는 구현은 허용하지 않는다.
+12. `technical`, `external` 모드는 확보된 기본정보를 표시하되 재직/MM 카드를 PMO KPI처럼 표시하지 않는다.
+13. `all` 모드의 전체 인력 수는 관리용 수치이며 PMO본부 가동률 분모로 재사용하지 않는다.
 
 ### 산출물
 
 - 인력 관리 페이지 보기 범위 segment
+- 전체 인력 및 4개 인력 유형 필터
 - PMO본부 인력 기본 조회 유지
 - 영업대표 후보 조회 화면
 - 영업대표 후보 모드의 `-` 표시 정책
@@ -451,7 +479,8 @@ function handleSalesOwnerChange(nextName: string) {
 
 - 인력 관리 페이지 기본 진입 시 PMO본부 인력만 표시된다.
 - `[영업대표 후보]` 클릭 시 역할이 `영업대표`인 인력만 표시된다.
-- `[전체 인력]` 옵션은 존재하지 않는다.
+- `[전체 인력]`에서 PMO본부·영업대표·기술본부·기타/외부 인력을 모두 확인할 수 있다.
+- 기술본부와 기타/외부 필터가 각각 동작한다.
 - 영업대표 후보 모드에서 MM 관련 값은 `-`로 표시된다.
 - PMO본부 인력의 재직/MM 카드 및 테이블 표시가 기존과 동일하게 유지된다.
 - 영업대표 후보 인력이 PMO본부 인력의 MM 합계나 재직상태 KPI에 섞이지 않는다.
@@ -461,7 +490,7 @@ function handleSalesOwnerChange(nextName: string) {
 ```tsx
 // PeopleEmploymentPage.tsx 의도 예시
 
-type PeopleViewMode = "pmo" | "sales_owner";
+type PeopleViewMode = "all" | "pmo" | "sales_owner" | "technical" | "external";
 
 const [viewMode, setViewMode] = useState<PeopleViewMode>("pmo");
 ```
@@ -470,6 +499,7 @@ const [viewMode, setViewMode] = useState<PeopleViewMode>("pmo");
 // 보기 범위 UI 의도 예시
 
 <div className="inline-flex rounded-lg border bg-white p-1">
+  <button type="button" onClick={() => setViewMode("all")}>전체 인력</button>
   <button
     type="button"
     className={viewMode === "pmo" ? "active" : ""}
@@ -484,15 +514,15 @@ const [viewMode, setViewMode] = useState<PeopleViewMode>("pmo");
   >
     영업대표 후보
   </button>
+  <button type="button" onClick={() => setViewMode("technical")}>기술본부 인력</button>
+  <button type="button" onClick={() => setViewMode("external")}>기타/외부 인력</button>
 </div>
 ```
 
 ```tsx
 // 조회 조건 의도 예시
 
-const params = viewMode === "sales_owner"
-  ? { scope: "sales_owner", is_active: activeFilter }
-  : { group_name: "PMO본부", is_active: activeFilter };
+const params = { scope: viewMode, is_active: activeFilter };
 
 const response = await listPersonnel(params);
 ```
@@ -512,7 +542,7 @@ const renderYearlyMm = (row: PersonnelRecord) => {
 
 ### 목표
 
-역할이 `영업대표`인 인력은 프로젝트 입력용 참조 인력이므로 PMO본부 인력과 같은 재직/MM 필수값 검증을 적용하지 않도록 한다.
+PMO본부 외 인력은 확보 가능한 기본정보가 제한될 수 있으므로 PMO본부 인력과 같은 재직/MM 필수값 검증을 적용하지 않는다.
 
 ### 작업내용
 
@@ -524,12 +554,13 @@ const renderYearlyMm = (row: PersonnelRecord) => {
    - `mm_start_date`
    - `mm_end_date`
    - `yearly_mm`
-3. role이 `SALES_OWNER`인 경우 아래 필드는 필수 검증한다.
+3. PMO본부 외 인력은 아래 필드를 필수 검증한다.
+   - `personnel_type`
    - `name`
    - `group_name` (단, `PMO본부` 불가)
-   - `team_name`
    - `position_name`
-   - `role_id`
+   - 영업대표인 경우에만 `role_id = SALES_OWNER` 추가 필수
+   - `team_name`은 확보 가능한 경우 입력하는 선택값
 4. 백엔드 스키마상 `employment_status`가 필수이므로 API payload에는 `active`를 기본값으로 전달한다.
 5. role이 `SALES_OWNER`인 경우 저장 전 payload를 다음처럼 정규화한다.
    - `employment_status = "active"`
@@ -572,7 +603,6 @@ if (!form.role_id) errors.role_id = "역할을 선택하세요.";
 
 if (isSalesOwnerRole) {
   if (form.group_name.trim() === "PMO본부") errors.group_name = "영업대표의 본부는 PMO본부로 지정할 수 없습니다.";
-  if (!form.team_name.trim()) errors.team_name = "팀을 입력하세요.";
   if (!form.position_name.trim()) errors.position_name = "직위를 입력하세요.";
 } else {
   if (!form.employee_no.trim()) errors.employee_no = "사번을 입력하세요.";
@@ -682,15 +712,17 @@ npm run build
 4. 영업대표 선택 시 영업부서가 자동 반영된다.
 5. 프로젝트 저장은 기존처럼 `Project.sales_owner`, `Project.sales_department` 문자열 필드를 사용한다.
 6. 프로젝트 관리 테이블은 현재처럼 `Project.sales_owner` 기반 표시를 유지한다.
-7. 인력 관리 페이지에는 `[PMO본부 인력]`, `[영업대표 후보]` 보기 범위만 존재한다.
-8. `[전체 인력]` 보기 범위는 만들지 않는다.
+7. 인력 관리 페이지에는 `[전체 인력]`, `[PMO본부 인력]`, `[영업대표 후보]`, `[기술본부 인력]`, `[기타/외부 인력]` 보기 범위가 존재한다.
+8. 인력 유형 판정과 PMO KPI 포함 범위는 `personnel_type`을 SSOT로 사용한다.
 9. PMO본부 인력 보기에서는 기존 재직/MM 관리 UI가 유지된다.
 10. 영업대표 후보 보기에서는 MM 관련 값이 `-`로 표시된다.
 11. 영업대표 후보 인력은 PMO 재직/MM/KPI 계산에 섞이지 않는다.
-12. 영업대표 등록 시 사번·이메일·MM 시작일 없이 저장 가능하고, 성명·PMO본부 외 본부·팀·직위·영업대표 역할은 필수로 검증한다.
-13. 백업/업로드에서도 영업대표의 빈 사번·이메일·MM 값과 필수값 규칙이 동일하게 적용된다.
-14. 가상환경에서 백엔드 테스트를 실행하고 통과한다.
-15. 프론트 타입체크 또는 빌드를 통과한다.
+12. 영업대표 등록 시 사번·이메일·MM 시작일·팀 없이 저장 가능하고, 인력 유형·성명·PMO본부 외 소속·직위·영업대표 역할은 필수로 검증한다.
+13. 기술본부와 기타/외부 인력도 사번·이메일·MM 정보 없이 최소 정보로 등록 가능하다.
+14. 백업/업로드에서도 인력 유형별 빈 값 허용과 필수값 규칙이 동일하게 적용된다.
+15. PMO본부 가동률·가득률 분모에는 `personnel_type = pmo` 인력만 포함된다.
+16. 가상환경에서 백엔드 테스트를 실행하고 통과한다.
+17. 프론트 타입체크 또는 빌드를 통과한다.
 
 ### 산출물
 
@@ -700,7 +732,7 @@ npm run build
 
 ### DoD
 
-- Codex 작업 완료 후 위 13개 완료 기준을 모두 만족한다.
+- Codex 작업 완료 후 위 17개 완료 기준을 모두 만족한다.
 
 ### 의도 전달용 코드 스니펫
 
@@ -755,17 +787,19 @@ npm run build
 
 ## Step 5. 인력 관리 페이지 보기 범위 추가
 
-- [ ] viewMode state 추가: `pmo`, `sales_owner`
-- [ ] segment UI 추가: `[PMO본부 인력] [영업대표 후보]`
+- [ ] `personnel_type` 모델/마이그레이션/API 추가
+- [ ] viewMode state 추가: `all`, `pmo`, `sales_owner`, `technical`, `external`
+- [ ] segment UI 추가: `[전체 인력] [PMO본부 인력] [영업대표 후보] [기술본부 인력] [기타/외부 인력]`
 - [ ] 기본값 `pmo`
-- [ ] PMO 모드 조회 조건 적용: `group_name = PMO본부` 및 영업대표 제외
+- [ ] PMO 모드 조회 조건 적용: `personnel_type = pmo`
 - [ ] 영업대표 후보 모드 조회 조건 적용: `scope = sales_owner`
-- [ ] `[전체 인력]` 버튼을 만들지 않음
+- [ ] 기술본부·기타/외부·전체 인력 조회 조건 적용
 
 ## Step 6. 역할별 validation 조정
 
 - [ ] role이 `SALES_OWNER`이면 사번·이메일·MM 필수값 검증 제외
-- [ ] role이 `SALES_OWNER`이면 성명·PMO본부 외 본부·팀·직위·역할을 필수 검증
+- [ ] PMO본부 외 인력은 인력 유형·성명·PMO본부 외 소속·직위를 필수 검증하고 팀은 선택값으로 허용
+- [ ] role이 `SALES_OWNER`이면 영업대표 역할을 추가 필수 검증
 - [ ] role이 `SALES_OWNER`이면 payload에서 MM 필드 null 처리
 - [ ] role이 `SALES_OWNER`이면 employment_status는 `active`로 서버에 전달
 - [ ] 동일 규칙을 백엔드 API 및 백업 업로드 검증에 적용

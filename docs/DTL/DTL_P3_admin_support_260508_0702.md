@@ -77,11 +77,26 @@
 - 프로젝트 담당 수정 가능: 발표완료 이후 본인 담당 프로젝트 상세/투입기간 수정 가능
 - 관리자: 사용자/권한/기준정보/시스템 설정 가능
 
+권한 레벨과 별도로 고위험·대량 작업은 기능 권한으로 제어한다.
+
+| 기능 권한 | 허용 기능 |
+|---|---|
+| `project_excel_manage` | 프로젝트 엑셀 다운로드·검증·업로드 |
+| `personnel_excel_manage` | 인력 엑셀 다운로드·검증·업로드 |
+| `assignment_manage` | 프로젝트별 투입 인력 등록·수정·1회성 업로드 |
+| `backup_restore` | 통합 JSON 백업 생성·복원 |
+| `data_reset` | 업무 데이터 전체 초기화 |
+| `permissions_manage` | 관리자 임명 및 사용자별 기능 권한 부여 |
+
+초기에는 개발자 계정만 전체 기능 권한을 가진다. 개발자가 관리자를 임명한 뒤 관리자가 팀장·팀원에게 업무상 필요한 기능 권한만 부여한다. 프론트 버튼 노출과 백엔드 API 인가를 함께 적용한다.
+
 ### 2.6 API 초안
 - `GET /api/users`
 - `POST /api/users`
 - `PATCH /api/users/{id}`
 - `POST /api/users/{id}/password-reset`
+- `GET /api/users/{id}/capabilities`
+- `PATCH /api/users/{id}/capabilities`
 
 ---
 

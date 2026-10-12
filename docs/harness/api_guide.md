@@ -118,9 +118,16 @@ DB/API에는 내부 enum value만 저장하고, 화면에는 공통 label helper
 9. `apps/api/app/domain/project_code_policy.py`
 10. `apps/api/app/domain/personnel.py`
 
-## 9. 인력/API 메모
+## 9. 인력/API 적용 기준
 
-- `/people/employment`의 라우트 접근과 수정 API는 admin 권한 기준으로 제한한다.
-- `roles`는 신규 테이블/API로 구현한다.
-- `AssignmentStatus.cancelled`, `WorkLocationType` enum은 백엔드/프론트 타입을 함께 맞춘다.
-- `weekly-kpi-summaries`는 API는 제공하되 MVP에서는 스냅샷 기반 파생 응답으로 구현한다.
+- 인력 유형·역할 API·권한·주간 KPI API의 현재 구현과 목표 차이는 [정책/구현 비교표](policy_implementation_status.md)를 참고한다. 정책 우선순위는 [핵심 가이드](dev_guide.md)의 2절을 따른다.
+- DTL 대상 `AssignmentStatus.cancelled`, `WorkLocationType` 변경은 실제 enum·사용 타입을 먼저 확인하고 백엔드/프론트를 함께 맞춘다.
+
+## 10. 권한·DB 변경 원칙
+
+- 권한은 인증된 사용자 기준으로 백엔드에서 검증하고 기존 공통 권한 함수를 우선 재사용한다. 메뉴/버튼 숨김만으로 처리하지 않으며, 허용된 데이터 범위도 조회·수정 API에 적용한다.
+- 기능별 허용 범위는 [공통 DTL](../DTL/DTL_common_PMO_work_management_system_260508_0702.md)의 6절과 적용 기능 DTL을 참조한다. 개발용 헤더 권한 흐름과 운영 인증·인가를 구분하고, 미확정 예외는 [정책/구현 비교표](policy_implementation_status.md)의 충돌 기록을 확인한다.
+- DB 변경 전 `apps/api/app/models/core.py`, API 스키마, `docs/schema`의 관련 문서, `apps/api/alembic/versions`의 변경 이력을 함께 확인한다. 코드와 문서가 충돌하면 먼저 알린다.
+- 기존 DB에 필요한 스키마·데이터 변경은 Alembic migration으로 반영한다. 모델 수정이나 seed 재생성만으로 기존 DB가 갱신되었다고 판단하지 않는다.
+- 컬럼·enum·기준값 변경 시 기존 값의 변환/기본값, 필수값·유일성, UUID/FK 참조 보존, 연결된 MM·스냅샷·KPI 영향과 실패 시 복구 방법을 확인한다. 재실행 가능한 데이터 보정은 중복 생성되지 않게 한다.
+- 데이터 반영은 기존 트랜잭션·롤백 패턴을 따른다. 업로드·복원·초기화의 백업/잠금/감사 이력 등 상세 조건은 [P3.2 DTL](../DTL/DTL_P3.2_data_backup_upload_restore_260622.md)의 우선 적용 정책과 해당 절을 따른다.

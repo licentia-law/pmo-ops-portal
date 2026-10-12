@@ -6,7 +6,7 @@
 - 3차 업데이트: 2026-06-11
 - 4차 업데이트: 2026-10-07
 - 기준 문서:
-  - `PRD_260612_1051.md`
+  - `PRD_261012_1328.md`
   - `analysis_pmo_excel_260429_1749.md`
   - `DTL_P2_people_operations_updated_260528_1610.md`
 - 업데이트 목적:
@@ -1305,7 +1305,7 @@ MM 계산과 월별 KPI 집계의 기반 데이터로 공휴일 관리 기능을
 기준 문서:
 - docs/DTL/DTL_P1_core_operations_260508_0702.md
 - docs/DTL/DTL_P2_people_operations_rewritten_260611_no_report_download.md
-- docs\PRD_260612_1051.md
+- docs\PRD_261012_1328.md
 - docs/schema/P1_operational_schema_260511.md
 
 최종 메뉴 방향:

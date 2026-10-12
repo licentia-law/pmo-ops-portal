@@ -2,7 +2,7 @@
 
 - 작성일시: 2026-06-19
 - 기준 문서:
-  - `PRD_260612_1051.md`
+  - `PRD_261012_1328.md`
   - `docs/DTL/DTL_P3_admin_support_260508_0702.md`
   - `docs/schema/chatGPT/holidays_seed.csv`
 - 문서 목적:

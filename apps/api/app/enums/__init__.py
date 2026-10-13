@@ -39,6 +39,12 @@ class AssignmentStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+class WorkLocationType(StrEnum):
+    ONSITE = "onsite"
+    REMOTE = "remote"
+    HYBRID = "hybrid"
+
+
 class ProjectAssignmentRole(StrEnum):
     PROPOSAL_PM = "proposal_pm"
     PRESENTATION_PM = "presentation_pm"
@@ -46,6 +52,13 @@ class ProjectAssignmentRole(StrEnum):
     PROPOSAL_TEAM = "proposal_team"
     DELIVERY_TEAM = "delivery_team"
     SUPPORT_TEAM = "support_team"
+
+
+class PersonnelType(StrEnum):
+    PMO = "pmo"
+    SALES = "sales"
+    TECHNICAL = "technical"
+    EXTERNAL = "external"
 
 
 class EmploymentStatus(StrEnum):
@@ -62,6 +75,15 @@ class UserPermission(StrEnum):
     GENERAL_EDITOR = "general_editor"
     PROJECT_EDITOR = "project_editor"
     ADMIN = "admin"
+
+
+class Capability(StrEnum):
+    PROJECT_EXCEL_MANAGE = "project_excel_manage"
+    PERSONNEL_EXCEL_MANAGE = "personnel_excel_manage"
+    ASSIGNMENT_MANAGE = "assignment_manage"
+    BACKUP_RESTORE = "backup_restore"
+    DATA_RESET = "data_reset"
+    PERMISSIONS_MANAGE = "permissions_manage"
 
 
 class OrganizationRole(StrEnum):

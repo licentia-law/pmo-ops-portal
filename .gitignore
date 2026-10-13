@@ -5,6 +5,7 @@ node_modules/
 apps/web/.next/
 apps/api/.venv/
 apps/api/.runtime/
+.runtime/
 __pycache__/
 *.pyc
 *.egg-info/

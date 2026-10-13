@@ -2,14 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { createProjectMaster, getP1Screen, updateProjectCode, updateProjectMaster } from "../../app/lib/api";
+import { createProjectMaster, downloadProjectExcel, getMyCapabilities, getP1Screen, updateProjectCode, updateProjectMaster } from "../../app/lib/api";
 import { getProjectPmValidationErrors, mapProjectSaveErrorToFieldErrors } from "../../app/lib/projectRules";
 import { PmoShell } from "../components/PmoShell";
 import { CommonPeriodPicker } from "../components/CommonPeriodPicker";
 import { SUBMISSION_FORMAT_OPTIONS } from "../constants/projectFormOptions";
 import ProjectMasterEditModal from "../components/ProjectMasterEditModal";
 import LightweightLoading from "../components/LightweightLoading";
-import { downloadProjectWorkbook } from "./projectWorkbookExport";
+import ProjectWorkbookImportModal from "../components/ProjectWorkbookImportModal";
 
 type IconName =
   | "home"
@@ -564,6 +564,11 @@ function CodePageImpl({ initialCreate = false, initialEditCode = null }: CodePag
   const [editForm, setEditForm] = useState<EditForm | null>(null);
   const [saving, setSaving] = useState(false);
   const [downloadHover, setDownloadHover] = useState(false);
+  const [canManageExcel, setCanManageExcel] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [downloadBusy, setDownloadBusy] = useState(false);
+  const [workbookError, setWorkbookError] = useState<string | null>(null);
+  const [workbookMessage, setWorkbookMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [memoLengthError, setMemoLengthError] = useState<string | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -576,6 +581,16 @@ function CodePageImpl({ initialCreate = false, initialEditCode = null }: CodePag
     return () => {
       alive = false;
     };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    getMyCapabilities().then(result => {
+      if (alive) setCanManageExcel(result.data.capabilities.includes("project_excel_manage"));
+    }).catch(error => {
+      if (alive) setWorkbookError(error instanceof Error ? error.message : "엑셀 기능 권한을 확인할 수 없습니다.");
+    });
+    return () => { alive = false; };
   }, []);
 
   const owners = useMemo<string[]>(
@@ -1027,34 +1042,13 @@ function CodePageImpl({ initialCreate = false, initialEditCode = null }: CodePag
   };
 
   const downloadCodeWorkbook = async () => {
-    const normalizedRows = filteredRows.map((row: any) => ({
-      code: row.code ?? "-",
-      name: row.name ?? "-",
-      clientName: row.clientName ?? "-",
-      projectType: resolveBusinessType(row),
-      certainty: row.certainty ?? "-",
-      amountText: row.amountText ?? "-",
-      bidNoticeNo: row.bidNoticeNo ?? "-",
-      bidNoticeDate: row.bidNoticeDate ?? "-",
-      statusLabel: STATUS_LABEL[row.status] ?? row.status ?? "-",
-      salesDept: row.salesDept ?? "-",
-      salesOwner: row.salesOwner ?? "-",
-      proposalPm: row.proposalPm ?? "-",
-      presentPm: row.presentPm ?? "-",
-      deliveryPm: row.deliveryPm ?? "-",
-      proposalDeliveryTeam: row.proposalDeliveryTeam ?? "-",
-      fromDate: row.fromDate ?? "-",
-      toDate: row.toDate ?? "-",
-      proposalSubmissionAt: row.proposalSubmissionAt ?? "-",
-      submissionFormat: row.submissionFormat ?? "-",
-      submissionNote: row.submissionNote ?? "-",
-      proposalPresentationAt: row.proposalPresentationAt ?? "-",
-      presentationFormat: row.presentationFormat ?? "-",
-      presentationNote: row.presentationNote ?? "-",
-      recentActivityAt: row.recentActivityAt ?? "-",
-      useStatus: row.useStatus ?? "-",
-    }));
-    await downloadProjectWorkbook(normalizedRows, "프로젝트관리", "프로젝트관리");
+    if (!canManageExcel || downloadBusy) return;
+    setDownloadBusy(true); setWorkbookError(null);
+    try {
+      await downloadProjectExcel(filteredRows.map((row: { code: string }) => row.code));
+    } catch (error) {
+      setWorkbookError(error instanceof Error ? error.message : "엑셀 다운로드에 실패했습니다.");
+    } finally { setDownloadBusy(false); }
   };
 
   const summaryFilterLabel = useMemo(() => {
@@ -1174,7 +1168,7 @@ function CodePageImpl({ initialCreate = false, initialEditCode = null }: CodePag
               검색결과 <span style={{ color: "var(--tx-1)", fontWeight: 700 }}>{filteredRows.length}</span>건
               {summaryFilterLabel ? <span style={{ marginLeft: 10, color: "var(--brand)", fontWeight: 600 }}> · 필터: {summaryFilterLabel}</span> : null}
             </span>
-            <button
+            {canManageExcel && <><button
               className="pmo-btn"
               style={{
                 height: 30,
@@ -1188,11 +1182,17 @@ function CodePageImpl({ initialCreate = false, initialEditCode = null }: CodePag
               onMouseEnter={() => setDownloadHover(true)}
               onMouseLeave={() => setDownloadHover(false)}
               onClick={downloadCodeWorkbook}
+              disabled={downloadBusy}
             >
-              엑셀 다운로드
+              {downloadBusy ? "다운로드 중…" : "엑셀 다운로드"}
             </button>
+            <button className="pmo-btn" style={{ height: 30, padding: "0 10px", fontSize: 13 }} onClick={() => {
+              setWorkbookMessage(null); setWorkbookError(null); setUploadOpen(true);
+            }}>엑셀 업로드</button></>}
           </div>
         </header>
+        {workbookError && <p role="alert" style={{ margin: "12px 20px", color: "var(--crit)", fontSize: 13 }}>{workbookError}</p>}
+        {workbookMessage && <p role="status" style={{ margin: "12px 20px", color: "var(--brand)", fontSize: 13 }}>{workbookMessage}</p>}
         <div style={{ overflowX: "auto" }}>
           <table className="pmo-table pmo-table--recent pmo-table--code-master" style={{ tableLayout: "fixed" }}>
             <colgroup>
@@ -1644,6 +1644,10 @@ function CodePageImpl({ initialCreate = false, initialEditCode = null }: CodePag
           setData(refreshed.data);
         }}
       />
+      {uploadOpen && canManageExcel && <ProjectWorkbookImportModal onClose={() => setUploadOpen(false)} onApplied={async message => {
+        const refreshed = await getP1Screen("code");
+        setData(refreshed.data); setWorkbookMessage(message); setPage(1);
+      }} />}
     </PmoShell>
   );
 }

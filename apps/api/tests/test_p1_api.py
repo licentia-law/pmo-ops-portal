@@ -10,7 +10,7 @@ from sqlalchemy.pool import StaticPool
 from app.core.database import Base, get_session
 from app.enums import HolidaySourceKind, HolidayType
 from app.main import app
-from app.models.core import Holiday, MonthlyEmploymentMM, Personnel
+from app.models.core import Holiday, MonthlyEmploymentMM, Personnel, User
 import app.services.data_backup as data_backup_service
 
 
@@ -23,13 +23,16 @@ def client() -> Generator[TestClient, None, None]:
     )
     TestingSessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
     Base.metadata.create_all(bind=engine)
+    with TestingSessionLocal() as session:
+        session.add(User(id="test-developer", email="developer@test.local", name="테스트개발자", permission="admin", data_scope="all", organization_role="other", is_developer=True))
+        session.commit()
 
     def override_session() -> Generator[Session, None, None]:
         with TestingSessionLocal() as session:
             yield session
 
     app.dependency_overrides[get_session] = override_session
-    with TestClient(app) as test_client:
+    with TestClient(app, headers={"x-user-email": "developer@test.local"}) as test_client:
         yield test_client
     app.dependency_overrides.clear()
 
@@ -43,13 +46,16 @@ def client_and_session() -> Generator[tuple[TestClient, sessionmaker[Session]], 
     )
     TestingSessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
     Base.metadata.create_all(bind=engine)
+    with TestingSessionLocal() as session:
+        session.add(User(id="test-developer", email="developer@test.local", name="테스트개발자", permission="admin", data_scope="all", organization_role="other", is_developer=True))
+        session.commit()
 
     def override_session() -> Generator[Session, None, None]:
         with TestingSessionLocal() as session:
             yield session
 
     app.dependency_overrides[get_session] = override_session
-    with TestClient(app) as test_client:
+    with TestClient(app, headers={"x-user-email": "developer@test.local"}) as test_client:
         yield test_client, TestingSessionLocal
     app.dependency_overrides.clear()
 
@@ -392,6 +398,7 @@ def test_monthly_employment_mm_list_and_patch(client_and_session: tuple[TestClie
     client, SessionLocal = client_and_session
     with SessionLocal() as session:
         person = Personnel(
+            personnel_type="pmo",
             name="김월별",
             group_name="PMO본부",
             team_name="PMO2팀",
@@ -410,6 +417,7 @@ def test_monthly_employment_mm_list_and_patch(client_and_session: tuple[TestClie
         )
         session.add(monthly)
         inactive_person = Personnel(
+            personnel_type="pmo",
             name="김미사용",
             group_name="PMO본부",
             team_name="PMO2팀",
@@ -638,7 +646,6 @@ def test_admin_can_trigger_holiday_sync(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from app.api.routes import holidays as holidays_route
-    from app.schemas.holidays import HolidaySyncRead
 
     class FakeProvider:
         provider_name = "fake_provider"

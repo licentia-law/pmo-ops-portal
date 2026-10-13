@@ -10,17 +10,21 @@ from app.domain.people import (
     normalize_sales_owner_personnel,
     normalize_payload,
     require_nonblank,
-    require_active_role,
     require_personnel_create,
     require_personnel_update,
 )
-from app.enums import EmploymentStatus
+from app.enums import EmploymentStatus, PersonnelType
 from app.models.core import Personnel, Role
 from app.schemas.people import PersonnelCreate, PersonnelRead, PersonnelUpdate
+from app.services.personnel_master import refresh_personnel_projections, annual_employment_mm, refresh_open_kpi
 
 router = APIRouter()
-def serialize_personnel(person: Personnel) -> dict[str, object]:
+def serialize_personnel(person: Personnel, session=None) -> dict[str, object]:
     payload = PersonnelRead.model_validate(person).model_dump(mode="json")
+    if session is not None:
+        payload["yearly_mm"] = annual_employment_mm(session, person)
+    elif person.personnel_type != PersonnelType.PMO:
+        payload["yearly_mm"] = None
     if person.role:
         payload["role_code"] = person.role.code
         payload["role_name"] = person.role.name
@@ -41,11 +45,14 @@ def list_personnel(
     role_id: str | None = None,
     is_active: bool | None = None,
     scope: str | None = None,
+    personnel_type: PersonnelType | None = None,
 ) -> dict[str, object]:
     if scope not in (None, "pmo", "sales_owner"):
         raise HTTPException(status_code=400, detail="지원하지 않는 인력 보기 범위입니다.")
     statement = select(Personnel).outerjoin(Role, Personnel.role_id == Role.id).options(joinedload(Personnel.role))
     statement = apply_personnel_scope(statement, scope)
+    if personnel_type is not None:
+        statement = statement.where(Personnel.personnel_type == personnel_type)
     statement = apply_text_search(
         statement,
         params.q,
@@ -92,7 +99,7 @@ def list_personnel(
     )
     rows, total = paginate(session, statement, params.page, params.page_size)
     return envelope(
-        [serialize_personnel(row) for row in rows],
+        [serialize_personnel(row, session) for row in rows],
         {"page": params.page, "page_size": params.page_size, "total": total},
     )
 
@@ -126,9 +133,11 @@ def create_personnel(
 ) -> dict[str, object]:
     require_personnel_create(user, "인력 등록 권한이 없습니다.")
     values = normalize_payload(payload.model_dump())
+    if "personnel_type" not in payload.model_fields_set:
+        values.pop("personnel_type", None)
     values["name"] = require_nonblank(values.get("name"), "성명")
     values["group_name"] = require_nonblank(values.get("group_name"), "본부")
-    normalize_sales_owner_personnel(session, values)
+    normalize_sales_owner_personnel(session, values, strict_pmo="personnel_type" in payload.model_fields_set)
     ensure_unique_personnel_fields(
         session,
         employee_no=values.get("employee_no") if isinstance(values.get("employee_no"), str) else None,
@@ -136,11 +145,15 @@ def create_personnel(
     )
     person = Personnel(**values)
     session.add(person)
+    session.flush()
+    if person.mm_start_date or person.personnel_type != PersonnelType.PMO:
+        refresh_personnel_projections(session, person)
+        refresh_open_kpi(session)
     session.commit()
     person = session.scalar(select(Personnel).options(joinedload(Personnel.role)).where(Personnel.id == person.id))
     if person is None:
         raise HTTPException(status_code=500, detail="인력 등록 결과를 확인할 수 없습니다.")
-    return envelope(serialize_personnel(person))
+    return envelope(serialize_personnel(person, session))
 
 
 @router.patch("/{personnel_id}")
@@ -159,17 +172,24 @@ def update_personnel(
         updates["name"] = require_nonblank(updates["name"], "성명")
     if "group_name" in updates:
         updates["group_name"] = require_nonblank(updates["group_name"], "본부")
-    normalize_sales_owner_personnel(session, updates, person)
+    normalize_sales_owner_personnel(session, updates, person, strict_pmo="personnel_type" in updates)
     ensure_unique_personnel_fields(
         session,
         employee_no=updates.get("employee_no") if isinstance(updates.get("employee_no"), str) else None,
         email=updates.get("email") if isinstance(updates.get("email"), str) else None,
         personnel_id=personnel_id,
     )
+    projection_changed = any(
+        getattr(person, field) != value for field, value in updates.items()
+        if field in {"personnel_type", "mm_start_date", "mm_end_date", "employment_status", "is_active"}
+    )
     for field, value in updates.items():
         setattr(person, field, value)
+    if projection_changed:
+        refresh_personnel_projections(session, person)
+        refresh_open_kpi(session)
     session.commit()
     person = session.scalar(select(Personnel).options(joinedload(Personnel.role)).where(Personnel.id == person.id))
     if person is None:
         raise HTTPException(status_code=500, detail="인력 수정 결과를 확인할 수 없습니다.")
-    return envelope(serialize_personnel(person))
+    return envelope(serialize_personnel(person, session))

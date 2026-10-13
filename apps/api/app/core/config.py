@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -14,6 +15,9 @@ class Settings(BaseSettings):
     )
 
     database_url: str = f"sqlite:///{DEFAULT_SQLITE_DB.as_posix()}"
+    app_environment: Literal["development", "test", "production"] = "development"
+    assignment_import_enabled: bool = False
+    data_reset_enabled: bool = False
     api_cors_origins: str = (
         "http://localhost:3000,http://127.0.0.1:3000,"
         "http://localhost:3001,http://127.0.0.1:3001,"

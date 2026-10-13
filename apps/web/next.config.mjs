@@ -6,7 +6,8 @@ const configDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(configDir, "../..");
 const { loadEnvConfig } = nextEnv;
 
-loadEnvConfig(repoRoot);
+// Next reads apps/web first. Reload the shared root env instead of reusing that cache.
+loadEnvConfig(repoRoot, process.env.NODE_ENV === "development", undefined, true);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

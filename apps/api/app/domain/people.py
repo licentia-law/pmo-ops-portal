@@ -1,12 +1,18 @@
 from fastapi import HTTPException
-from sqlalchemy import or_, select
+import re
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.enums import OrganizationRole, UserPermission
+from app.enums import OrganizationRole, PersonnelType, UserPermission
+from app.domain.personnel_types import PMO_GROUP_NAME, SALES_OWNER_ROLE_CODE, classify_legacy_personnel
 from app.models.core import Personnel, Role, User
 
-SALES_OWNER_ROLE_CODE = "SALES_OWNER"
-PMO_GROUP_NAME = "PMO본부"
+def pmo_personnel_predicate():
+    return Personnel.personnel_type == PersonnelType.PMO
+
+
+def is_pmo_personnel(person: Personnel | None) -> bool:
+    return person is not None and person.personnel_type == PersonnelType.PMO
 
 
 def can_mutate_people(user: User) -> bool:
@@ -68,35 +74,68 @@ def apply_personnel_scope(statement, scope: str | None):
     """Apply the single source of truth for personnel list scopes."""
     if scope == "sales_owner":
         return statement.where(
+            Personnel.personnel_type == PersonnelType.SALES,
             Personnel.is_active.is_(True),
             Role.is_active.is_(True),
             Role.code == SALES_OWNER_ROLE_CODE,
         )
     if scope == "pmo":
-        return statement.where(
-            Personnel.group_name == PMO_GROUP_NAME,
-            or_(Personnel.role_id.is_(None), Role.code != SALES_OWNER_ROLE_CODE),
-        )
+        return statement.where(pmo_personnel_predicate())
     return statement
 
 
-def normalize_sales_owner_personnel(session: Session, values: dict[str, object], current: Personnel | None = None) -> Role | None:
-    """Validate role-specific personnel rules and normalize sales-owner payloads."""
+def normalize_sales_owner_personnel(
+    session: Session, values: dict[str, object], current: Personnel | None = None,
+    *, check_name_uniqueness: bool = True, strict_pmo: bool = False,
+) -> Role | None:
+    """Validate personnel type; legacy inference is allowed only on creation."""
     role_id = values.get("role_id", current.role_id if current else None)
     role = require_active_role(session, role_id if isinstance(role_id, str) else None)
-    if not is_sales_owner_role(role):
+    if "personnel_type" in values and values["personnel_type"] is None:
+        raise HTTPException(status_code=400, detail="인력 유형은 비울 수 없습니다.")
+    personnel_type = values.get("personnel_type", current.personnel_type if current else None)
+    if personnel_type is None:
+        try:
+            personnel_type = classify_legacy_personnel(
+                values.get("group_name"), role.code if role else None, values.get("role_name"),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    personnel_type = PersonnelType(personnel_type)
+    if current is None or "personnel_type" in values:
+        values["personnel_type"] = personnel_type
+    if strict_pmo and personnel_type == PersonnelType.PMO:
+        for field, label in [("name", "성명"), ("group_name", "본부"), ("team_name", "팀"), ("position_name", "직위"), ("employee_no", "사번"), ("email", "이메일")]:
+            require_nonblank(values.get(field, getattr(current, field, None)), label)
+        if values.get("mm_start_date", current.mm_start_date if current else None) is None:
+            raise HTTPException(status_code=400, detail="필수 항목 누락: MM 시작일")
+    email = values.get("email")
+    if email and not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", str(email)):
+        raise HTTPException(status_code=400, detail="이메일 형식이 올바르지 않습니다.")
+    start = values.get("mm_start_date", current.mm_start_date if current else None)
+    end = values.get("mm_end_date", current.mm_end_date if current else None)
+    if start and end and start > end:
+        raise HTTPException(status_code=400, detail="MM 종료일은 시작일보다 빠를 수 없습니다.")
+    if personnel_type != PersonnelType.PMO:
+        require_nonblank(values.get("name", current.name if current else None), "성명")
+        require_nonblank(values.get("group_name", current.group_name if current else None), "본부")
+        require_nonblank(values.get("position_name", current.position_name if current else None), "직위")
+    if is_sales_owner_role(role) and personnel_type != PersonnelType.SALES:
+        raise HTTPException(status_code=400, detail="영업대표 역할은 sales 인력 유형으로 지정해 주세요.")
+    if personnel_type != PersonnelType.SALES:
         return role
+    if not is_sales_owner_role(role):
+        raise HTTPException(status_code=400, detail="영업대표는 SALES_OWNER 역할이 필요합니다.")
 
     name = require_nonblank(values.get("name", current.name if current else None), "성명")
     group_name = require_nonblank(values.get("group_name", current.group_name if current else None), "본부")
     if group_name == PMO_GROUP_NAME:
         raise HTTPException(status_code=400, detail="영업대표의 본부는 PMO본부로 지정할 수 없습니다.")
-    require_nonblank(values.get("team_name", current.team_name if current else None), "팀")
     require_nonblank(values.get("position_name", current.position_name if current else None), "직위")
     duplicate = select(Personnel).where(Personnel.name == name, Personnel.is_active.is_(True))
     if current is not None:
         duplicate = duplicate.where(Personnel.id != current.id)
-    if session.scalar(duplicate):
+    if check_name_uniqueness and session.scalar(duplicate):
         raise HTTPException(status_code=409, detail="활성 인력과 영업대표 성명이 중복될 수 없습니다.")
 
     values["employment_status"] = "active"

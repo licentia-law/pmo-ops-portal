@@ -1,6 +1,6 @@
 "use client";
 
-import type { ProjectStatusCode, ProjectTypeCode } from "@pmo/shared-types";
+import type { AssignmentStatusCode, AssignmentTypeCode, ProjectAssignmentRoleCode, WorkLocationTypeCode, CapabilityCode, PersonnelTypeCode, ProjectStatusCode, ProjectTypeCode } from "@pmo/shared-types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8001/api";
 
@@ -15,6 +15,178 @@ export type DevUserContext = {
   permission: UserPermission;
   organizationRole: OrganizationRole;
 };
+
+export type UserCapabilitiesRecord = {
+  user_id: string;
+  name: string;
+  email: string;
+  permission: UserPermission;
+  is_developer: boolean;
+  capabilities: CapabilityCode[];
+};
+
+export function getMyCapabilities() {
+  return request<UserCapabilitiesRecord>("/users/me/capabilities", undefined, { authMode: "always" });
+}
+
+export type AssignmentInput = {
+  project_id?: string; personnel_id?: string;
+  assignment_type?: AssignmentTypeCode; assignment_role?: ProjectAssignmentRoleCode | null;
+  assignment_status?: AssignmentStatusCode; start_date?: string; end_date?: string;
+  monthly_base_mm?: number; certainty_rate?: number | null; onsite_type?: WorkLocationTypeCode | null;
+  is_primary?: boolean; sequence_no?: number; note?: string | null;
+  expected_version?: string; acknowledge_warnings?: boolean;
+};
+export type AssignmentRecord = {
+  id: string; project_id: string | null; personnel_id: string | null; personnel_name: string; personnel_type: PersonnelTypeCode | null;
+  assignment_type: AssignmentTypeCode; assignment_role: ProjectAssignmentRoleCode | null; assignment_status: AssignmentStatusCode | null;
+  start_date: string | null; end_date: string | null; monthly_base_mm: number | null; effective_base_mm: number;
+  certainty_rate: number | null; onsite_type: string | null; is_primary: boolean; sequence_no: number | null; note: string | null;
+  current_month_mm: number; total_recorded_mm: number; is_current: boolean; legacy_mm_input: boolean;
+};
+export type AssignmentCandidate = {
+  id: string; name: string; personnel_type: PersonnelTypeCode; group_name: string | null; team_name: string | null;
+  employee_no: string | null; eligible: boolean; reason: string;
+};
+export type AssignmentPreview = {
+  version: string; warnings: string[];
+  overlaps: Array<{ id: string; project_code: string; start_date: string; end_date: string; is_primary: boolean }>;
+  changes: Array<{ field: string; before: unknown; after: unknown }>;
+};
+export type AssignmentImportCompletion = {
+  file_name: string; file_sha256: string; completed_at: string; actor_name: string;
+  pre_backup_id: string; counts: Record<string, number>;
+};
+export type AssignmentImportStatus = { enabled: boolean; completed: boolean; message: string; completion: AssignmentImportCompletion | null };
+export type AssignmentImportPreview = {
+  validation_id: string; file_sha256: string; file_name: string; summary: { new: number; error: number };
+  rows: Array<{ row_number: number; source_key: string; project_code: string; personnel_name: string; personnel_type: PersonnelTypeCode; assignment_status: AssignmentStatusCode; monthly_base_mm: number; warnings: string[] }>;
+  issues: Array<{ row_number: number; message: string }>; warnings: string[];
+};
+export function getAssignmentImportStatus() {
+  return request<AssignmentImportStatus>("/assignment-import/status", undefined, { authMode: "always" });
+}
+export function validateAssignmentImport(file: File) {
+  return request<AssignmentImportPreview>("/assignment-import/validate", {
+    method: "POST", body: file,
+    headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "x-upload-filename": encodeURIComponent(file.name) }
+  }, { authMode: "always" });
+}
+export function applyAssignmentImport(preview: AssignmentImportPreview) {
+  return request<AssignmentImportCompletion & { message: string; created_ids: Array<{ source_key: string; assignment_id: string }> }>("/assignment-import/apply", {
+    method: "POST", body: JSON.stringify({ validation_id: preview.validation_id, file_sha256: preview.file_sha256, acknowledge_warnings: true })
+  }, { authMode: "always" });
+}
+export async function downloadAssignmentImport(kind: "template" | "references") {
+  const response = await fetch(`${API_BASE_URL}/assignment-import/${kind}`, { headers: authHeaders() });
+  if (!response.ok) {
+    const payload = await response.json() as { error?: { message?: string } };
+    throw new Error(payload.error?.message ?? "다운로드에 실패했습니다.");
+  }
+  const url = URL.createObjectURL(await response.blob());
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = kind === "template" ? "최초투입전환_템플릿.xlsx" : "최초투입전환_참조.xlsx";
+  document.body.appendChild(anchor); anchor.click(); anchor.remove(); URL.revokeObjectURL(url);
+}
+export function getProjectAssignments(projectId: string, page = 1) {
+  return request<AssignmentRecord[]>(`/project-assignments?project_id=${encodeURIComponent(projectId)}&page=${page}&page_size=20`);
+}
+export function getAssignmentCandidates() {
+  return request<AssignmentCandidate[]>("/project-assignments/candidates", undefined, { authMode: "always" });
+}
+export function validateAssignment(payload: AssignmentInput, id?: string) {
+  return request<AssignmentPreview>(`/project-assignments${id ? `/${encodeURIComponent(id)}` : ""}/validate`, {
+    method: "POST", body: JSON.stringify(payload)
+  }, { authMode: "always" });
+}
+export function saveAssignment(payload: AssignmentInput, id?: string) {
+  return request<{ assignment: AssignmentRecord; message: string }>(`/project-assignments${id ? `/${encodeURIComponent(id)}` : ""}`, {
+    method: id ? "PATCH" : "POST", body: JSON.stringify(payload)
+  }, { authMode: "always" });
+}
+
+export function getUserCapabilities(userId: string) {
+  return request<UserCapabilitiesRecord>(`/users/${userId}/capabilities`, undefined, { authMode: "always" });
+}
+
+export function updateUserCapabilities(userId: string, capabilities: CapabilityCode[]) {
+  return request<UserCapabilitiesRecord>(`/users/${userId}/capabilities`, {
+    method: "PATCH", body: JSON.stringify({ capabilities })
+  });
+}
+
+export function appointAdministrator(userId: string) {
+  return request<UserCapabilitiesRecord>(`/users/${userId}/appoint-admin`, { method: "POST" });
+}
+
+export type MasterExcelPreview = {
+  validation_id: string;
+  file_sha256: string;
+  file_name: string;
+  summary: Record<"new" | "update" | "unchanged" | "error", number>;
+  rows: Array<{ row_number: number; code: string; name: string; action: "new" | "update" | "unchanged" | "error"; changes: Array<{ field: string; before: unknown; after: unknown }> }>;
+  missing: Array<{ code: string; name: string; is_active: boolean }>;
+  issues: Array<{ row_number: number; column: string; message: string }>;
+  warnings: string[];
+};
+
+export type ProjectExcelPreview = MasterExcelPreview;
+
+export function validateProjectWorkbook(file: File) {
+  return request<ProjectExcelPreview>("/project-excel/validate", {
+    method: "POST", body: file,
+    headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "x-upload-filename": encodeURIComponent(file.name) }
+  }, { authMode: "always" });
+}
+
+export function applyProjectWorkbook(preview: ProjectExcelPreview, missingActions: Record<string, "keep" | "deactivate">) {
+  return request<{ counts: Record<string, number>; pre_backup_id: string; message: string }>("/project-excel/apply", {
+    method: "POST", body: JSON.stringify({ validation_id: preview.validation_id, file_sha256: preview.file_sha256, missing_actions: missingActions })
+  }, { authMode: "always" });
+}
+
+export function validatePersonnelWorkbook(file: File, personnelType?: PersonnelTypeCode) {
+  return request<MasterExcelPreview>(`/personnel-excel/validate${personnelType ? `?personnel_type=${personnelType}` : ""}`, {
+    method: "POST", body: file,
+    headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "x-upload-filename": encodeURIComponent(file.name) }
+  }, { authMode: "always" });
+}
+
+export function applyPersonnelWorkbook(preview: MasterExcelPreview, missingActions: Record<string, "keep" | "deactivate">) {
+  return request<{ counts: Record<string, number>; pre_backup_id: string; message: string }>("/personnel-excel/apply", {
+    method: "POST", body: JSON.stringify({ validation_id: preview.validation_id, file_sha256: preview.file_sha256, missing_actions: missingActions })
+  }, { authMode: "always" });
+}
+
+export function downloadPersonnelExcel(ids?: string[]) {
+  return downloadMasterExcel("personnel", ids);
+}
+
+export async function downloadProjectExcel(codes?: string[]) {
+  return downloadMasterExcel("project", codes);
+}
+
+async function downloadMasterExcel(kind: "project" | "personnel", identifiers?: string[]) {
+  const response = await fetch(`${API_BASE_URL}/${kind}-excel/${identifiers === undefined ? "template" : "export"}`, {
+    method: identifiers === undefined ? "GET" : "POST",
+    headers: { ...authHeaders(), ...(identifiers === undefined ? {} : { "Content-Type": "application/json" }) },
+    ...(identifiers === undefined ? {} : { body: JSON.stringify({ [kind === "project" ? "codes" : "ids"]: identifiers }) })
+  });
+  if (!response.ok) {
+    const payload = await response.json() as { error?: { message?: string } };
+    throw new Error(payload.error?.message ?? "엑셀 다운로드에 실패했습니다.");
+  }
+  const url = URL.createObjectURL(await response.blob());
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  const filename = response.headers.get("Content-Disposition")?.match(/filename\*=UTF-8''(.+)/)?.[1];
+  anchor.download = filename ? decodeURIComponent(filename) : `${kind === "project" ? "프로젝트" : "인력"}관리.xlsx`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
 
 export type ApiEnvelope<T> = {
   data: T;
@@ -131,6 +303,7 @@ export type ProjectLogRecord = {
 };
 
 export type PersonnelRecord = {
+  personnel_type: PersonnelTypeCode;
   id: string;
   employee_no: string | null;
   name: string;
@@ -301,29 +474,23 @@ export type DataBackupDetail = {
   file_hash: string;
 };
 
-export type DataBackupValidationIssue = {
-  sheet: string;
-  row_number: number;
-  column: string;
-  input_value: string;
-  level: "error" | "warning";
-  message: string;
+export type DataResetAudit = {
+  id: string; created_at: string; status: "success" | "failed"; actor_name: string;
+  pre_backup_id: string | null; before_counts: Record<string, number>; memo: string | null; message: string;
 };
-
-export type DataBackupValidationResult = {
-  validation_id: string;
-  file_name: string;
-  file_sha256: string;
-  summary: {
-    sheet_count: number;
-    total_rows: number;
-    valid_rows: number;
-    error_rows: number;
-    warning_rows: number;
-    expected_counts: Record<string, number>;
-  };
-  issues: DataBackupValidationIssue[];
+export type DataResetPreview = {
+  enabled: boolean; schema_ready: boolean; validation_id: string | null; confirmation_phrase: string;
+  total: number; counts: Record<string, number>; preserved_tables: string[]; history: DataResetAudit[]; message: string;
 };
+export type DataResetResult = { audit_id: string; pre_backup_id: string; deleted_counts: Record<string, number>; remaining_counts: Record<string, number>; message: string };
+export function getDataResetPreview() {
+  return request<DataResetPreview>("/data-backup/reset/preview", undefined, { authMode: "always" });
+}
+export function resetBusinessData(preview: DataResetPreview, confirmation: string, memo: string) {
+  return request<DataResetResult>("/data-backup/reset", {
+    method: "POST", body: JSON.stringify({ validation_id: preview.validation_id, confirmation, memo: memo || null })
+  }, { authMode: "always" });
+}
 
 export type HolidayListMeta = {
   page?: number;
@@ -358,6 +525,7 @@ export type ListQuery = {
   employment_status?: string;
   role_id?: string;
   scope?: "pmo" | "sales_owner";
+  personnel_type?: PersonnelTypeCode;
   is_active?: boolean;
   job_group?: string;
   year?: number;
@@ -590,29 +758,6 @@ export function deleteDataBackup(backupId: string) {
   }>(
     `/data-backup/backups/${backupId}`,
     { method: "DELETE" },
-    { authMode: "always" }
-  );
-}
-
-export function validateDataBackupWorkbook(file: File) {
-  return request<DataBackupValidationResult>(
-    "/data-backup/validate",
-    {
-      method: "POST",
-      body: file,
-      headers: {
-        "Content-Type": file.type || "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "x-upload-filename": file.name
-      }
-    },
-    { authMode: "always" }
-  );
-}
-
-export function applyDataBackupWorkbook(validation_id: string, memo?: string) {
-  return request<DataBackupRecord>(
-    "/data-backup/apply",
-    { method: "POST", body: JSON.stringify({ validation_id, memo }) },
     { authMode: "always" }
   );
 }

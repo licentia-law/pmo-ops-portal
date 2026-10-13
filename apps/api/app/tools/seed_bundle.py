@@ -10,7 +10,8 @@ from typing import Any
 from sqlalchemy import Boolean, Date, DateTime, Integer, JSON, Numeric, delete
 from sqlalchemy.orm import Session
 
-from app.enums import HolidaySourceKind
+from app.enums import HolidaySourceKind, PersonnelType
+from app.domain.personnel_types import classify_legacy_personnel
 from app.models.core import (
     CurrentAssignmentSnapshot,
     Holiday,
@@ -22,7 +23,9 @@ from app.models.core import (
     ProjectAssignment,
     ProjectCode,
     ProjectLog,
+    Role,
     User,
+    UserCapability,
     WeeklyLoadSnapshot,
 )
 
@@ -53,6 +56,8 @@ def import_seed_bundle(session: Session, seed_dir: str | Path, truncate: bool = 
     directory = resolve_seed_dir(seed_dir)
 
     if truncate:
+        # User reset must not resurrect grants when seed UUIDs are reused.
+        session.execute(delete(UserCapability))
         for _, model in reversed(SEED_SPECS):
             session.execute(delete(model))
         session.flush()
@@ -83,6 +88,14 @@ def import_seed_bundle(session: Session, seed_dir: str | Path, truncate: bool = 
                     payload["source_kind"] = HolidaySourceKind.SEED
                     holiday_date = payload.get("holiday_date")
                     payload["source_year"] = holiday_date.year if isinstance(holiday_date, date) else None
+                if model is Personnel:
+                    if "personnel_type" in payload:
+                        payload["personnel_type"] = PersonnelType(payload["personnel_type"])
+                    else:
+                        role = session.get(Role, payload.get("role_id")) if payload.get("role_id") else None
+                        payload["personnel_type"] = classify_legacy_personnel(
+                            payload.get("group_name"), role.code if role else None, payload.get("role_name"),
+                        )
                 rows.append(model(**payload))
 
         session.add_all(rows)

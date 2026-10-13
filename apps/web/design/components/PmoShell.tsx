@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, type ReactNode } from "react";
-import { MENU_CONFIG, type MenuGroup } from "@pmo/shared-types";
+import { MENU_CONFIG, type MenuGroup, type CapabilityCode } from "@pmo/shared-types";
 
 type ShellIconName =
   | "home"
@@ -38,6 +38,7 @@ type PmoShellUser = {
   role: string;
   permission?: "read_only" | "general_editor" | "project_editor" | "admin";
   organizationRole?: "head" | "team_lead" | "member" | "pm" | "pl" | "other";
+  capabilities?: CapabilityCode[];
 };
 
 type PmoShellProps = {
@@ -144,7 +145,7 @@ export function PmoShell({
   const visibleMenuConfig = MENU_CONFIG.map((group) => {
     if (group.id !== "admin" || !currentUser.permission) return group;
     if (currentUser.permission === "admin") return group;
-    if (currentUser.organizationRole === "head") return { ...group, items: group.items.filter((item) => item.id === "people-employment") };
+    if (currentUser.organizationRole === "head" || user?.capabilities?.includes("personnel_excel_manage")) return { ...group, items: group.items.filter((item) => item.id === "people-employment") };
     return { ...group, items: [] };
   }).filter((group) => group.items.length > 0);
 

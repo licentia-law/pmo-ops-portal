@@ -3,8 +3,8 @@ from sqlalchemy import func, select
 
 from app.api.common import ListParams, apply_text_search, envelope, parse_sort
 from app.api.deps import CurrentUser, DbSession
-from app.domain.people import apply_personnel_scope, require_admin
-from app.models.core import MonthlyEmploymentMM, Personnel, Role
+from app.domain.people import apply_personnel_scope, is_pmo_personnel, require_admin
+from app.models.core import MonthlyEmploymentMM, Personnel
 from app.schemas.people import MonthlyEmploymentMMRead, MonthlyEmploymentMMUpdate
 
 router = APIRouter()
@@ -42,7 +42,6 @@ def list_monthly_employment_mm(
 ) -> dict[str, object]:
     statement = (
         select(MonthlyEmploymentMM).join(Personnel, MonthlyEmploymentMM.personnel_id == Personnel.id, isouter=True)
-        .outerjoin(Role, Personnel.role_id == Role.id)
     )
     statement = apply_personnel_scope(statement, "pmo")
     statement = apply_text_search(
@@ -96,7 +95,7 @@ def update_monthly_employment_mm(
 ) -> dict[str, object]:
     require_admin(user, "월별 재직 MM 수정 권한이 없습니다.")
     row = session.get(MonthlyEmploymentMM, monthly_employment_mm_id)
-    if row is None:
+    if row is None or not is_pmo_personnel(row.personnel):
         raise HTTPException(status_code=404, detail="월별 재직 MM을 찾을 수 없습니다.")
     updates = payload.model_dump(exclude_unset=True)
     next_workdays = updates.get("workdays", row.workdays)

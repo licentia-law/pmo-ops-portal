@@ -1,7 +1,12 @@
 from collections.abc import Mapping
+from collections import defaultdict
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.enums import ProjectStatus, UserPermission
-from app.models.core import Project, User
+from app.models.core import Project, ProjectAssignment, User
+from app.domain.assignments import is_cancelled
 
 ALLOWED_STATUS_TRANSITIONS: dict[ProjectStatus, set[ProjectStatus]] = {
     ProjectStatus.PROPOSING: {ProjectStatus.PRESENTED, ProjectStatus.DROP},
@@ -97,3 +102,31 @@ def get_missing_project_fields(values: Mapping[str, object] | object) -> list[st
 def get_missing_project_create_fields(**values: object) -> list[str]:
     """Backward-compatible entry point for existing project creation callers."""
     return get_missing_project_fields(values)
+
+
+def project_team_members(session: Session, project_ids: list[str]) -> dict[str, list[str]]:
+    if not project_ids:
+        return {}
+    grouped: dict[str, list[str]] = defaultdict(list)
+    seen: dict[str, set[str]] = defaultdict(set)
+    assignments = session.scalars(
+        select(ProjectAssignment)
+        .where(ProjectAssignment.project_id.in_(project_ids))
+        .order_by(ProjectAssignment.sequence_no, ProjectAssignment.created_at)
+    ).all()
+    for assignment in assignments:
+        if is_cancelled(assignment):
+            continue
+        if not assignment.project_id:
+            continue
+        person = assignment.personnel
+        if not person or not person.is_active or not person.name:
+            continue
+        position = (person.position_name or "").strip()
+        member = f"{person.name} {position}".strip()
+        dedup_key = f"{person.id or person.name}|{member}"
+        if dedup_key in seen[assignment.project_id]:
+            continue
+        seen[assignment.project_id].add(dedup_key)
+        grouped[assignment.project_id].append(member)
+    return grouped

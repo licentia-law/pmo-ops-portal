@@ -530,6 +530,8 @@ PATCH  /api/roles/{id}
 
 ### 4.9 인력 엑셀 다운로드/업로드
 
+> 2026-10-13 구현: 전체/PMO/영업/기술/외부 보기와 유형 선택, 유형별 필수값, personnel_id 기반 전용 엑셀 검증·반영·범위 내 누락 유지/비활성화를 적용했다. 상세 컬럼/하위 호환/파생 갱신 경계는 [인력 스키마](../schema/schema_human.md)의 10절, 실제 사본 검증은 [구현 기록](../harness/personnel_excel_rollout_261013.md)을 따른다.
+
 - 다운로드 파일과 업로드 템플릿은 인력 목록의 업무 컬럼을 기준으로 동일하게 구성한다.
 - 내부 식별자 `personnel_id`는 기존 행의 안정적인 수정 식별값으로 사용한다. 신규 행은 비워 둘 수 있으며 서버가 발급한다.
 - 화면 표시용 축약 사번, 임시 UUID, `-` 값은 업로드 식별자나 원본값으로 사용하지 않는다.
@@ -761,13 +763,15 @@ GET /api/monthly-assignment-mm
 
 ```http
 GET    /api/personnel/{id}
-GET    /api/project-assignments?personnelId={id}
+GET    /api/project-assignments?personnel_id={id}
 POST   /api/project-assignments
 PATCH  /api/project-assignments/{id}
-GET    /api/monthly-assignment-mm?personnelId={id}
+GET    /api/monthly-assignment-mm?personnel_id={id}
 ```
 
 ### 6.10 DoD
+
+> 2026-10-13 구현 범위: P3.2 22.1의 6번으로 프로젝트 상세의 별도 배정 원장·등록/수정 모달과 위 공통 API를 구현했다. 역할 6종 SSOT, 상주 enum, 예정/투입/종료/취소, 겹침 경고/확인, 완전 중복 차단, `assignment_manage`, 감사 이력·잠금·롤백을 적용했다. 새 월 기준 MM과 현재 월 이후 투입 MM/오늘 스냅샷/KPI를 연결하며 기존 원본 MM·과거 원장·수동 재직 MM을 보존한다. 상세 계약은 [프로젝트 스키마 8절](../schema/schema_project.md), 사본·실제 스키마 적용은 [6번 기록](../harness/assignment_rollout_261013.md)을 따른다. 이 절 전체 DoD인 인력 상세 라우트/연도별 화면 및 투입 현황 메인 API 연계는 이번에 구현한 것으로 간주하지 않는다.
 
 - 특정 인력의 배정 이력을 조회할 수 있다.
 - 현재 배정과 예정 배정을 구분해 볼 수 있다.

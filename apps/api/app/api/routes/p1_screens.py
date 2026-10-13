@@ -10,7 +10,11 @@ from sqlalchemy import desc, func, select
 
 from app.api.common import envelope
 from app.api.deps import DbSession
+from app.domain.projects import project_team_members as _code_team_members
+from app.domain.people import apply_personnel_scope
+from app.domain.kpi import scoped_kpi_projection
 from app.enums import AssignmentStatus, ProjectAssignmentRole, ProjectStatus, ProjectType
+from app.domain.assignments import is_current_assignment, is_cancelled, base_assignment_mm, representative_rank
 from app.models.core import (
     CurrentAssignmentSnapshot,
     MonthlyKpiSummary,
@@ -227,35 +231,38 @@ def _meta(session: DbSession, as_of: date | None) -> dict[str, Any]:
 
 
 def _latest_snapshot_date(session: DbSession) -> date | None:
-    return session.scalar(select(func.max(CurrentAssignmentSnapshot.as_of_date)))
+    return session.scalar(apply_personnel_scope(
+        select(func.max(CurrentAssignmentSnapshot.as_of_date))
+        .join(Personnel, CurrentAssignmentSnapshot.personnel_id == Personnel.id), "pmo",
+    ))
 
 
 def _latest_kpi(session: DbSession) -> MonthlyKpiSummary | None:
-    return session.scalar(
+    return scoped_kpi_projection(session, session.scalar(
         select(MonthlyKpiSummary)
         .where(MonthlyKpiSummary.organization_name == "PMO본부")
         .order_by(desc(MonthlyKpiSummary.year), desc(MonthlyKpiSummary.month))
-    )
+    ))
 
 
 def _previous_kpi(session: DbSession, kpi: MonthlyKpiSummary | None) -> MonthlyKpiSummary | None:
     if kpi is None:
         return None
-    return session.scalar(
+    return scoped_kpi_projection(session, session.scalar(
         select(MonthlyKpiSummary)
         .where(
             MonthlyKpiSummary.organization_name == kpi.organization_name,
             (MonthlyKpiSummary.year * 100 + MonthlyKpiSummary.month) < (kpi.year * 100 + kpi.month),
         )
         .order_by(desc(MonthlyKpiSummary.year), desc(MonthlyKpiSummary.month))
-    )
+    ))
 
 
 def _snapshot_counts(session: DbSession, as_of: date | None) -> Counter[str]:
     statement = select(CurrentAssignmentSnapshot.representative_status).join(Personnel, CurrentAssignmentSnapshot.personnel_id == Personnel.id)
     if as_of:
         statement = statement.where(CurrentAssignmentSnapshot.as_of_date == as_of)
-    statement = statement.where(Personnel.is_active.is_(True))
+    statement = apply_personnel_scope(statement, "pmo").where(Personnel.is_active.is_(True))
     return Counter(session.scalars(statement).all())
 
 
@@ -353,6 +360,7 @@ def _kpi_trend(session: DbSession) -> dict[str, list[Any]]:
         .where(MonthlyKpiSummary.organization_name == "PMO본부")
         .order_by(desc(MonthlyKpiSummary.year), desc(MonthlyKpiSummary.month))
     ).all()))
+    rows = [scoped_kpi_projection(session, row) for row in rows]
     return {
         "months": [f"{row.year:04d}-{row.month:02d}" for row in rows],
         "utilization": [_num(row.utilization_rate) for row in rows],
@@ -364,7 +372,7 @@ def _team_headcount(session: DbSession, as_of: date | None) -> list[dict[str, An
     statement = select(CurrentAssignmentSnapshot, Personnel).join(Personnel, CurrentAssignmentSnapshot.personnel_id == Personnel.id)
     if as_of:
         statement = statement.where(CurrentAssignmentSnapshot.as_of_date == as_of)
-    statement = statement.where(Personnel.is_active.is_(True))
+    statement = apply_personnel_scope(statement, "pmo").where(Personnel.is_active.is_(True))
     grouped: dict[str, Counter[str]] = defaultdict(Counter)
     for snapshot, person in session.execute(statement).all():
         grouped[person.team_name or "미지정"][snapshot.representative_status] += 1
@@ -570,32 +578,6 @@ def _execution_team_text(session: DbSession, project: Project) -> str:
     return "-"
 
 
-def _code_team_members(session: DbSession, project_ids: list[str]) -> dict[str, list[str]]:
-    if not project_ids:
-        return {}
-    grouped: dict[str, list[str]] = defaultdict(list)
-    seen: dict[str, set[str]] = defaultdict(set)
-    assignments = session.scalars(
-        select(ProjectAssignment)
-        .where(ProjectAssignment.project_id.in_(project_ids))
-        .order_by(ProjectAssignment.sequence_no, ProjectAssignment.created_at)
-    ).all()
-    for assignment in assignments:
-        if not assignment.project_id:
-            continue
-        person = assignment.personnel
-        if not person or not person.is_active or not person.name:
-            continue
-        position = (person.position_name or "").strip()
-        member = f"{person.name} {position}".strip()
-        dedup_key = f"{person.id or person.name}|{member}"
-        if dedup_key in seen[assignment.project_id]:
-            continue
-        seen[assignment.project_id].add(dedup_key)
-        grouped[assignment.project_id].append(member)
-    return grouped
-
-
 def _code_row(session: DbSession, code: ProjectCode, project: Project | None = None, team_members: list[str] | None = None) -> dict[str, Any]:
     if project is None:
         return {
@@ -777,16 +759,7 @@ def _schedule_items(project: Project) -> list[dict[str, Any]]:
 
 
 def _is_active_assignment(assignment: ProjectAssignment, as_of: date) -> bool:
-    if assignment.assignment_type.value == "unassigned":
-        return False
-    status = assignment.assignment_status.value if assignment.assignment_status else ""
-    if status in {AssignmentStatus.PLANNED.value, AssignmentStatus.ENDED.value}:
-        return False
-    if assignment.start_date and assignment.start_date > as_of:
-        return False
-    if assignment.end_date and assignment.end_date < as_of:
-        return False
-    return True
+    return is_current_assignment(assignment, as_of)
 
 
 def _normalize_person_name(value: str | None) -> str:
@@ -890,6 +863,8 @@ def _pm_name_set(project: Project) -> set[str]:
 
 
 def _assignment_window(assignment: ProjectAssignment, project: Project, as_of: date) -> tuple[date, date] | None:
+    if is_cancelled(assignment):
+        return None
     start = assignment.start_date or project.start_date
     end = assignment.end_date or project.end_date or as_of
     if start is None or end is None:
@@ -924,11 +899,7 @@ def _range_days(window: tuple[date, date]) -> int:
 
 
 def _assignment_mm_value(assignment: ProjectAssignment) -> float:
-    return _num(
-        assignment.current_mm
-        if assignment.current_mm is not None
-        else (assignment.total_mm if assignment.total_mm is not None else (assignment.mm or 0))
-    )
+    return base_assignment_mm(assignment)
 
 
 def _assignment_person_key(assignment: ProjectAssignment) -> str | None:
@@ -941,20 +912,28 @@ def _assignment_person_key(assignment: ProjectAssignment) -> str | None:
     return None
 
 
-def _dedupe_assignments_by_person(assignments: list[ProjectAssignment]) -> list[ProjectAssignment]:
+def _dedupe_assignments_by_person(assignments: list[ProjectAssignment], as_of: date | None = None) -> list[ProjectAssignment]:
     # Keep one row per person for UI-level participant views.
     order: list[str] = []
-    deduped: dict[str, ProjectAssignment] = {}
+    grouped: dict[str, list[ProjectAssignment]] = {}
     passthrough: list[ProjectAssignment] = []
     for assignment in assignments:
         key = _assignment_person_key(assignment)
         if key is None:
             passthrough.append(assignment)
             continue
-        if key not in deduped:
+        if key not in grouped:
             order.append(key)
-        deduped[key] = assignment
-    return [deduped[key] for key in order] + passthrough
+        grouped.setdefault(key, []).append(assignment)
+    day = as_of or date.today()
+    rows = []
+    for key in order:
+        current = [row for row in grouped[key] if is_current_assignment(row, day)]
+        if current:
+            rows.append(min(current, key=representative_rank))
+        else:
+            rows.append(max(grouped[key], key=lambda row: (not is_cancelled(row), row.start_date or date.min, row.updated_at or datetime.min)))
+    return rows + passthrough
 
 
 def _position_rank(position_name: str | None) -> int:
@@ -1028,23 +1007,26 @@ def _project_participant_rows(
     assignments_raw: list[ProjectAssignment],
     as_of: date,
 ) -> list[dict[str, Any]]:
-    dedup_assignments = _dedupe_assignments_by_person(assignments_raw)
+    dedup_assignments = _dedupe_assignments_by_person(assignments_raw, as_of)
     deploy_label = {"delivery": "수행", "proposal": "제안", "support": "지원", "unassigned": "-"}
     status_label = {
         AssignmentStatus.ASSIGNED.value: "투입",
         AssignmentStatus.PLANNED.value: "예정",
         AssignmentStatus.ENDED.value: "종료",
+        AssignmentStatus.CANCELLED.value: "취소",
     }
     onsite_label = {"onsite": "상주", "remote": "비상주", "hybrid": "혼합"}
 
     rows: list[dict[str, Any]] = []
     for assignment in dedup_assignments:
+        if is_cancelled(assignment):
+            continue
         display_name = _assignment_person_name(assignment) or "-"
         pm_role_code = _infer_assignment_role(project, assignment, display_name)
-        if pm_role_code:
-            role_code = pm_role_code
-        elif assignment.assignment_role:
+        if assignment.assignment_role:
             role_code = assignment.assignment_role.value
+        elif pm_role_code:
+            role_code = pm_role_code
         elif assignment.assignment_type.value == "proposal":
             role_code = ProjectAssignmentRole.PROPOSAL_TEAM.value
         elif assignment.assignment_type.value == "delivery":

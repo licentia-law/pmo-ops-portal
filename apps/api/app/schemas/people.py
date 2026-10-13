@@ -2,7 +2,7 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
-from app.enums import EmploymentStatus
+from app.enums import EmploymentStatus, PersonnelType
 
 
 class RoleBase(BaseModel):
@@ -36,6 +36,7 @@ class RoleRead(RoleBase):
 
 
 class PersonnelBase(BaseModel):
+    personnel_type: PersonnelType | None = None
     employee_no: str | None = Field(default=None, max_length=50)
     name: str = Field(min_length=1, max_length=100)
     email: str | None = Field(default=None, max_length=255)
@@ -56,6 +57,7 @@ class PersonnelCreate(PersonnelBase):
 
 
 class PersonnelUpdate(BaseModel):
+    personnel_type: PersonnelType | None = None
     employee_no: str | None = Field(default=None, max_length=50)
     name: str | None = Field(default=None, min_length=1, max_length=100)
     email: str | None = Field(default=None, max_length=255)
@@ -72,6 +74,7 @@ class PersonnelUpdate(BaseModel):
 
 
 class PersonnelRead(PersonnelBase):
+    personnel_type: PersonnelType
     id: str
     role_code: str | None = None
     role_name: str | None = None

@@ -1,6 +1,10 @@
 import type {
   AssignmentTypeCode,
+  AssignmentStatusCode,
+  ProjectAssignmentRoleCode,
+  WorkLocationTypeCode,
   EmploymentStatusCode,
+  PersonnelTypeCode,
   ProjectStatusCode,
   ProjectTypeCode,
   UserPermissionCode
@@ -45,6 +49,7 @@ export type ProjectLog = {
 };
 
 export type Personnel = {
+  personnelType: PersonnelTypeCode;
   id: string;
   name: string;
   teamName: string;
@@ -60,6 +65,10 @@ export type ProjectAssignment = {
   startDate: string;
   endDate: string;
   mm: number;
+  assignmentStatus?: AssignmentStatusCode | null;
+  assignmentRole?: ProjectAssignmentRoleCode | null;
+  monthlyBaseMm?: number | null;
+  onsiteType?: WorkLocationTypeCode | null;
 };
 
 export type DashboardSummary = {

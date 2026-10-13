@@ -28,6 +28,35 @@ export const ASSIGNMENT_TYPES = [
   { code: "unassigned", label: "미투입" }
 ] as const;
 
+export const ASSIGNMENT_STATUSES = [
+  { code: "planned", label: "예정" },
+  { code: "assigned", label: "투입" },
+  { code: "ended", label: "종료" },
+  { code: "cancelled", label: "취소" }
+] as const;
+
+export const PROJECT_ASSIGNMENT_ROLES = [
+  { code: "proposal_pm", label: "제안PM" },
+  { code: "presentation_pm", label: "발표PM" },
+  { code: "proposal_team", label: "제안팀" },
+  { code: "delivery_pm", label: "수행PM" },
+  { code: "delivery_team", label: "수행팀" },
+  { code: "support_team", label: "지원팀" }
+] as const;
+
+export const WORK_LOCATION_TYPES = [
+  { code: "onsite", label: "상주" },
+  { code: "remote", label: "비상주" },
+  { code: "hybrid", label: "혼합" }
+] as const;
+
+export const PERSONNEL_TYPES = [
+  { code: "pmo", label: "PMO본부 인력" },
+  { code: "sales", label: "영업대표" },
+  { code: "technical", label: "기술본부 인력" },
+  { code: "external", label: "기타/회사 외부 인력" }
+] as const;
+
 export const EMPLOYMENT_STATUSES = [
   { code: "active", label: "재직" },
   { code: "leave", label: "휴직" },
@@ -42,6 +71,15 @@ export const USER_PERMISSIONS = [
   { code: "general_editor", label: "일반 수정 가능" },
   { code: "project_editor", label: "프로젝트 담당 수정 가능" },
   { code: "admin", label: "관리자" }
+] as const;
+
+export const CAPABILITIES = [
+  { code: "project_excel_manage", label: "프로젝트 엑셀 관리" },
+  { code: "personnel_excel_manage", label: "인력 엑셀 관리" },
+  { code: "assignment_manage", label: "투입 인력 관리" },
+  { code: "backup_restore", label: "백업/복원" },
+  { code: "data_reset", label: "전체 초기화" },
+  { code: "permissions_manage", label: "기능 권한 관리" }
 ] as const;
 
 export const ORGANIZATION_ROLES = [
@@ -75,8 +113,13 @@ export const HOLIDAY_TYPES = [
 export type ProjectStatusCode = (typeof PROJECT_STATUSES)[number]["code"];
 export type ProjectTypeCode = (typeof PROJECT_TYPES)[number]["code"];
 export type AssignmentTypeCode = (typeof ASSIGNMENT_TYPES)[number]["code"];
+export type AssignmentStatusCode = (typeof ASSIGNMENT_STATUSES)[number]["code"];
+export type ProjectAssignmentRoleCode = (typeof PROJECT_ASSIGNMENT_ROLES)[number]["code"];
+export type WorkLocationTypeCode = (typeof WORK_LOCATION_TYPES)[number]["code"];
 export type EmploymentStatusCode = (typeof EMPLOYMENT_STATUSES)[number]["code"];
+export type PersonnelTypeCode = (typeof PERSONNEL_TYPES)[number]["code"];
 export type UserPermissionCode = (typeof USER_PERMISSIONS)[number]["code"];
+export type CapabilityCode = (typeof CAPABILITIES)[number]["code"];
 export type OrganizationRoleCode = (typeof ORGANIZATION_ROLES)[number]["code"];
 export type DataScopeCode = (typeof DATA_SCOPES)[number]["code"];
 export type ReportTypeCode = (typeof REPORT_TYPES)[number]["code"];

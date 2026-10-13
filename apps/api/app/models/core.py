@@ -3,18 +3,20 @@ from __future__ import annotations
 from datetime import date, datetime
 from uuid import uuid4
 
-from sqlalchemy import Boolean, Date, DateTime, Enum, ForeignKey, Integer, JSON, Numeric, String, Text
+from sqlalchemy import Boolean, CheckConstraint, Date, DateTime, Enum, ForeignKey, Integer, JSON, Numeric, String, Text, false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.enums import (
     AssignmentStatus,
     AssignmentType,
+    Capability,
     DataScope,
     EmploymentStatus,
     HolidaySourceKind,
     HolidayType,
     OrganizationRole,
+    PersonnelType,
     ProjectAssignmentRole,
     ProjectStatus,
     ProjectLogStatus,
@@ -47,8 +49,20 @@ class User(Base, TimestampMixin):
     data_scope: Mapped[DataScope] = mapped_column(Enum(DataScope, **ENUM_VALUE_KWARGS), nullable=False, default=DataScope.TEAM)
     organization_role: Mapped[OrganizationRole] = mapped_column(Enum(OrganizationRole, **ENUM_VALUE_KWARGS), nullable=False)
     team_name: Mapped[str | None] = mapped_column(String(100))
+    is_developer: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=false())
     # TODO: organizations/teams 테이블은 scaffolding DTL 7.1에는 있으나 사용자 구현 범위에서 제외됨.
     # 확정 전까지 team_name 문자열로만 시작한다.
+
+
+class UserCapability(Base, TimestampMixin):
+    __tablename__ = "user_capabilities"
+
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    capability: Mapped[Capability] = mapped_column(
+        Enum(Capability, native_enum=False, create_constraint=True, validate_strings=True,
+             name="capability", **ENUM_VALUE_KWARGS), primary_key=True,
+    )
+    granted_by_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
 
 
 class Role(Base, TimestampMixin):
@@ -67,6 +81,11 @@ class Personnel(Base, TimestampMixin):
     __tablename__ = "personnel"
 
     id: Mapped[str] = uuid_pk()
+    personnel_type: Mapped[PersonnelType] = mapped_column(
+        Enum(PersonnelType, native_enum=False, create_constraint=True,
+             validate_strings=True, name="personnel_type", **ENUM_VALUE_KWARGS),
+        nullable=False, index=True,
+    )
     employee_no: Mapped[str | None] = mapped_column(String(50), unique=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     email: Mapped[str | None] = mapped_column(String(255), unique=True)
@@ -153,6 +172,7 @@ class ProjectAssignment(Base, TimestampMixin):
     start_date: Mapped[date | None] = mapped_column(Date)
     end_date: Mapped[date | None] = mapped_column(Date)
     mm: Mapped[float | None] = mapped_column(Numeric(6, 2))
+    monthly_base_mm: Mapped[float | None] = mapped_column(Numeric(6, 2))
     monthly_mm: Mapped[dict | None] = mapped_column(JSON)
     total_mm: Mapped[float | None] = mapped_column(Numeric(8, 2))
     current_mm: Mapped[float | None] = mapped_column(Numeric(8, 2))
@@ -210,6 +230,23 @@ class JobLock(Base):
     locked_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     locked_by: Mapped[str] = mapped_column(String(100), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+class DataResetAudit(Base, TimestampMixin):
+    """Local operation history, excluded from business backup/restore/reset."""
+    __tablename__ = "data_reset_audits"
+    __table_args__ = (CheckConstraint("status IN ('success', 'failed')", name="ck_data_reset_audit_status"),)
+
+    id: Mapped[str] = uuid_pk()
+    validation_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    status: Mapped[str] = mapped_column(String(10), nullable=False)
+    actor_user_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    actor_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    actor_email: Mapped[str] = mapped_column(String(255), nullable=False)
+    pre_backup_id: Mapped[str | None] = mapped_column(String(100))
+    before_counts: Mapped[dict[str, int]] = mapped_column(JSON, nullable=False)
+    memo: Mapped[str | None] = mapped_column(Text)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
 
 
 class MonthlyEmploymentMM(Base, TimestampMixin):

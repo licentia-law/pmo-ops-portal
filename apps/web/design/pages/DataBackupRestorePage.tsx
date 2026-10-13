@@ -1,31 +1,29 @@
 "use client";
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import Link from "next/link";
 import {
-  applyDataBackupWorkbook,
   createDataBackup,
   deleteDataBackup,
   getDataBackupDetail,
   getDataBackupOverview,
   getDevUserContext,
+  getMyCapabilities,
   restoreDataBackup,
-  validateDataBackupWorkbook,
   type DataBackupDetail,
   type DataBackupOverview,
-  type DataBackupValidationResult,
+  type DataResetResult,
   type DevUserContext,
   type UserPermission,
 } from "../../app/lib/api";
 import { PmoShell } from "../components/PmoShell";
 import LightweightLoading from "../components/LightweightLoading";
-import { downloadDataBackupTemplate } from "./dataBackupWorkbookTemplate";
+import DataResetPanel from "../components/DataResetPanel";
 
-type IconName = "archive" | "download" | "upload" | "refresh" | "database" | "users" | "briefcase" | "link" | "clock" | "shield" | "eye" | "trash";
+type IconName = "archive" | "refresh" | "database" | "users" | "briefcase" | "link" | "clock" | "shield" | "eye" | "trash";
 
 const ICONS: Record<IconName, string> = {
   archive: "M4 7h16v3H4zM5 10h14v9a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2zM10 14h4",
-  download: "M12 4v10M8 10l4 4 4-4M5 18h14",
-  upload: "M12 20V10M8 14l4-4 4 4M5 6h14",
   refresh: "M20 12a8 8 0 1 1-2.34-5.66M20 4v6h-6",
   database: "M12 4c4.97 0 9 1.34 9 3s-4.03 3-9 3-9-1.34-9-3 4.03-3 9-3zm9 8c0 1.66-4.03 3-9 3s-9-1.34-9-3m18 4c0 1.66-4.03 3-9 3s-9-1.34-9-3",
   users: "M9 11.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zm7 0a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2 20.5c0-3.5 3.1-6 7-6s7 2.5 7 6M16 14.5c3 .3 6 2.5 6 6",
@@ -80,11 +78,18 @@ function kindLabel(kind: string) {
   const labels: Record<string, string> = {
     manual_backup: "수동 백업",
     upload_before_backup: "업로드 전 백업",
+    project_upload_before_backup: "프로젝트 업로드 전 백업",
+    personnel_upload_before_backup: "인력 업로드 전 백업",
+    upload_personnel_complete: "인력 업로드 완료",
+    upload_personnel_failed: "인력 업로드 실패",
     upload_complete: "업로드 완료",
     upload_failed: "업로드 실패",
     restore_before_backup: "복원 전 백업",
     restore_complete: "복원 완료",
     restore_failed: "복원 실패",
+    reset_before_backup: "초기화 전 백업",
+    reset_complete: "초기화 완료",
+    reset_failed: "초기화 실패",
   };
   return labels[kind] ?? kind;
 }
@@ -173,15 +178,10 @@ export default function DataBackupRestorePage() {
   const [loading, setLoading] = useState(true);
   const [refreshToken, setRefreshToken] = useState(0);
   const [manualBackupMemo, setManualBackupMemo] = useState("");
-  const [uploadMemo, setUploadMemo] = useState("");
   const [restoreMemo, setRestoreMemo] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [validation, setValidation] = useState<DataBackupValidationResult | null>(null);
   const [selectedBackupId, setSelectedBackupId] = useState("");
   const [selectedBackupDetail, setSelectedBackupDetail] = useState<DataBackupDetail | null>(null);
-  const [workingAction, setWorkingAction] = useState<"backup" | "validate" | "apply" | "restore" | "detail" | "delete" | null>(null);
-  const [templateButtonHover, setTemplateButtonHover] = useState(false);
-  const [fileButtonHover, setFileButtonHover] = useState(false);
+  const [workingAction, setWorkingAction] = useState<"backup" | "restore" | "detail" | "delete" | null>(null);
   const [hoveredDeleteBackupId, setHoveredDeleteBackupId] = useState<string | null>(null);
   const [deleteDialogBackupId, setDeleteDialogBackupId] = useState<string | null>(null);
   const [restoreDialogBackupId, setRestoreDialogBackupId] = useState<string | null>(null);
@@ -191,6 +191,22 @@ export default function DataBackupRestorePage() {
   const [error, setError] = useState<string | null>(null);
 
   const canAccess = permission === "admin";
+  const [canImportAssignments, setCanImportAssignments] = useState(false);
+  const [canReset, setCanReset] = useState(false);
+  const [resetResult, setResetResult] = useState<DataResetResult | null>(null);
+  const [capabilityError, setCapabilityError] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    void getMyCapabilities().then((result) => {
+      if (active) {
+        setCanImportAssignments(result.data.capabilities.includes("assignment_manage"));
+        setCanReset((result.data.is_developer || result.data.permission === "admin") && result.data.capabilities.includes("data_reset") && result.data.capabilities.includes("backup_restore"));
+      }
+    }).catch((failure: unknown) => {
+      if (active) { setCanImportAssignments(false); setCanReset(false); setCapabilityError(failure instanceof Error ? failure.message : "기능 권한 조회 실패"); }
+    });
+    return () => { active = false; };
+  }, []);
   const backups = overview?.backups ?? [];
   const restoreHistory = overview?.restore_history ?? [];
   const uploadHistory = overview?.upload_history ?? [];
@@ -259,48 +275,6 @@ export default function DataBackupRestorePage() {
     }
   }
 
-  async function handleValidate() {
-    if (!selectedFile) {
-      setError("검증할 파일을 먼저 선택해 주세요.");
-      return;
-    }
-    setWorkingAction("validate");
-    setError(null);
-    try {
-      const response = await validateDataBackupWorkbook(selectedFile);
-      setValidation(response.data);
-    } catch (nextError) {
-      setValidation(null);
-      setError(nextError instanceof Error ? nextError.message : "검증에 실패했습니다.");
-    } finally {
-      setWorkingAction(null);
-    }
-  }
-
-  async function handleApply() {
-    if (!validation?.validation_id) {
-      setError("먼저 검증을 실행해 주세요.");
-      return;
-    }
-    if ((validation.summary.error_rows ?? 0) > 0) {
-      setError("오류가 있는 검증 결과는 반영할 수 없습니다.");
-      return;
-    }
-    setWorkingAction("apply");
-    setError(null);
-    try {
-      await applyDataBackupWorkbook(validation.validation_id, uploadMemo || undefined);
-      setSelectedFile(null);
-      setValidation(null);
-      setUploadMemo("");
-      await refreshOverview();
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "전체 교체 반영에 실패했습니다.");
-    } finally {
-      setWorkingAction(null);
-    }
-  }
-
   async function handleSelectBackup(backupId: string) {
     setSelectedBackupId(backupId);
     setRestoreNotice(null);
@@ -362,6 +336,7 @@ export default function DataBackupRestorePage() {
     setError(null);
     try {
       await restoreDataBackup(backupId, restoreMemo || undefined);
+      setResetResult(null);
       setRestoreMemo("");
       setRestoreDialogBackupId(null);
       await refreshOverview();
@@ -386,18 +361,19 @@ export default function DataBackupRestorePage() {
       user={{ name: userContext?.name ?? "관리자", team: userContext?.team ?? "PMO본부", role: userContext?.role ?? "관리자", permission }}
       notifications={3}
       currentId="admin-data-backup"
-      pageTitle="데이터 백업/업로드/복원"
+      pageTitle="데이터 백업/복원"
     >
       {!canAccess ? (
         <section className="pmo-panel" style={{ padding: 24 }}>
           <h2 style={{ margin: "0 0 8px", fontSize: 20 }}>권한 없음</h2>
-          <p style={{ margin: 0, color: "var(--tx-4)", fontWeight: 600 }}>관리자 권한이 있어야 데이터 백업/업로드/복원 화면에 접근할 수 있습니다.</p>
+          <p style={{ margin: 0, color: "var(--tx-4)", fontWeight: 600 }}>관리자 권한이 있어야 데이터 백업/복원 화면에 접근할 수 있습니다.</p>
         </section>
       ) : loading ? (
-        <LightweightLoading label="데이터 백업/업로드/복원 화면" />
+        <LightweightLoading label="데이터 백업/복원 화면" />
       ) : (
         <>
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          {canImportAssignments && <section className="pmo-panel" style={{ padding: 20 }}><Link href="/admin/assignment-import">최초 원본 전환용 투입 배정 도구</Link><p>마스터 등록 후 별도 전환 환경에서 한 번만 반영합니다.</p></section>}
           <section style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 14 }}>
             {summaryCards.map((card) => (
               <SummaryCard key={card.title} {...card} />
@@ -497,110 +473,8 @@ export default function DataBackupRestorePage() {
           </section>
 
           <section className="pmo-panel" style={{ padding: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 14 }}>
-              <div>
-                <h2 style={{ margin: "0 0 4px", fontSize: 20 }}>2. 통합 엑셀 검증/업로드</h2>
-                <p style={{ margin: 0, color: "var(--tx-4)", fontWeight: 600 }}>기존 프로젝트/인력 다운로드 양식 기반 템플릿으로 검증 후 전체 교체 반영합니다.</p>
-              </div>
-              <button
-                className="pmo-btn pmo-btn-secondary"
-                onMouseEnter={() => setTemplateButtonHover(true)}
-                onMouseLeave={() => setTemplateButtonHover(false)}
-                onClick={() => void downloadDataBackupTemplate()}
-                style={{
-                  background: templateButtonHover ? "var(--brand)" : "#fff",
-                  color: templateButtonHover ? "#fff" : "var(--tx-2)",
-                  borderColor: templateButtonHover ? "var(--brand)" : "var(--line-2)",
-                  fontWeight: templateButtonHover ? 700 : 600,
-                }}
-              >
-                <Icon name="download" size={16} style={{ marginRight: 6 }} />
-                통합 엑셀 템플릿 다운로드
-              </button>
-            </div>
-            <div className="pmo-panel" style={{ padding: 18, borderStyle: "dashed", background: "var(--bg-2)", marginBottom: 14 }}>
-              <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <strong style={{ fontSize: 16 }}>업로드 파일 선택</strong>
-                  <span style={{ color: "var(--tx-4)", fontWeight: 600 }}>{selectedFile ? `${selectedFile.name} (${formatBytes(selectedFile.size)})` : "선택된 파일이 없습니다. xlsx, 20MB 이하"}</span>
-                </div>
-                <label
-                  className="pmo-btn pmo-btn-secondary"
-                  style={{
-                    cursor: "pointer",
-                    background: fileButtonHover ? "var(--brand)" : "#fff",
-                    color: fileButtonHover ? "#fff" : "var(--tx-2)",
-                    borderColor: fileButtonHover ? "var(--brand)" : "var(--line-2)",
-                    fontWeight: fileButtonHover ? 700 : 600,
-                  }}
-                  onMouseEnter={() => setFileButtonHover(true)}
-                  onMouseLeave={() => setFileButtonHover(false)}
-                >
-                  <Icon name="upload" size={16} style={{ marginRight: 6 }} />
-                  파일 선택
-                  <input
-                    type="file"
-                    accept=".xlsx"
-                    style={{ display: "none" }}
-                    onChange={(event) => {
-                      const file = event.target.files?.[0] ?? null;
-                      setSelectedFile(file);
-                      setValidation(null);
-                    }}
-                  />
-                </label>
-              </div>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto auto", gap: 12, alignItems: "center", marginBottom: 16 }}>
-              <input value={uploadMemo} onChange={(event) => setUploadMemo(event.target.value)} placeholder="반영 메모를 입력하세요." style={MEMO_INPUT_STYLE} />
-              <button className="pmo-btn pmo-btn-secondary" onClick={() => void handleValidate()} disabled={!selectedFile || workingAction === "validate"}>검증 실행</button>
-              <button className="pmo-btn pmo-btn-primary" onClick={() => void handleApply()} disabled={!validation || (validation.summary.error_rows ?? 0) > 0 || workingAction === "apply"} style={{ background: "var(--brand)", borderColor: "var(--brand)", color: "#fff" }}>
-                전체 교체 반영
-              </button>
-            </div>
-            {validation ? (
-              <>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gap: 12, marginBottom: 14 }}>
-                  <SummaryCard title="시트 수" value={formatNumber(validation.summary.sheet_count)} unit="개" icon="database" tone={{ bg: "#eef1ff", fg: "#4f46e5" }} />
-                  <SummaryCard title="전체 행" value={formatNumber(validation.summary.total_rows)} unit="행" icon="archive" tone={{ bg: "#eaf3ff", fg: "#2563eb" }} />
-                  <SummaryCard title="정상 행" value={formatNumber(validation.summary.valid_rows)} unit="행" icon="shield" tone={{ bg: "#e8fbf2", fg: "#059669" }} />
-                  <SummaryCard title="오류 행" value={formatNumber(validation.summary.error_rows)} unit="행" icon="upload" tone={{ bg: "#fff1f2", fg: "#dc2626" }} />
-                  <SummaryCard title="경고 행" value={formatNumber(validation.summary.warning_rows)} unit="행" icon="clock" tone={{ bg: "#fff7ed", fg: "#ea580c" }} />
-                  <SummaryCard title="검증 ID" value={validation.validation_id.slice(-8)} unit="" icon="eye" tone={{ bg: "#f5f3ff", fg: "#6d28d9" }} />
-                </div>
-                <div className="pmo-panel" style={{ padding: "12px 14px", background: "var(--bg-2)", marginBottom: 14, fontWeight: 700, color: "var(--tx-3)" }}>
-                  예상 반영 건수: 프로젝트코드 {formatNumber(validation.summary.expected_counts.project_codes)}건 · 프로젝트 {formatNumber(validation.summary.expected_counts.projects)}건 · 인력 {formatNumber(validation.summary.expected_counts.personnel)}건 · 배정 {formatNumber(validation.summary.expected_counts.project_assignments)}건
-                </div>
-                <div style={{ overflowX: "auto" }}>
-                  <table className="pmo-table pmo-table--recent" style={{ tableLayout: "fixed", width: "100%" }}>
-                    <thead>
-                      <tr>
-                        <th>시트</th>
-                        <th>행 번호</th>
-                        <th>컬럼</th>
-                        <th>입력값</th>
-                        <th>구분</th>
-                        <th>메시지</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {validation.issues.length === 0 ? (
-                        <tr><td colSpan={6} style={{ textAlign: "center", color: "var(--tx-4)" }}>오류/경고가 없습니다.</td></tr>
-                      ) : validation.issues.map((issue, index) => (
-                        <tr key={`${issue.sheet}-${issue.row_number}-${issue.column}-${index}`}>
-                          <td style={TABLE_CELL_STYLE}>{issue.sheet}</td>
-                          <td style={TABLE_CELL_STYLE}>{issue.row_number || "-"}</td>
-                          <td style={TABLE_CELL_STYLE}>{issue.column}</td>
-                          <td style={TABLE_CELL_STYLE}>{issue.input_value || "-"}</td>
-                          <td style={{ ...TABLE_CELL_STYLE, color: issue.level === "error" ? "var(--crit)" : "#ea580c", fontWeight: 800 }}>{issue.level === "error" ? "오류" : "경고"}</td>
-                          <td style={{ ...TABLE_CELL_STYLE, whiteSpace: "normal", wordBreak: "break-word" }}>{issue.message}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            ) : null}
+            <h2 style={{ margin: "0 0 8px", fontSize: 20 }}>엑셀 반영 이력 (조회 전용)</h2>
+            <p style={{ margin: 0, color: "var(--tx-4)", fontWeight: 600 }}>프로젝트·인력 관리의 엑셀 반영 이력과 기존 작업 기록을 보존합니다. 엑셀 파일은 각 관리 화면에서 처리해 주세요.</p>
             {uploadHistory.length > 0 ? (
               <div style={{ marginTop: 18, overflowX: "auto" }}>
                 <table className="pmo-table pmo-table--recent" style={{ tableLayout: "fixed", width: "100%" }}>
@@ -627,12 +501,13 @@ export default function DataBackupRestorePage() {
                 </table>
               </div>
             ) : null}
+            {uploadHistory.length === 0 ? <p style={{ color: "var(--tx-4)" }}>엑셀 반영 이력이 없습니다.</p> : null}
           </section>
 
           <section className="pmo-panel" style={{ padding: 20 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 14 }}>
               <div>
-                <h2 style={{ margin: "0 0 4px", fontSize: 20 }}>3. 데이터 복원</h2>
+                <h2 style={{ margin: "0 0 4px", fontSize: 20 }}>2. 데이터 복원</h2>
                 <p style={{ margin: 0, color: "var(--tx-4)", fontWeight: 600 }}>선택한 백업 세트로 현재 개발 데이터를 전체 복원합니다.</p>
               </div>
               <button className="pmo-btn pmo-btn-primary" onClick={() => void handleRestoreClick()} disabled={workingAction === "restore"} style={{ background: "var(--brand)", borderColor: "var(--brand)", color: "#fff" }}>
@@ -657,7 +532,7 @@ export default function DataBackupRestorePage() {
                 ) : null}
                 <input value={restoreMemo} onChange={(event) => setRestoreMemo(event.target.value)} placeholder="복원 메모를 입력하세요." style={{ ...MEMO_INPUT_STYLE, marginBottom: 12 }} />
                 <div style={{ overflowX: "auto" }}>
-                  <table className="pmo-table pmo-table--recent" style={{ tableLayout: "fixed", width: "100%" }}>
+                  <table className="pmo-table pmo-table--recent" style={{ tableLayout: "fixed", width: "100%", minWidth: 960 }}>
                     <thead>
                       <tr>
                         <th style={COMPACT_TABLE_HEAD_STYLE}>생성일시</th>
@@ -714,6 +589,8 @@ export default function DataBackupRestorePage() {
               ) : null}
             </div>
           </section>
+          <DataResetPanel allowed={canReset} refreshToken={refreshToken} result={resetResult} formatTime={formatDateTime} authorizationError={capabilityError}
+            onReset={(result) => { setResetResult(result); setSelectedBackupDetail(null); setSelectedBackupId(""); setRefreshToken((value) => value + 1); }} />
           </div>
 
           {restoreDialogBackupId ? (

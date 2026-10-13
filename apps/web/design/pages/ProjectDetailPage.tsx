@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { getP1ScreenWithQuery, updateProject, updateProjectLog } from "../../app/lib/api";
 import { PmoShell } from "../components/PmoShell";
 import ProjectMasterEditModal from "../components/ProjectMasterEditModal";
+import ProjectAssignmentsPanel from "../components/ProjectAssignmentsPanel";
 
 type IconName =
   | "home" | "briefcase" | "users" | "trending" | "settings"
@@ -461,6 +462,7 @@ export default function ProjectDetailPage() {
       </div>
     </section>
     <AssignmentsPanel rows={data.assignments} />
+    <ProjectAssignmentsPanel key={data.project.id} projectId={data.project.id} onSaved={async () => { const response = await getP1ScreenWithQuery("project-detail", query ?? undefined); setData(response.data); }} />
     <RecentLogsPanel logs={data.logs} onEdit={openEdit} />
     {editForm ? <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.4)", zIndex: 40, display: "flex", justifyContent: "center", alignItems: "center", padding: 20 }}>
       <aside className="pmo-panel" style={{ width: "min(840px, 92vw)", borderRadius: 12, display: "flex", flexDirection: "column", overflow: "hidden" }}>

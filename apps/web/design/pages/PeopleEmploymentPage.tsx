@@ -1,9 +1,12 @@
 "use client";
 
+import { PERSONNEL_TYPES, type PersonnelTypeCode } from "@pmo/shared-types";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   createPersonnel,
   getDevUserContext,
+  getMyCapabilities,
+  downloadPersonnelExcel,
   listPersonnel,
   listRoles,
   updatePersonnel,
@@ -15,12 +18,12 @@ import {
 } from "../../app/lib/api";
 import { PmoShell } from "../components/PmoShell";
 import LightweightLoading from "../components/LightweightLoading";
-import { downloadPersonnelWorkbook } from "./personnelWorkbookExport";
+import PersonnelWorkbookImportModal from "../components/PersonnelWorkbookImportModal";
 
 type EmploymentStatus = PersonnelRecord["employment_status"];
 type SummaryKey = "all" | "active" | "leave" | "transferred" | "retired";
 type UseStatus = "전체" | "사용" | "미사용";
-type PeopleViewMode = "pmo" | "sales_owner";
+type PeopleViewMode = PersonnelTypeCode | "all";
 
 type FilterForm = {
   q: string;
@@ -29,6 +32,7 @@ type FilterForm = {
 };
 
 type PersonnelForm = {
+  personnel_type: PersonnelTypeCode;
   employee_no: string;
   name: string;
   email: string;
@@ -173,6 +177,7 @@ function requiredMark(label: string) {
 
 function makeCreateForm(): PersonnelForm {
   return {
+    personnel_type: "pmo",
     employee_no: "",
     name: "",
     email: "",
@@ -190,6 +195,7 @@ function makeCreateForm(): PersonnelForm {
 
 function formFromRecord(row: PersonnelRecord): PersonnelForm {
   return {
+    personnel_type: row.personnel_type,
     employee_no: row.employee_no ?? "",
     name: row.name ?? "",
     email: row.email ?? "",
@@ -300,9 +306,10 @@ function PersonnelEditModal({
   useEffect(() => {
     if (!open) return;
     const initial = mode === "create" ? makeCreateForm() : row ? formFromRecord(row) : null;
-    if (initial && mode === "create" && viewMode === "sales_owner") {
-      initial.group_name = "";
-      initial.role_id = roles.find((role) => role.code === "SALES_OWNER")?.id ?? "";
+    if (initial && mode === "create") {
+      initial.personnel_type = viewMode === "all" ? "pmo" : viewMode;
+      initial.group_name = initial.personnel_type === "pmo" ? "PMO본부" : "";
+      if (initial.personnel_type === "sales") initial.role_id = roles.find(role => role.code === "SALES_OWNER" && role.is_active)?.id ?? "";
     }
     setForm(initial);
     setSaving(false);
@@ -312,9 +319,11 @@ function PersonnelEditModal({
 
   if (!open || !form) return null;
 
-  const formDisabled = !canEditFull;
-  const statusDisabled = mode === "create" ? !canEditFull : !canChangeStatus;
-  const useStatusDisabled = !canEditFull;
+  const formDisabled = !canEditFull || saving;
+  const isPmo = form.personnel_type === "pmo";
+  const mark = (label: string, required: boolean) => required ? requiredMark(label) : label;
+  const statusDisabled = saving || (mode === "create" ? !canEditFull : !canChangeStatus);
+  const useStatusDisabled = formDisabled;
   const clearFieldError = (key: keyof PersonnelForm) => setFieldErrors((prev) => {
     if (!prev[key]) return prev;
     const next = { ...prev };
@@ -337,20 +346,25 @@ function PersonnelEditModal({
 
   const validate = () => {
     const errors: FieldErrorMap = {};
-    const isSalesOwner = roles.find((role) => role.id === form.role_id)?.code === "SALES_OWNER";
+    if (!canEditFull && mode === "edit") return { errors, firstKey: null };
+    const isSalesOwner = form.personnel_type === "sales";
     if (!form.name.trim()) errors.name = "성명은(는) 필수입니다.";
     if (!form.group_name.trim()) errors.group_name = "본부는(는) 필수입니다.";
-    if (!form.team_name.trim()) errors.team_name = "팀은(는) 필수입니다.";
+    if (form.personnel_type === "pmo" && !form.team_name.trim()) errors.team_name = "팀은(는) 필수입니다.";
     if (!form.position_name.trim()) errors.position_name = "직위는(는) 필수입니다.";
-    if (!form.role_id.trim()) errors.role_id = "역할은 필수입니다.";
+    if (isSalesOwner && roles.find(role => role.id === form.role_id)?.code !== "SALES_OWNER") errors.role_id = "영업대표 역할이 필요합니다.";
+    if (!isSalesOwner && roles.find(role => role.id === form.role_id)?.code === "SALES_OWNER") errors.role_id = "영업대표 역할은 영업 유형에서만 사용할 수 있습니다.";
     if (isSalesOwner) {
       if (form.group_name.trim() === "PMO본부") errors.group_name = "영업대표의 본부는 PMO본부로 지정할 수 없습니다.";
-    } else {
+    }
+    if (form.personnel_type === "pmo") {
       if (!form.employee_no.trim()) errors.employee_no = "사번은(는) 필수입니다.";
       if (!form.email.trim()) errors.email = "이메일은(는) 필수입니다.";
       if (!form.employment_status.trim()) errors.employment_status = "재직 상태는 필수입니다.";
       if (!form.mm_start_date.trim()) errors.mm_start_date = "MM 시작일은(는) 필수입니다.";
     }
+    if (form.mm_start_date && form.mm_end_date && form.mm_start_date > form.mm_end_date) errors.mm_end_date = "종료일이 시작일보다 빠를 수 없습니다.";
+    if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) errors.email = "이메일 형식을 확인해 주세요.";
     const firstKey = (Object.keys(errors)[0] as keyof PersonnelForm | undefined) ?? null;
     return { errors, firstKey };
   };
@@ -365,8 +379,9 @@ function PersonnelEditModal({
     setSaving(true);
     setSaveError(null);
     try {
-      const isSalesOwner = roles.find((role) => role.id === form.role_id)?.code === "SALES_OWNER";
+      const isSalesOwner = form.personnel_type === "sales";
       const fullPayload: Partial<PersonnelRecord> = {
+        personnel_type: form.personnel_type,
         employee_no: optional(form.employee_no),
         name: form.name.trim(),
         email: optional(form.email),
@@ -377,7 +392,6 @@ function PersonnelEditModal({
         employment_status: isSalesOwner ? "active" : form.employment_status,
         mm_start_date: isSalesOwner ? null : optional(form.mm_start_date),
         mm_end_date: isSalesOwner ? null : optional(form.mm_end_date),
-        yearly_mm: null,
         is_active: form.is_active,
         note: optional(form.note),
       };
@@ -416,44 +430,45 @@ function PersonnelEditModal({
             </section>
           ) : null}
 
+          <label className="pmo-field" data-personnel-field="personnel_type" style={{ marginBottom: 16 }}><span>{requiredMark("인력 유형")}</span>
+            <select disabled={formDisabled} value={form.personnel_type} style={FORM_INPUT_STYLE} onChange={event => {
+              const kind = event.target.value as PersonnelTypeCode;
+              setForm(previous => previous ? { ...previous, personnel_type: kind,
+                group_name: kind === "pmo" ? previous.group_name || "PMO본부" : previous.group_name === "PMO본부" ? "" : previous.group_name,
+                role_id: kind === "sales" ? roles.find(role => role.code === "SALES_OWNER" && role.is_active)?.id ?? "" : roles.find(role => role.id === previous.role_id)?.code === "SALES_OWNER" ? "" : previous.role_id } : previous);
+              setFieldErrors({});
+            }}>{PERSONNEL_TYPES.map(kind => <option key={kind.code} value={kind.code}>{kind.label}</option>)}</select>
+          </label>
           <section className="pmo-panel" style={GROUP_SECTION_STYLE}>
             <h4 style={GROUP_TITLE_STYLE}>인력 기본정보</h4>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 }}>
-              <label className="pmo-field" data-personnel-field="employee_no"><span style={labelStyle("employee_no")}>{requiredMark("사번")}</span><input disabled={formDisabled} value={form.employee_no} onChange={(e) => setField("employee_no", e.target.value)} placeholder="회사 사번 기입" style={{ ...FORM_INPUT_STYLE, ...errorStyle("employee_no") }} /></label>
+              <label className="pmo-field" data-personnel-field="employee_no"><span style={labelStyle("employee_no")}>{mark("사번", isPmo)}</span><input disabled={formDisabled} value={form.employee_no} onChange={(e) => setField("employee_no", e.target.value)} placeholder="회사 사번 기입" style={{ ...FORM_INPUT_STYLE, ...errorStyle("employee_no") }} /></label>
               <label className="pmo-field" data-personnel-field="name"><span style={labelStyle("name")}>{requiredMark("성명")}</span><input disabled={formDisabled} value={form.name} onChange={(e) => setField("name", e.target.value)} style={{ ...FORM_INPUT_STYLE, ...errorStyle("name") }} /></label>
-              <label className="pmo-field" data-personnel-field="email"><span style={labelStyle("email")}>{requiredMark("이메일")}</span><input disabled={formDisabled} value={form.email} onChange={(e) => setField("email", e.target.value)} placeholder="abcd@cmtinfo.co.kr" style={{ ...FORM_INPUT_STYLE, ...errorStyle("email") }} /></label>
+              <label className="pmo-field" data-personnel-field="email"><span style={labelStyle("email")}>{mark("이메일", isPmo)}</span><input disabled={formDisabled} value={form.email} onChange={(e) => setField("email", e.target.value)} placeholder="abcd@cmtinfo.co.kr" style={{ ...FORM_INPUT_STYLE, ...errorStyle("email") }} /></label>
               <label className="pmo-field" data-personnel-field="employment_status"><span style={labelStyle("employment_status")}>{requiredMark("재직 상태")}</span><select disabled={statusDisabled} value={form.employment_status} onChange={(e) => setField("employment_status", e.target.value as EmploymentStatus)} style={{ ...FORM_INPUT_STYLE, ...errorStyle("employment_status") }}>{EMPLOYMENT_STATUS_SELECT_OPTIONS.map((code) => <option key={code} value={code}>{EMPLOYMENT_STATUS_LABEL[code]}</option>)}</select></label>
               <label className="pmo-field" data-personnel-field="group_name">
                 <span style={labelStyle("group_name")}>{requiredMark("본부")}</span>
-                <select disabled={formDisabled} value={form.group_name} onChange={(e) => setField("group_name", e.target.value)} style={{ ...FORM_INPUT_STYLE, ...errorStyle("group_name") }}>
-                  {groupOptions.includes(form.group_name) ? null : <option value={form.group_name}>{form.group_name || "선택 안함"}</option>}
-                  {groupOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-                </select>
+                <input disabled={formDisabled} value={form.group_name} onChange={event => setField("group_name", event.target.value)} list="personnel-group-options" style={{ ...FORM_INPUT_STYLE, ...errorStyle("group_name") }} />
+                <datalist id="personnel-group-options">{groupOptions.map(option => <option key={option} value={option} />)}</datalist>
               </label>
               <label className="pmo-field" data-personnel-field="team_name">
-                <span style={labelStyle("team_name")}>{requiredMark("팀")}</span>
-                <select disabled={formDisabled} value={form.team_name} onChange={(e) => setField("team_name", e.target.value)} style={{ ...FORM_INPUT_STYLE, ...errorStyle("team_name") }}>
-                  <option value="">선택 안함</option>
-                  {teamOptions.includes(form.team_name) ? null : form.team_name ? <option value={form.team_name}>{form.team_name}</option> : null}
-                  {teamOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-                </select>
+                <span style={labelStyle("team_name")}>{mark("팀", isPmo)}</span>
+                <input disabled={formDisabled} value={form.team_name} onChange={event => setField("team_name", event.target.value)} list="personnel-team_name-options" style={{ ...FORM_INPUT_STYLE, ...errorStyle("team_name") }} />
+                <datalist id="personnel-team_name-options">{teamOptions.filter(option => option !== "전체").map(option => <option key={option} value={option} />)}</datalist>
               </label>
               <label className="pmo-field" data-personnel-field="position_name">
                 <span style={labelStyle("position_name")}>{requiredMark("직위")}</span>
-                <select disabled={formDisabled} value={form.position_name} onChange={(e) => setField("position_name", e.target.value)} style={{ ...FORM_INPUT_STYLE, ...errorStyle("position_name") }}>
-                  <option value="">선택 안함</option>
-                  {positionOptions.includes(form.position_name) ? null : form.position_name ? <option value={form.position_name}>{form.position_name}</option> : null}
-                  {positionOptions.map((option) => <option key={option} value={option}>{option}</option>)}
-                </select>
+                <input disabled={formDisabled} value={form.position_name} onChange={event => setField("position_name", event.target.value)} list="personnel-position_name-options" style={{ ...FORM_INPUT_STYLE, ...errorStyle("position_name") }} />
+                <datalist id="personnel-position_name-options">{positionOptions.filter(option => option !== "전체").map(option => <option key={option} value={option} />)}</datalist>
               </label>
-              <label className="pmo-field" data-personnel-field="role_id" style={{ gridColumn: "4 / 5" }}><span style={labelStyle("role_id")}>{requiredMark("역할")}</span><select disabled={formDisabled} value={form.role_id} onChange={(e) => setField("role_id", e.target.value)} style={{ ...FORM_INPUT_STYLE, ...errorStyle("role_id") }}><option value="">선택 안함</option>{sortedRoles.map((role) => <option key={role.id} value={role.id}>{role.name}{role.job_group ? ` / ${role.job_group}` : ""}</option>)}</select></label>
+              <label className="pmo-field" data-personnel-field="role_id" style={{ gridColumn: "4 / 5" }}><span style={labelStyle("role_id")}>{mark("역할", form.personnel_type === "sales")}</span><select disabled={formDisabled} value={form.role_id} onChange={(e) => setField("role_id", e.target.value)} style={{ ...FORM_INPUT_STYLE, ...errorStyle("role_id") }}><option value="">선택 안함</option>{sortedRoles.map((role) => <option key={role.id} value={role.id}>{role.name}{role.job_group ? ` / ${role.job_group}` : ""}</option>)}</select></label>
             </div>
           </section>
 
           <section className="pmo-panel" style={GROUP_SECTION_STYLE}>
             <h4 style={GROUP_TITLE_STYLE}>재직/MM 기준</h4>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 10 }}>
-              <label className="pmo-field" data-personnel-field="mm_start_date"><span style={labelStyle("mm_start_date")}>{requiredMark("MM 시작일")}</span><input disabled={formDisabled} type="date" value={form.mm_start_date} onChange={(e) => setField("mm_start_date", e.target.value)} style={{ ...FORM_INPUT_STYLE, ...errorStyle("mm_start_date") }} /></label>
+              <label className="pmo-field" data-personnel-field="mm_start_date"><span style={labelStyle("mm_start_date")}>{mark("MM 시작일", isPmo)}</span><input disabled={formDisabled} type="date" value={form.mm_start_date} onChange={(e) => setField("mm_start_date", e.target.value)} style={{ ...FORM_INPUT_STYLE, ...errorStyle("mm_start_date") }} /></label>
               <label className="pmo-field"><span>MM 종료일</span><input disabled={formDisabled} type="date" value={form.mm_end_date} onChange={(e) => setField("mm_end_date", e.target.value)} style={FORM_INPUT_STYLE} /></label>
             </div>
           </section>
@@ -494,14 +509,23 @@ export default function PeopleEmploymentPage() {
   const [modal, setModal] = useState<{ mode: "create" | "edit"; row: PersonnelRecord | null } | null>(null);
   const [userContext, setUserContext] = useState<DevUserContext | null>(null);
   const [downloadHover, setDownloadHover] = useState(false);
+  const [canManageExcel, setCanManageExcel] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [downloadBusy, setDownloadBusy] = useState(false);
+  const [workbookError, setWorkbookError] = useState<string | null>(null);
+  const [workbookMessage, setWorkbookMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setUserContext(getDevUserContext());
+    let alive = true;
+    getMyCapabilities().then(result => { if (alive) setCanManageExcel(result.data.capabilities.includes("personnel_excel_manage")); })
+      .catch(reason => { if (alive) setWorkbookError(reason instanceof Error ? reason.message : "엑셀 권한을 확인할 수 없습니다."); });
+    return () => { alive = false; };
   }, []);
 
   const permission = userContext?.permission ?? ("admin" as UserPermission);
   const organizationRole = userContext?.organizationRole ?? ("other" as OrganizationRole);
-  const canAccess = permission === "admin" || organizationRole === "head";
+  const canAccess = permission === "admin" || organizationRole === "head" || canManageExcel;
   const canCreate = permission === "admin";
   const canEditFull = permission === "admin";
   const canChangeStatus = permission === "admin" || organizationRole === "head";
@@ -533,7 +557,7 @@ export default function PeopleEmploymentPage() {
             page: nextPage,
             page_size: 100,
             sort: "name",
-            scope: viewMode,
+            personnel_type: viewMode === "all" ? undefined : viewMode,
             q: appliedFilter.q.trim() || undefined,
             team_name: appliedFilter.teamName === "전체" ? undefined : appliedFilter.teamName,
             is_active:
@@ -561,17 +585,18 @@ export default function PeopleEmploymentPage() {
       setAllRows([]);
       setRoles([]);
       setError(reason instanceof Error ? reason.message : "인력 관리 데이터를 조회하지 못했습니다.");
+      throw reason;
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    void loadData();
+    void loadData().catch(() => undefined);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appliedFilter, userContext, viewMode]);
+  }, [appliedFilter, userContext, viewMode, canManageExcel]);
 
-  const teamOptions = useMemo(() => toOptionValues(allRows.map((row) => row.team_name)).filter((option) => option !== "기술지원팀"), [allRows]);
+  const teamOptions = useMemo(() => toOptionValues(allRows.map((row) => row.team_name)), [allRows]);
   const groupOptions = useMemo(() => toChoiceValues(allRows.map((row) => row.group_name)), [allRows]);
   const positionOptions = useMemo(() => sortByPriority([...allRows.map((row) => row.position_name), "전무", "상무"], POSITION_PRIORITY), [allRows]);
 
@@ -620,21 +645,21 @@ export default function PeopleEmploymentPage() {
 
   const summaryItems = useMemo<SummaryItem[]>(() => {
     const baseRows = allRows;
-    if (viewMode === "sales_owner") return [
-      { id: "all", label: "전체 후보", value: formatNumber(baseRows.length, 0), unit: "명", icon: "users", tone: "#e7f0ff", fg: "#2563eb" },
+    if (viewMode !== "pmo" && viewMode !== "all") return [
+      { id: "all", label: "유형별 인력", value: formatNumber(baseRows.length, 0), unit: "명", icon: "users", tone: "#e7f0ff", fg: "#2563eb" },
       { id: "all", label: "사용", value: formatNumber(baseRows.filter((row) => row.is_active !== false).length, 0), unit: "명", icon: "userCheck", tone: "#e7f8ee", fg: "#16a34a" },
       { id: "all", label: "미사용", value: formatNumber(baseRows.filter((row) => row.is_active === false).length, 0), unit: "명", icon: "userX", tone: "#eef1f6", fg: "#64748b" },
     ];
-    const totalAnnualMm = baseRows.reduce((sum, row) => sum + Number(row.yearly_mm ?? 0), 0);
+    const totalAnnualMm = baseRows.filter(row => row.personnel_type === "pmo").reduce((sum, row) => sum + Number(row.yearly_mm ?? 0), 0);
     return [
       { id: "all", label: "전체 인력", value: formatNumber(baseRows.length, 0), unit: "명", icon: "users", tone: "#e7f0ff", fg: "#2563eb" },
       { id: "active", label: "재직", value: formatNumber(baseRows.filter((row) => row.employment_status === "active").length, 0), unit: "명", icon: "userCheck", tone: "#e7f8ee", fg: "#16a34a" },
       { id: "leave", label: "휴직", value: formatNumber(baseRows.filter((row) => row.employment_status === "leave").length, 0), unit: "명", icon: "clock", tone: "#fff1e7", fg: "#f97316" },
       { id: "transferred", label: "전배", value: formatNumber(baseRows.filter((row) => row.employment_status === "transferred").length, 0), unit: "명", icon: "shuffle", tone: "#f1ebff", fg: "#6d28d9" },
       { id: "retired", label: "퇴직", value: formatNumber(baseRows.filter((row) => row.employment_status === "retired").length, 0), unit: "명", icon: "userX", tone: "#ffe8ea", fg: "#ef4444" },
-      { id: "all", label: "연간 재직 MM", value: formatNumber(totalAnnualMm, 1), unit: "", icon: "calculator", tone: "#e7f0ff", fg: "#2563eb" },
+      { id: "all", label: "PMO 연간 재직 MM", value: formatNumber(totalAnnualMm, 1), unit: "", icon: "calculator", tone: "#e7f0ff", fg: "#2563eb" },
     ];
-  }, [allRows, appliedFilter.useStatus, viewMode]);
+  }, [allRows, viewMode]);
 
   const summaryFilterLabel = useMemo(() => {
     const labels: string[] = [];
@@ -658,21 +683,11 @@ export default function PeopleEmploymentPage() {
   };
 
   const downloadPeopleWorkbook = async () => {
-    const normalizedRows = sortedRows.map((row) => ({
-      employeeNo: displayEmployeeNo(row.employee_no, row.id),
-      name: String(row.name ?? "").trim() || "-",
-      email: String(row.email ?? "").trim() || "-",
-      groupName: String(row.group_name ?? "").trim() || "-",
-      teamName: String(row.team_name ?? "").trim() || "-",
-      positionName: String(row.position_name ?? "").trim() || "-",
-      roleName: String(row.role_name ?? "").trim() || "-",
-      employmentStatus: EMPLOYMENT_STATUS_LABEL[row.employment_status] ?? row.employment_status,
-      mmStartDate: row.mm_start_date ?? "-",
-      mmEndDate: row.mm_end_date ?? "-",
-      yearlyMm: row.yearly_mm == null ? "-" : String(row.yearly_mm),
-      useStatus: deriveUseStatus(row),
-    }));
-    await downloadPersonnelWorkbook(normalizedRows, "인력관리", "인력관리");
+    if (!canManageExcel || downloadBusy) return;
+    setDownloadBusy(true); setWorkbookError(null);
+    try { await downloadPersonnelExcel(sortedRows.map(row => row.id)); }
+    catch (reason) { setWorkbookError(reason instanceof Error ? reason.message : "다운로드에 실패했습니다."); }
+    finally { setDownloadBusy(false); }
   };
 
   useEffect(() => {
@@ -684,7 +699,7 @@ export default function PeopleEmploymentPage() {
   if (loading) return <LightweightLoading label="인력 관리" />;
 
   return (
-    <PmoShell user={{ name: userContext?.name ?? "관리자", team: userContext?.team ?? "PMO본부", role: userContext?.role ?? "관리자", permission, organizationRole }} notifications={3} currentId="people-employment" pageTitle="인력 관리">
+    <PmoShell user={{ name: userContext?.name ?? "관리자", team: userContext?.team ?? "PMO본부", role: userContext?.role ?? "관리자", permission, organizationRole, capabilities: canManageExcel ? ["personnel_excel_manage"] : [] }} notifications={3} currentId="people-employment" pageTitle="인력 관리">
       {!canAccess ? (
         <section className="pmo-panel" style={{ padding: 24 }}>
           <h2 style={{ margin: "0 0 8px", fontSize: 20 }}>권한 없음</h2>
@@ -694,7 +709,7 @@ export default function PeopleEmploymentPage() {
         <div className="pmo-page-stack">
           <section className="pmo-panel" style={{ padding: 18 }}>
             <div style={{ display: "inline-flex", gap: 4, padding: 4, marginBottom: 14, border: "1px solid var(--line-2)", borderRadius: 8 }}>
-              {([ ["pmo", "PMO본부 인력"], ["sales_owner", "영업대표 후보"] ] as const).map(([mode, label]) => <button key={mode} type="button" className="pmo-btn" onClick={() => { setViewMode(mode); setPage(1); setActiveSummary("all"); setFilterForm((prev) => ({ ...prev, teamName: "전체" })); setAppliedFilter((prev) => ({ ...prev, teamName: "전체" })); }} style={{ background: viewMode === mode ? "var(--brand)" : "#fff", color: viewMode === mode ? "#fff" : "var(--tx-2)", borderColor: viewMode === mode ? "var(--brand)" : "transparent" }}>{label}</button>)}
+              {([ { code: "all", label: "전체 인력" }, ...PERSONNEL_TYPES ] as const).map(item => [item.code, item.label] as const).map(([mode, label]) => <button key={mode} type="button" className="pmo-btn" onClick={() => { setViewMode(mode); setPage(1); setActiveSummary("all"); setFilterForm((prev) => ({ ...prev, teamName: "전체" })); setAppliedFilter((prev) => ({ ...prev, teamName: "전체" })); }} style={{ background: viewMode === mode ? "var(--brand)" : "#fff", color: viewMode === mode ? "#fff" : "var(--tx-2)", borderColor: viewMode === mode ? "var(--brand)" : "transparent" }}>{label}</button>)}
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr)) 1.45fr", gap: 12 }}>
               <label className="pmo-field">
@@ -751,7 +766,7 @@ export default function PeopleEmploymentPage() {
                   총 {filteredRows.length}건
                   {summaryFilterLabel ? <span style={{ color: "var(--brand)", fontWeight: 600 }}> · 필터: {summaryFilterLabel}</span> : null}
                 </span>
-                <button
+                {canManageExcel && <>                <button
                   className="pmo-btn"
                   style={{
                     height: 32,
@@ -767,19 +782,21 @@ export default function PeopleEmploymentPage() {
                   }}
                   onMouseEnter={() => setDownloadHover(true)}
                   onMouseLeave={() => setDownloadHover(false)}
-                  onClick={() => void downloadPeopleWorkbook()}
+                  disabled={downloadBusy} onClick={() => void downloadPeopleWorkbook()}
                 >
                   <Icon name="download" size={14} stroke={2} />
-                  엑셀 다운로드
-                </button>
+                  {downloadBusy ? "다운로드 중…" : "엑셀 다운로드"}
+                </button><button className="pmo-btn" style={{ height: 32, fontSize: 13 }} onClick={() => { setWorkbookMessage(null); setWorkbookError(null); setUploadOpen(true); }}>엑셀 업로드</button></>}
               </div>
             </div>
+            {workbookError && <p role="alert" style={{ padding: "0 20px", color: "var(--crit)" }}>{workbookError}</p>}
+            {workbookMessage && <p role="status" style={{ padding: "0 20px", color: "var(--brand)" }}>{workbookMessage}</p>}
             <div style={{ overflowX: "auto", overflowY: "visible", borderBottom: "1px solid var(--line-1)" }}>
               <table className="pmo-table pmo-table--recent pmo-table--people-master" style={{ tableLayout: "fixed", width: "100%" }}>
                 <colgroup>
                   <col style={{ width: 118 }} />
                   <col style={{ width: 92 }} />
-                  <col style={{ width: 200 }} />
+                  <col style={{ width: 200 }} /><col style={{ width: 150 }} />
                   <col style={{ width: 110 }} />
                   <col style={{ width: 98 }} />
                   <col style={{ width: 76 }} />
@@ -792,14 +809,14 @@ export default function PeopleEmploymentPage() {
                 </colgroup>
                 <thead>
                   <tr>
-                    <th colSpan={2} style={{ textAlign: "center", fontWeight: 800, color: "var(--tx-2)", background: "#e6eaf0" }}>인력 사번/성명</th>
+                    <th colSpan={3} style={{ textAlign: "center", fontWeight: 800, color: "var(--tx-2)", background: "#e6eaf0" }}>인력 사번/성명</th>
                     <th colSpan={5} style={{ textAlign: "center", fontWeight: 800, color: "var(--tx-2)", background: "#eef3fb" }}>기본 정보</th>
                     <th colSpan={4} style={{ textAlign: "center", fontWeight: 800, color: "var(--tx-2)", background: "#edf6f3" }}>재직/MM 정보</th>
                     <th colSpan={1} style={{ textAlign: "center", fontWeight: 800, color: "var(--tx-2)", background: "#f7f2ea" }}>기타</th>
                   </tr>
                   <tr>
                     <th>사번</th>
-                    <th>성명</th>
+                    <th>성명</th><th>인력 유형</th>
                     <th>이메일</th>
                     <th>본부</th>
                     <th>팀</th>
@@ -815,7 +832,7 @@ export default function PeopleEmploymentPage() {
                 <tbody>
                   {pagedRows.length === 0 ? (
                     <tr>
-                      <td colSpan={12} style={{ padding: "56px 20px", textAlign: "center", color: "var(--tx-4)", fontWeight: 700 }}>조회된 인력이 없습니다.</td>
+                      <td colSpan={13} style={{ padding: "56px 20px", textAlign: "center", color: "var(--tx-4)", fontWeight: 700 }}>조회된 인력이 없습니다.</td>
                     </tr>
                   ) : pagedRows.map((row) => (
                     <tr key={row.id}>
@@ -833,16 +850,17 @@ export default function PeopleEmploymentPage() {
                           <span>{displayEmployeeNo(row.employee_no, row.id)}</span>
                         </div>
                       </td>
-                      <td className="name" style={{ textAlign: "center", whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.45, fontSize: 14, fontWeight: 700, color: "var(--tx-1)" }}>{row.name}</td>
+                      <td className="name" style={{ textAlign: "center", whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.45, fontSize: 14, fontWeight: 700, color: "var(--tx-1)" }}>{row.name}</td><td style={{ textAlign: "center", fontSize: 14 }}>{PERSONNEL_TYPES.find(kind => kind.code === row.personnel_type)?.label}</td>
+
                       <td style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)", whiteSpace: "normal", wordBreak: "break-word", lineHeight: 1.4 }}>{row.email ?? "-"}</td>
                       <td style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{row.group_name ?? "-"}</td>
                       <td style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{row.team_name ?? "-"}</td>
                       <td style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{row.position_name ?? "-"}</td>
                       <td style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{row.role_name ?? "-"}</td>
-                      <td style={{ textAlign: "center", fontSize: 14 }}>{viewMode === "sales_owner" ? "-" : <StatusBadge status={row.employment_status} />}</td>
-                      <td className="num" style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{viewMode === "sales_owner" ? "-" : row.mm_start_date ?? "-"}</td>
-                      <td className="num" style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{viewMode === "sales_owner" ? "-" : row.mm_end_date ?? "-"}</td>
-                      <td className="num" style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{viewMode === "sales_owner" ? "-" : formatNumber(row.yearly_mm, 1)}</td>
+                      <td style={{ textAlign: "center", fontSize: 14 }}>{row.personnel_type !== "pmo" ? "-" : <StatusBadge status={row.employment_status} />}</td>
+                      <td className="num" style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{row.personnel_type !== "pmo" ? "-" : row.mm_start_date ?? "-"}</td>
+                      <td className="num" style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{row.personnel_type !== "pmo" ? "-" : row.mm_end_date ?? "-"}</td>
+                      <td className="num" style={{ textAlign: "center", fontSize: 14, fontWeight: 600, color: "var(--tx-3)" }}>{row.personnel_type !== "pmo" ? "-" : formatNumber(row.yearly_mm, 1)}</td>
                       <td><UseBadge useStatus={deriveUseStatus(row)} /></td>
                     </tr>
                   ))}
@@ -890,6 +908,8 @@ export default function PeopleEmploymentPage() {
           />
         </div>
       )}
+      {uploadOpen && canManageExcel && <PersonnelWorkbookImportModal personnelType={viewMode === "all" ? undefined : viewMode}
+        onClose={() => setUploadOpen(false)} onApplied={async message => { await loadData(); setWorkbookMessage(message); setPage(1); }} />}
     </PmoShell>
   );
 }
